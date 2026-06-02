@@ -12,7 +12,7 @@ Provide an asynchronous, cache-backed route-optimization flow using Laravel back
 
 **Frontend**: React (Vite or existing React Starter Kit)
 
-**Primary Dependencies**: Laravel queue (Redis), Laravel Echo + Pusher/Socket.io or Laravel WebSockets, Guzzle HTTP client, hashed cache keys (Laravel Redis cache), rate limiting middleware, PHPUnit, Pest (optional)
+**Primary Dependencies**: Laravel queue (Redis), Laravel Echo + **Laravel Reverb** (self-hosted WebSocket server), Guzzle HTTP client, hashed cache keys (Laravel Redis cache), rate limiting middleware, PHPUnit, Pest (optional)
 
 **Storage**: PostgreSQL for app data; Redis for cache and queue; results cached with a 24-hour TTL
 
@@ -22,9 +22,27 @@ Provide an asynchronous, cache-backed route-optimization flow using Laravel back
 
 **Performance Goals**: Respond to requests within 200ms when cache hit; queue-based processing for cache miss; support at least 10 requests/min per user (rate-limited)
 
-**Routing API**: OSRM Trip Service (`/trip/v1/driving/{coordinates}`) for TSP route optimization via nearest-neighbour heuristic; fallback option: Valhalla `/optimized_route` if OSRM Trip is unavailable. Endpoint configured via `OPENSTREET_API_URL` in `.env`.
+**Routing API**: `https://maps.open-street.com/api/tsp/` — query params: `pts=lat,lng|lat,lng|...` (pipe-separated coordinate pairs), `nb=N` (must equal point count), `mode=driving`, `unit=m`, `tour=closed` (route returns to start), `key=OPENSTREET_API_KEY`. Base URL and key configured via `.env`.
 
-**Constraints**: External OpenStreet TSP API can be slow or unreliable - must be called only from background jobs; API credentials stored in `.env` and never returned to clients
+**TSP API Response Schema** (verify against live API before implementing client):
+```json
+{
+  "status": "ok",
+  "route": [
+    { "lat": 49.8998757, "lng": 2.300284, "order": 0 },
+    { "lat": 49.929876,  "lng": 1.078363, "order": 1 }
+  ],
+  "distance": 450000,
+  "time": 18000
+}
+```
+Fields: `status` (`"ok"` or error string), `route` (array of waypoints in optimized order, each with `lat`, `lng`, `order`), `distance` (total metres), `time` (total seconds). On error: `{ "status": "error", "message": "..." }`. Verify field names against actual API before implementing `OpenStreetTspClient`.
+
+**Broadcast Payload Schema**:
+- Success event (`RouteOptimized`): `{ "job_uuid": "...", "data": { "ordered_stops": [{"lat": 0.0, "lng": 0.0, "order": 0}], "total_distance_m": 450000, "total_duration_s": 18000 } }`
+- Failure event (`RouteOptimizationFailed`): `{ "job_uuid": "...", "error": { "code": "api_error|timeout|invalid_response|job_failed", "message": "..." } }`
+
+**Constraints**: External OpenStreet TSP API can be slow or unreliable — must be called only from background jobs; `OpenStreetTspClient` timeout=8s, retries=2 (exponential backoff: 1s, 2s); API credentials stored in `.env` and never returned to clients
 
 **Scale/Scope**: Single-route optimization (one vehicle) per request; not multi-vehicle dispatch in v1
 
@@ -35,21 +53,19 @@ This plan follows the project constitution: readable code, defensive error handl
 ## Project Structure (feature-specific)
 
 - `app/Http/Controllers/RouteOptimizationController.php`
-- `app/Http/Controllers/GeocodeController.php`
 - `app/Jobs/OptimizeRouteJob.php`
 - `app/Services/RouteNormalizer.php`
 - `app/Services/OpenStreetTspClient.php`
-- `app/Services/GeocodingService.php`
 - `app/Services/RouteCache.php`
-- `routes/api.php` (POST `/api/route/optimize`, GET `/api/route/result/{job_uuid}`, POST `/api/route/validate`)
-- `resources/js/routes/` (React: `OptimizeRouteForm.tsx`, `RouteSelector.tsx`, `RouteResult.tsx`)
+- `routes/api.php` (POST `/api/route/optimize`, GET `/api/route/result/{job_uuid}`)
+- `resources/js/routes/` (React: `OptimizeRouteForm.tsx`, `RouteResult.tsx`)
 - `tests/Feature/RouteOptimizationTest.php`
 - `tests/Feature/RouteOptimizationBroadcastTest.php`
 - `tests/Unit/RouteNormalizerTest.php`
 
 ## Flow (detailed)
 
-1. Frontend sends POST `/api/route/optimize` with array of `[lat, lng]` coordinate pairs and user auth token. In Phase 3 MVP, coordinates are entered directly; in Phase 4 they are resolved from address text via `GeocodingService` before submission.
+1. Frontend sends POST `/api/route/optimize` with array of `[lat, lng]` coordinate pairs and user auth token. Coordinates are entered directly by the user; geocoding is out of scope.
 2. Controller validates and calls `RouteNormalizer::normalize()` to round and stable-sort coordinates to 5 decimal places.
 3. Normalizer returns a canonical list and `sha256` hash used as cache key: `route:opt:{user_id}:{hash}`.
 4. Controller checks Redis cache; if hit, return 200 with cached data.
@@ -73,7 +89,7 @@ This plan follows the project constitution: readable code, defensive error handl
 
 ## Environment & Configuration
 
-- `.env` entries: `OPENSTREET_API_URL`, `OPENSTREET_API_KEY`, `REDIS_URL`, `BROADCAST_DRIVER`, `QUEUE_CONNECTION=redis`.
+- `.env` entries: `OPENSTREET_API_URL=https://maps.open-street.com/api/tsp/`, `OPENSTREET_API_KEY`, `REDIS_URL`, `BROADCAST_DRIVER=reverb`, `QUEUE_CONNECTION=redis`, `REVERB_APP_ID`, `REVERB_APP_KEY`, `REVERB_APP_SECRET`, `REVERB_HOST`, `REVERB_PORT=8080`.
 - Redis key prefixes: `route:opt:{user_id}:{hash}` for results; `route:opt:pending:{job_uuid}` for pending markers.
 
 ## Tasks (high-level)

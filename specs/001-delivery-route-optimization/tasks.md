@@ -4,21 +4,23 @@
 
 ## Phase 1: Setup (Shared Infrastructure)
 
-- [ ] T001 Add environment keys for routing, queue, and broadcasting in `.env.example` (OPENSTREET_API_URL, OPENSTREET_API_KEY, QUEUE_CONNECTION=redis, BROADCAST_DRIVER)
+- [ ] T001 Add environment keys in `.env.example`: `OPENSTREET_API_URL=https://maps.open-street.com/api/tsp/`, `OPENSTREET_API_KEY`, `QUEUE_CONNECTION=redis`, `BROADCAST_DRIVER=reverb`, `REVERB_APP_ID`, `REVERB_APP_KEY`, `REVERB_APP_SECRET`, `REVERB_HOST`, `REVERB_PORT=8080`
 - [ ] T002 Configure Redis as cache and queue driver in `config/queue.php` and `config/cache.php`
-- [ ] T003 Configure broadcasting driver and WebSocket defaults in `config/broadcasting.php`
+- [ ] T003 Configure **Laravel Reverb** as broadcast driver in `config/broadcasting.php`; install `laravel/reverb` package; add Reverb server config (`php artisan reverb:install`); set `BROADCAST_DRIVER=reverb` in `.env`
 - [ ] T004 Add rate limiter configuration for route optimization (10 requests/min) in `app/Providers/RouteServiceProvider.php`
 - [ ] T005 Add queue worker documentation and a `php artisan queue:work` example to `README.md`
+- [ ] T031 Verify Laravel authentication scaffold and `BroadcastAuth` middleware are operational; confirm `private-user.{id}` channel auth resolves correctly before implementing T009/T010
 
 ---
 
 ## Phase 2: Foundational (Blocking Prerequisites)
 
 - [ ] T006 [P] Create `app/Services/RouteNormalizer.php` — normalize coordinates (round to 5 decimals), stable-sort, and return canonical payload + `sha256` hash
-- [ ] T007 [P] Create `app/Services/OpenStreetTspClient.php` — client with configurable `OPENSTREET_API_URL`/`OPENSTREET_API_KEY`, timeouts, and retry strategy
+- [ ] T007 [P] Create `app/Services/OpenStreetTspClient.php` — builds GET request to `OPENSTREET_API_URL` with params: `pts=lat,lng|lat,lng|...` (pipe-joined), `nb=N` (auto-set to coordinate count), `mode=driving`, `unit=m`, `tour=closed`, `key=OPENSTREET_API_KEY`; Guzzle timeout=8s; retries=2 with exponential backoff (1s, 2s); maps API response `route[]` → `ordered_stops`, `distance` → `total_distance_m`, `time` → `total_duration_s`; throws typed exceptions for timeout, HTTP error, malformed response
 - [ ] T008 [P] Create `app/Services/RouteCache.php` — helper to read/write Redis keys (`route:opt:{user_id}:{hash}`) and pending markers (`route:opt:pending:{job_uuid}`)
-- [ ] T009 [P] Create `app/Jobs/OptimizeRouteJob.php` — background job that calls `OpenStreetTspClient`, stores results in Redis (24h TTL), and broadcasts success/failure events
-- [ ] T010 Create broadcast events `app/Events/RouteOptimized.php` and `app/Events/RouteOptimizationFailed.php` using `ShouldBroadcast` and private channel `private-user.{id}`
+- [ ] T009 [P] Create `app/Jobs/OptimizeRouteJob.php` — background job that calls `OpenStreetTspClient`, stores results in Redis (24h TTL), and broadcasts success/failure events; implement `$timeout = 30` and `public function failed(\Throwable $e)` that broadcasts `RouteOptimizationFailed` with `{ job_uuid, error: { code: 'job_failed', message: ... } }` to `private-user.{id}` so frontend is never stuck
+- [ ] T010 Create broadcast events `app/Events/RouteOptimized.php` and `app/Events/RouteOptimizationFailed.php` using `ShouldBroadcast` and private channel `private-user.{id}`; success payload: `{ job_uuid, data: { ordered_stops, total_distance_m, total_duration_s } }`; failure payload: `{ job_uuid, error: { code, message } }`
+- [ ] T032 Add `OptimizeRouteJob::failed(\Throwable $e)` method that broadcasts `RouteOptimizationFailed` with `code=job_failed`; add `$timeout = 30` property; add integration test in `RouteOptimizationBroadcastTest.php` asserting failure event fires when job throws
 
 ---
 
@@ -33,19 +35,17 @@
 - [ ] T013 [US1] Implement `GET /api/route/result/{job_uuid}` in `routes/api.php` and corresponding controller method to allow polling for cached result in `RouteOptimizationController.php`
 - [ ] T014 [P] [US1] Add unit tests for `RouteNormalizer` in `tests/Unit/RouteNormalizerTest.php`
 - [ ] T015 [US1] Add feature tests in `tests/Feature/RouteOptimizationTest.php` covering cache hit (200) and cache miss (202) dispatch behaviour
-- [ ] T016 [US1] Add frontend component `resources/js/routes/OptimizeRouteForm.tsx` to submit coordinates, show 202 state, and wait for broadcast or poll endpoint
+- [ ] T016 [US1] Add frontend component `resources/js/routes/OptimizeRouteForm.tsx`:
+  - On submit: POST `/api/route/optimize` with `{ coordinates: [[lat, lng], ...] }`
+  - **200 response** (cache hit): render result immediately from response body (no WS needed)
+  - **202 response** (cache miss): show "pending" spinner; subscribe via `Echo.private('user.' + userId).listen('RouteOptimized', (e) => { if (e.job_uuid === jobUuid) renderResult(e.data); }).listen('RouteOptimizationFailed', (e) => { if (e.job_uuid === jobUuid) showError(e.error); })`; also poll `GET /api/route/result/{job_uuid}` as WS fallback
+  - On receive: unsubscribe from channel; render `ordered_stops`, `total_distance_m`, `total_duration_s`
 
 ---
 
-## Phase 4: User Story 2 - Review and adjust addresses before optimization (Priority: P2)
+## Phase 4: DEFERRED — Address Geocoding (out of scope for this feature)
 
-**Goal**: Allow adding/removing addresses and validate them before optimization.
-
-- [ ] T017 [US2] Implement `app/Services/GeocodingService.php` for address validation / geocoding using OpenStreet (used by frontend validation and controller)
-- [ ] T027 [US2] Add unit tests for `GeocodingService` in `tests/Unit/GeocodingServiceTest.php` covering valid address resolution, invalid address handling, and API error paths
-- [ ] T018 [US2] [FR-007] Add frontend `resources/js/routes/RouteSelector.tsx` for selecting, deduplicating, and confirming addresses before optimization; must persist selection in local component state until user clears or re-submits
-- [ ] T019 [US2] Add API validation endpoint `POST /api/route/validate` in `routes/api.php` and `app/Http/Controllers/GeocodeController.php` (optional synchronous validation)
-- [ ] T028 [US2] Add feature tests for `POST /api/route/validate` in `tests/Feature/GeocodeValidationTest.php` covering valid geocode response, unresolvable address (422), and external API failure (503)
+> Tasks T017–T019, T027–T028 (GeocodingService, RouteSelector, GeocodeController, and their tests) are deferred. This feature accepts coordinates directly; address lookup is a future concern.
 
 ---
 
@@ -80,9 +80,8 @@
 ## Parallel Opportunities
 
 - `T006`, `T007`, `T008`, `T009`, `T010` can be implemented in parallel by different engineers.
-- Frontend tasks (`T016`, `T018`, `T020`) can be worked on in parallel with backend foundational tasks once the public API shape is agreed.
+- Frontend tasks (`T016`, `T020`) can be worked on in parallel with backend foundational tasks once the public API shape is agreed.
 - Docs and CI tasks (`T023`, `T026`, `T030`) are parallelizable.
-- Test tasks `T027`, `T028` can be developed alongside T017/T019 respectively (TDD approach).
 - `T029` (performance test) requires Phase 1–3 complete before meaningful measurement.
 
 ## Implementation Strategy

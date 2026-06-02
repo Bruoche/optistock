@@ -10,32 +10,30 @@
 
 ## User Scenarios & Testing *(mandatory)*
 
-### User Story 1 - Select addresses and compute the best route (Priority: P1)
+### User Story 1 - Submit coordinate pairs and compute the best route (Priority: P1)
 
-A delivery planner selects a set of addresses, submits them for optimization, and receives the best route order for a single delivery run.
+A delivery planner enters a set of coordinate pairs (`[lat, lng]`), submits them for optimization, and receives the best route order for a single delivery run.
 
 **Why this priority**: This is the core value of the feature; without it the application cannot support optimized deliveries.
 
-**Independent Test**: A user can select at least two addresses, submit the selection, and receive a route order and optimization summary.
+**Independent Test**: A user can enter at least two coordinate pairs, submit them, and receive a route order and optimization summary via WebSocket notification.
 
 **Acceptance Scenarios**:
 
-1. **Given** a planner has selected two or more valid addresses, **when** they request optimization, **then** the system returns an ordered route covering all selected addresses with a clear sequence and summary metrics.
-2. **Given** a planner includes an invalid or unresolvable address, **when** they request optimization, **then** the system returns a clear validation message identifying the problematic address and does not return a route.
+1. **Given** a planner has entered two or more valid coordinate pairs, **when** they request optimization, **then** the system returns HTTP 202 immediately, then notifies the frontend via WebSocket with an ordered route covering all submitted coordinates and summary metrics.
+2. **Given** a planner submits a malformed or out-of-range coordinate, **when** they request optimization, **then** the system returns a clear validation error identifying the invalid coordinate and does not dispatch a route job.
 
 ---
 
-### User Story 2 - Review and adjust addresses before optimization (Priority: P2)
+### User Story 2 - Review and adjust coordinates before optimization (Priority: P2) [DEFERRED]
 
-A planner can review selected addresses, remove or re-include items, and confirm the final set before asking for the optimized route.
+> **DEFERRED**: Address geocoding and address-management UI are out of scope for this feature. This user story will be implemented in a future feature branch. Current feature accepts coordinate pairs directly.
 
-**Why this priority**: Preventing bad input and giving planners control improves route quality and reduces wasted optimization cycles.
-
-**Independent Test**: A user can add an address, remove another, and still successfully request optimization from the final selection.
+A planner can review selected coordinates, remove or re-include items, and confirm the final set before asking for the optimized route.
 
 **Acceptance Scenarios**:
 
-1. **Given** a planner has an active address list, **when** they remove an address or add a new one, **then** the system updates the selection and uses the final list for optimization.
+1. **Given** a planner has an active coordinate list, **when** they remove a coordinate or add a new one, **then** the system updates the selection and uses the final list for optimization.
 
 ---
 
@@ -55,30 +53,31 @@ A planner can see the best route result with total distance or travel estimate, 
 
 ### Edge Cases
 
-- What happens when the planner submits only one address? The system should explain that at least two addresses are needed for route optimization.
-- How does the system handle duplicate or identical addresses? The system should detect duplicates and warn the user or collapse them before optimization.
-- What happens if the OpenStreet API is unavailable or returns an error? The system should surface a friendly error message and suggest retrying.
-- What if the selected addresses are too far apart or contain unreachable locations? The system should identify and report any location that cannot be routed.
+- What happens when the planner submits only one coordinate pair? The system should explain that at least two coordinates are needed for route optimization.
+- How does the system handle duplicate or identical coordinates? The system should detect duplicates and warn the user or collapse them before optimization.
+- What happens if the OpenStreet TSP API is unavailable or returns an error? The system should broadcast a failure event to the frontend with a friendly error message.
+- What if the queue worker crashes or the job never runs? The system must broadcast a failure event (via `OptimizeRouteJob::failed()`) so the frontend is never stuck waiting indefinitely.
+- What if the TSP API returns an unreachable or invalid route? The system should broadcast the error payload so the frontend surfaces it clearly.
 
 ## Requirements *(mandatory)*
 
 ### Functional Requirements
 
-- **FR-001**: The system MUST allow a user to provide or select a list of delivery addresses for route optimization.
-- **FR-002**: The system MUST allow the user to review, add, remove, and confirm the final set of selected addresses before optimization.
-- **FR-003**: The system MUST submit the selected addresses to the OpenStreet API service and request the most optimized route order.
-- **FR-004**: The system MUST display the optimized route result as an ordered list of stops with a clear start-to-end sequence.
-- **FR-005**: The system MUST present summary metrics for the optimized route, such as total distance and travel estimate.
-- **FR-006**: The system MUST report invalid or unresolvable addresses with a clear message and prevent route generation until the selection is corrected.
-- **FR-007**: The system MUST preserve the selected address list until the user clears it or submits a new optimization request.
-- **FR-008**: The system MUST allow the user to request a new optimization when the selection changes.
+- **FR-001**: The system MUST allow a user to enter a list of coordinate pairs (`[lat, lng]`) for route optimization.
+- **FR-002** [DEFERRED]: The system MUST allow the user to review, add, remove, and confirm the final set of selected coordinates before optimization.
+- **FR-003**: The system MUST submit the selected coordinate pairs to the OpenStreet TSP API and request the most optimized route order via an asynchronous background job.
+- **FR-004**: The system MUST notify the frontend via WebSocket with the optimized route result as an ordered list of stops once the background job completes.
+- **FR-005**: The system MUST include summary metrics in the WebSocket result payload (total distance in metres, total duration in seconds).
+- **FR-006**: The system MUST return a validation error for invalid coordinates (malformed, out-of-range, or fewer than 2 points) and prevent dispatching a route job until corrected.
+- **FR-007** [DEFERRED]: The system MUST preserve the selected coordinate list until the user clears it or submits a new optimization request.
+- **FR-008**: The system MUST allow the user to submit a new optimization request after the previous result is received or cleared.
 
 ### Key Entities *(include if feature involves data)*
 
-- **Delivery Address**: A selected delivery location that includes a label, address text, and the geocoded location used for route optimization.
-- **Route Optimization Request**: The collection of selected addresses and any input settings that are submitted to the OpenStreet routing service.
-- **Optimized Route**: The ordered result returned by the routing service, containing the sequence of stops and summary metrics.
-- **Route Summary**: The high-level result data for a route, including estimated distance, travel estimate, and any validation warnings.
+- **Delivery Location**: A delivery stop represented as a coordinate pair `{ lat: float, lng: float }` submitted by the user for route optimization.
+- **Route Optimization Request**: The array of coordinate pairs submitted to the TSP API via a background job, identified by a `job_uuid`.
+- **Optimized Route**: The ordered result returned by the TSP API, broadcast to the frontend as `ordered_stops`, `total_distance_m`, and `total_duration_s`.
+- **Route Summary**: The compact payload stored in Redis and broadcast via WebSocket: `{ job_uuid, data: { ordered_stops, total_distance_m, total_duration_s } }`.
 
 ## Success Criteria *(mandatory)*
 
@@ -87,7 +86,7 @@ A planner can see the best route result with total distance or travel estimate, 
 - **SC-001**: A user can select addresses and receive an optimized delivery route recommendation in a single flow.
 - **SC-002**: The system returns a route recommendation for valid address sets within 10 seconds for up to 10 selected locations.
 - **SC-003**: At least 90% of valid optimization requests return a route with a complete ordered stop list and summary metrics.
-- **SC-004**: The system identifies invalid or unresolvable addresses in the selected list and shows a corrective message in at least 95% of those cases.
+- **SC-004** [DEFERRED]: The system identifies invalid or unresolvable addresses in the selected list and shows a corrective message in at least 95% of those cases.
 - **SC-005**: The route result is presented in a way that a planner can tell the visit order and total route estimate without extra explanation.
 
 ## Assumptions
@@ -98,4 +97,5 @@ A planner can see the best route result with total distance or travel estimate, 
 - Address input is provided as street-level address information or similarly resolvable location details.
 - A minimum of two delivery addresses is required for meaningful route optimization.
 - User authentication is a prerequisite dependency for this feature (required for per-user cache isolation and private WebSocket channels); implementing an auth system is outside the scope of this feature.
-- Phase 3 (MVP) accepts pre-geocoded coordinate arrays directly; address lookup and geocoding are introduced in Phase 4 via GeocodingService.
+- The frontend submits coordinates directly (`[lat, lng]` pairs); address geocoding is out of scope for this feature.
+- Routes are closed-tour by default (return to origin); `tour=closed` is submitted to the TSP API.
