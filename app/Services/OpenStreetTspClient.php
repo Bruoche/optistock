@@ -1,0 +1,119 @@
+<?php
+
+namespace App\Services;
+
+use App\Exceptions\RouteOptimizationException;
+use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\Factory as HttpFactory;
+use Illuminate\Http\Client\Response;
+
+/**
+ * Thin client for the OpenStreet TSP route-optimization API.
+ *
+ * Request shape (GET):
+ *   {url}?pts=lat,lng|lat,lng|...&nb=N&mode=driving&unit=m&tour=closed&key=...
+ *
+ * MUST only be called from a background job — the upstream API can take
+ * several minutes for large point sets. We therefore use a generous *read*
+ * timeout (slow compute is expected) but a short *connect* timeout (a dead
+ * host must fail fast, never hang a worker), with bounded exponential-backoff
+ * retries, and map every failure to a typed {@see RouteOptimizationException}.
+ */
+class OpenStreetTspClient
+{
+    public function __construct(
+        private readonly HttpFactory $http,
+        private readonly string $baseUrl,
+        private readonly ?string $apiKey,
+        private readonly int $timeout = 600,
+        private readonly int $retries = 1,
+        private readonly int $connectTimeout = 15,
+    ) {}
+
+    /**
+     * @param  array<int, array{lat: float, lng: float}>  $coordinates
+     * @return array{
+     *     ordered_stops: array<int, array{lat: float, lng: float, order: int}>,
+     *     total_distance_m: int,
+     *     total_duration_s: int
+     * }
+     *
+     * @throws RouteOptimizationException
+     */
+    public function optimize(array $coordinates): array
+    {
+        $points = implode('|', array_map(
+            static fn (array $c): string => $c['lat'].','.$c['lng'],
+            $coordinates,
+        ));
+
+        $response = $this->send($points, count($coordinates));
+
+        if ($response->failed()) {
+            throw RouteOptimizationException::apiError("OpenStreet API returned HTTP {$response->status()}.");
+        }
+
+        return $this->mapResponse($response->json());
+    }
+
+    private function send(string $points, int $count): Response
+    {
+        try {
+            return $this->http
+                ->timeout($this->timeout)
+                ->connectTimeout($this->connectTimeout)
+                ->retry(
+                    $this->retries + 1,
+                    // Exponential backoff: 1s before retry 1, 2s before retry 2, ...
+                    sleepMilliseconds: static fn (int $attempt): int => $attempt * 1000,
+                    throw: false,
+                )
+                ->get($this->baseUrl, [
+                    'pts' => $points,
+                    'nb' => $count,
+                    'mode' => 'driving',
+                    'unit' => 'm',
+                    'tour' => 'closed',
+                    'key' => $this->apiKey,
+                ]);
+        } catch (ConnectionException $e) {
+            throw RouteOptimizationException::timeout(
+                "OpenStreet API did not respond within {$this->timeout}s: {$e->getMessage()}",
+                $e,
+            );
+        }
+    }
+
+    /**
+     * @return array{
+     *     ordered_stops: array<int, array{lat: float, lng: float, order: int}>,
+     *     total_distance_m: int,
+     *     total_duration_s: int
+     * }
+     */
+    private function mapResponse(mixed $body): array
+    {
+        if (! is_array($body) || ($body['status'] ?? null) !== 'ok' || ! isset($body['route']) || ! is_array($body['route'])) {
+            $message = is_array($body) && isset($body['message'])
+                ? (string) $body['message']
+                : 'OpenStreet API returned an unexpected payload.';
+
+            throw RouteOptimizationException::invalidResponse($message);
+        }
+
+        $orderedStops = [];
+        foreach (array_values($body['route']) as $index => $point) {
+            $orderedStops[] = [
+                'lat' => (float) $point['lat'],
+                'lng' => (float) $point['lng'],
+                'order' => (int) ($point['order'] ?? $index),
+            ];
+        }
+
+        return [
+            'ordered_stops' => $orderedStops,
+            'total_distance_m' => (int) ($body['distance'] ?? 0),
+            'total_duration_s' => (int) ($body['time'] ?? 0),
+        ];
+    }
+}

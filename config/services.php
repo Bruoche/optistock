@@ -35,4 +35,20 @@ return [
         ],
     ],
 
+    'openstreet' => [
+        'url' => env('OPENSTREET_API_URL', 'https://maps.open-street.com/api/tsp/'),
+        'key' => env('OPENSTREET_API_KEY'),
+        // Read timeout: the API can take several minutes for large point sets,
+        // so this is intentionally generous. The async job pattern means the
+        // user is never blocked on it.
+        'timeout' => (int) env('OPENSTREET_API_TIMEOUT', 600),
+        // Connection timeout: fail fast if the host is unreachable (dead DNS /
+        // refused connection) so a worker never hangs forever.
+        'connect_timeout' => (int) env('OPENSTREET_API_CONNECT_TIMEOUT', 15),
+        'retries' => (int) env('OPENSTREET_API_RETRIES', 1),
+        // Hard ceiling for a single queue-job attempt; must exceed the read
+        // timeout and stay below the queue connection's retry_after.
+        'job_timeout' => (int) env('OPENSTREET_API_JOB_TIMEOUT', 660),
+    ],
+
 ];
