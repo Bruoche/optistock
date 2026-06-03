@@ -24,25 +24,30 @@ Provide an asynchronous, cache-backed route-optimization flow using Laravel back
 
 **Routing API**: `https://maps.open-street.com/api/tsp/` — query params: `pts=lat,lng|lat,lng|...` (pipe-separated coordinate pairs), `nb=N` (must equal point count), `mode=driving`, `unit=m`, `tour=closed` (route returns to start), `key=OPENSTREET_API_KEY`. Base URL and key configured via `.env`.
 
-**TSP API Response Schema** (verify against live API before implementing client):
+**TSP API Response Schema** (VERIFIED against live API 2026-06-03 — earlier `status`/`route[]` guess was wrong):
 ```json
 {
-  "status": "ok",
-  "route": [
-    { "lat": 49.8998757, "lng": 2.300284, "order": 0 },
-    { "lat": 49.929876,  "lng": 1.078363, "order": 1 }
-  ],
-  "distance": 450000,
-  "time": 18000
+  "DIMENSION": 4,
+  "TOUR": "closed",
+  "COMPUTE_TIME": 0.011,
+  "TOTAL_TIME": 0.145,
+  "OPTIMIZATION": [0, 1, 2, 3],
+  "STEPS_DURATIONS": { "TOTAL": 49261, "0": 17910, "1": 17100, "2": 8825, "3": 5426 },
+  "STEPS_DISTANCES": { "TOTAL": 1143908, "0": 421122, "1": 406284, "2": 201457, "3": 115045 }
 }
 ```
-Fields: `status` (`"ok"` or error string), `route` (array of waypoints in optimized order, each with `lat`, `lng`, `order`), `distance` (total metres), `time` (total seconds). On error: `{ "status": "error", "message": "..." }`. Verify field names against actual API before implementing `OpenStreetTspClient`.
+Fields:
+- `OPTIMIZATION` — array of **input-coordinate indices** in optimal visit order. The API echoes **no coordinates**; the client resolves each index back to the coordinate the caller sent (`OpenStreetTspClient::mapResponse()`).
+- `STEPS_DISTANCES.TOTAL` — total distance in metres; `STEPS_DURATIONS.TOTAL` — total duration in seconds (per-step values, keyed by step index, sum to `TOTAL`).
+- `DIMENSION`, `TOUR`, `COMPUTE_TIME`, `TOTAL_TIME` — echo/diagnostics, unused.
+
+Success detection: presence of an `OPTIMIZATION` array. No `status` field exists. Any payload lacking `OPTIMIZATION` → `invalid_response`; HTTP non-2xx → `api_error`; connection failure/timeout → `timeout`.
 
 **Broadcast Payload Schema**:
 - Success event (`RouteOptimized`): `{ "job_uuid": "...", "data": { "ordered_stops": [{"lat": 0.0, "lng": 0.0, "order": 0}], "total_distance_m": 450000, "total_duration_s": 18000 } }`
 - Failure event (`RouteOptimizationFailed`): `{ "job_uuid": "...", "error": { "code": "api_error|timeout|invalid_response|job_failed", "message": "..." } }`
 
-**Constraints**: External OpenStreet TSP API can be slow or unreliable — must be called only from background jobs; `OpenStreetTspClient` timeout=8s, retries=2 (exponential backoff: 1s, 2s); API credentials stored in `.env` and never returned to clients
+**Constraints**: External OpenStreet TSP API can be slow (minutes for large point sets) or unreliable — must be called only from background jobs. `OpenStreetTspClient` uses a split timeout: connect=15s (fail fast on dead host), read=600s (tolerate slow compute), retries=1 (exponential backoff). Timeout layers must stay ordered `read < job $timeout < worker --timeout < retry_after` (see README). API credentials stored in `.env`, never returned to clients.
 
 **Scale/Scope**: Single-route optimization (one vehicle) per request; not multi-vehicle dispatch in v1
 

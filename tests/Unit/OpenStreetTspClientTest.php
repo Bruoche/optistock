@@ -27,15 +27,15 @@ class OpenStreetTspClientTest extends TestCase
     public function test_it_maps_a_successful_response(): void
     {
         $http = new HttpFactory;
+        // API echoes only the visit order as input indices (here: visit point 1
+        // first, then point 0) plus aggregate totals — never coordinates.
         $http->fake([
             '*' => $http->response([
-                'status' => 'ok',
-                'route' => [
-                    ['lat' => 49.89988, 'lng' => 2.30028, 'order' => 0],
-                    ['lat' => 48.78300, 'lng' => 2.33316, 'order' => 1],
-                ],
-                'distance' => 450000,
-                'time' => 18000,
+                'DIMENSION' => 2,
+                'TOUR' => 'closed',
+                'OPTIMIZATION' => [1, 0],
+                'STEPS_DISTANCES' => ['TOTAL' => 450000, '0' => 250000, '1' => 200000],
+                'STEPS_DURATIONS' => ['TOTAL' => 18000, '0' => 10000, '1' => 8000],
             ]),
         ]);
 
@@ -45,14 +45,16 @@ class OpenStreetTspClientTest extends TestCase
         $this->assertSame(450000, $result['total_distance_m']);
         $this->assertSame(18000, $result['total_duration_s']);
         $this->assertCount(2, $result['ordered_stops']);
-        $this->assertSame(['lat' => 49.89988, 'lng' => 2.30028, 'order' => 0], $result['ordered_stops'][0]);
+        // Index 1 resolved to the second input coordinate, placed first (order 0).
+        $this->assertSame(['lat' => 48.78300, 'lng' => 2.33316, 'order' => 0], $result['ordered_stops'][0]);
+        $this->assertSame(['lat' => 49.89988, 'lng' => 2.30028, 'order' => 1], $result['ordered_stops'][1]);
     }
 
     public function test_it_sends_the_expected_query_parameters(): void
     {
         $http = new HttpFactory;
         $http->fake([
-            '*' => $http->response(['status' => 'ok', 'route' => [], 'distance' => 0, 'time' => 0]),
+            '*' => $http->response(['OPTIMIZATION' => [], 'STEPS_DISTANCES' => ['TOTAL' => 0], 'STEPS_DURATIONS' => ['TOTAL' => 0]]),
         ]);
 
         $client = new OpenStreetTspClient($http, self::URL, 'secret-key', 8, 0);
@@ -83,7 +85,7 @@ class OpenStreetTspClientTest extends TestCase
     public function test_it_throws_invalid_response_on_error_status(): void
     {
         $http = new HttpFactory;
-        $http->fake(['*' => $http->response(['status' => 'error', 'message' => 'No route found'])]);
+        $http->fake(['*' => $http->response(['message' => 'No route found'])]);
 
         $client = new OpenStreetTspClient($http, self::URL, 'secret-key', 8, 0);
 
@@ -91,10 +93,10 @@ class OpenStreetTspClientTest extends TestCase
         $this->assertSame('No route found', $exception->getMessage());
     }
 
-    public function test_it_throws_invalid_response_when_route_missing(): void
+    public function test_it_throws_invalid_response_when_optimization_missing(): void
     {
         $http = new HttpFactory;
-        $http->fake(['*' => $http->response(['status' => 'ok'])]);
+        $http->fake(['*' => $http->response(['DIMENSION' => 2, 'TOUR' => 'closed'])]);
 
         $client = new OpenStreetTspClient($http, self::URL, 'secret-key', 8, 0);
 

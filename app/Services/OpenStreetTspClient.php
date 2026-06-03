@@ -53,7 +53,7 @@ class OpenStreetTspClient
             throw RouteOptimizationException::apiError("OpenStreet API returned HTTP {$response->status()}.");
         }
 
-        return $this->mapResponse($response->json());
+        return $this->mapResponse($response->json(), $coordinates);
     }
 
     private function send(string $points, int $count): Response
@@ -85,15 +85,23 @@ class OpenStreetTspClient
     }
 
     /**
+     * Map the OpenStreet TSP payload to our internal shape.
+     *
+     * The API returns visit order as a list of *input indices* in
+     * `OPTIMIZATION` (it echoes no coordinates), plus aggregate metrics under
+     * `STEPS_DISTANCES.TOTAL` (meters) and `STEPS_DURATIONS.TOTAL` (seconds).
+     * We resolve each index back to the original coordinate the caller sent.
+     *
+     * @param  array<int, array{lat: float, lng: float}>  $coordinates
      * @return array{
      *     ordered_stops: array<int, array{lat: float, lng: float, order: int}>,
      *     total_distance_m: int,
      *     total_duration_s: int
      * }
      */
-    private function mapResponse(mixed $body): array
+    private function mapResponse(mixed $body, array $coordinates): array
     {
-        if (! is_array($body) || ($body['status'] ?? null) !== 'ok' || ! isset($body['route']) || ! is_array($body['route'])) {
+        if (! is_array($body) || ! isset($body['OPTIMIZATION']) || ! is_array($body['OPTIMIZATION'])) {
             $message = is_array($body) && isset($body['message'])
                 ? (string) $body['message']
                 : 'OpenStreet API returned an unexpected payload.';
@@ -102,18 +110,26 @@ class OpenStreetTspClient
         }
 
         $orderedStops = [];
-        foreach (array_values($body['route']) as $index => $point) {
+        foreach (array_values($body['OPTIMIZATION']) as $order => $pointIndex) {
+            $pointIndex = (int) $pointIndex;
+
+            if (! isset($coordinates[$pointIndex])) {
+                throw RouteOptimizationException::invalidResponse(
+                    "OpenStreet API referenced unknown point index {$pointIndex}.",
+                );
+            }
+
             $orderedStops[] = [
-                'lat' => (float) $point['lat'],
-                'lng' => (float) $point['lng'],
-                'order' => (int) ($point['order'] ?? $index),
+                'lat' => (float) $coordinates[$pointIndex]['lat'],
+                'lng' => (float) $coordinates[$pointIndex]['lng'],
+                'order' => $order,
             ];
         }
 
         return [
             'ordered_stops' => $orderedStops,
-            'total_distance_m' => (int) ($body['distance'] ?? 0),
-            'total_duration_s' => (int) ($body['time'] ?? 0),
+            'total_distance_m' => (int) ($body['STEPS_DISTANCES']['TOTAL'] ?? 0),
+            'total_duration_s' => (int) ($body['STEPS_DURATIONS']['TOTAL'] ?? 0),
         ];
     }
 }

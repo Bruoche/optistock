@@ -38,10 +38,11 @@ class RouteOptimizationBroadcastTest extends TestCase
         Event::fake([RouteOptimized::class, RouteOptimizationFailed::class]);
         Http::fake([
             '*' => Http::response([
-                'status' => 'ok',
-                'route' => [['lat' => 49.89988, 'lng' => 2.30028, 'order' => 0]],
-                'distance' => 1000,
-                'time' => 120,
+                'DIMENSION' => 2,
+                'TOUR' => 'closed',
+                'OPTIMIZATION' => [0, 1],
+                'STEPS_DISTANCES' => ['TOTAL' => 1000],
+                'STEPS_DURATIONS' => ['TOTAL' => 120],
             ]),
         ]);
 
@@ -64,7 +65,7 @@ class RouteOptimizationBroadcastTest extends TestCase
     {
         Event::fake();
         Http::fake([
-            '*' => Http::response(['status' => 'ok', 'route' => [], 'distance' => 1000, 'time' => 120]),
+            '*' => Http::response(['OPTIMIZATION' => [], 'STEPS_DISTANCES' => ['TOTAL' => 1000], 'STEPS_DURATIONS' => ['TOTAL' => 120]]),
         ]);
 
         $this->makeJob()->handle(app(OpenStreetTspClient::class), app(RouteCache::class));

@@ -2,9 +2,15 @@
 
 **Input**: Design documents from `specs/001-delivery-route-optimization/`
 
-## Implementation Status (2026-06-02)
+## Implementation Status (2026-06-03)
 
-**Backend complete + verified** on branch `001-delivery-route-optimization`. 26 feature/unit tests pass (full suite 99 green), Pint clean. Frontend (T016, T020) deferred to a follow-up run per agreed scope.
+**Backend complete + verified against the LIVE API** on branch `001-delivery-route-optimization`. 26 feature/unit tests pass (full suite 99 green), Pint clean. Frontend (T016, T020) deferred to a follow-up run per agreed scope.
+
+**Live verification + fixes (2026-06-03)** — `OpenStreetTspClient::optimize()` ran end-to-end against the real API. Two corrections:
+
+- **Response schema was wrong.** Real payload is `{ DIMENSION, TOUR, OPTIMIZATION:[indices], STEPS_DISTANCES:{TOTAL,..}, STEPS_DURATIONS:{TOTAL,..} }` — *not* the guessed `{status, route[], distance, time}`. `OPTIMIZATION` returns input-coordinate indices in visit order (no coords); the client now resolves them back to the caller's coordinates. `mapResponse()`, `plan.md`, and tests updated. See `README.md` §3.
+- **Timeouts re-sized for minute-scale calls.** Split connect (15s) vs read (600s); job timeout 660s (config-driven); requires `queue:work --timeout=690` and `DB_QUEUE_RETRY_AFTER=720`. See `README.md` §4.
+- **SSL/CA bundle** is a per-machine env requirement (`cURL error 60` otherwise). See `README.md` §1.2.
 
 **Stack reality differs from original plan** — implemented against the actual repo (Laravel 13 / PHP 8.3 / Inertia + React / Fortify auth):
 
@@ -28,7 +34,7 @@
 ## Phase 2: Foundational (Blocking Prerequisites)
 
 - [X] T006 [P] `app/Services/RouteNormalizer.php` — round to 5 decimals, stable-sort, canonical payload + `sha256` hash (order-independent cache key).
-- [X] T007 [P] `app/Services/OpenStreetTspClient.php` — GET to `services.openstreet.url` with `pts|`, `nb` (auto), `mode/unit/tour`, `key`; timeout 8s; `retries+1` attempts, exponential backoff (1s, 2s); maps `route[]/distance/time` → `ordered_stops/total_distance_m/total_duration_s`; throws typed `RouteOptimizationException`.
+- [X] T007 [P] `app/Services/OpenStreetTspClient.php` — GET to `services.openstreet.url` with `pts|`, `nb` (auto), `mode/unit/tour`, `key`; split timeout (connect 15s / read 600s); `retries+1` attempts, exponential backoff; maps verified `OPTIMIZATION[]` indices (→ caller coords) + `STEPS_DISTANCES.TOTAL`/`STEPS_DURATIONS.TOTAL` → `ordered_stops/total_distance_m/total_duration_s`; throws typed `RouteOptimizationException`. **Verified live 2026-06-03.**
 - [X] T008 [P] `app/Services/RouteCache.php` — read/write result key `route:opt:{userId}:{hash}` (24h) and status key `route:opt:pending:{jobUuid}` (1h, pending/done/failed).
 - [X] T009 [P] `app/Jobs/OptimizeRouteJob.php` — calls client, caches result (24h), records status, broadcasts success/failure; `$timeout=30`, `$tries=1`, `failed()` safety net.
 - [X] T010 `app/Events/RouteOptimized.php` + `RouteOptimizationFailed.php` — `ShouldBroadcast` on `PrivateChannel('App.Models.User.{id}')`; payloads `{ job_uuid, data }` / `{ job_uuid, error: { code, message } }`.
@@ -75,7 +81,7 @@
 
 ## Phase N: Polish & Cross-Cutting Concerns
 
-- [ ] T023 [P] Documentation: add `specs/001-delivery-route-optimization/README.md` with env vars, run commands, and example requests
+- [X] T023 [P] Documentation: `specs/001-delivery-route-optimization/README.md` — env vars, CA-bundle setup, run commands, verified API contract, timeout layering, HTTP/WS API, verification steps.
 - [X] T024 [P] `tests/Feature/RouteOptimizationBroadcastTest.php` — success broadcast + cache, api_error/invalid_response failure broadcasts, `failed()` callback broadcast.
 - [ ] T025 Add rate-limit tests in `tests/Feature/RateLimitTest.php` to ensure 10 requests/min per user
 - [ ] T026 [P] CI: Add a job to run `php artisan test` and a smoke queue worker in CI pipeline (e.g., GitHub Actions); add lint step using PHP CS Fixer/Pint and ESLint
