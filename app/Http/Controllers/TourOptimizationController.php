@@ -28,10 +28,10 @@ class TourOptimizationController extends Controller
         $result = $tours->optimize($userId, $request->validated('coordinates'));
 
         if ($result->isReady) {
-            return response()->json(['status' => 'done', 'data' => $result->tour]);
+            return response()->json(['status' => 'done', 'data' => $result->tour()]);
         }
 
-        return response()->json(['status' => 'pending', 'job_uuid' => $result->jobUuid], 202);
+        return response()->json(['status' => 'pending', 'job_uuid' => $result->jobUuid()], 202);
     }
 
     /**
