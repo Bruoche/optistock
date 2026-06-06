@@ -8,15 +8,20 @@ use Illuminate\Contracts\Cache\Repository as CacheRepository;
  * Owns all cache reads/writes for tour optimization.
  *
  * Three distinct entries:
- *  - Tour cache    `tour:{userId}:{hash}`         — the optimized tour, kept for
+ *  - Tour cache    `tour:{hash}`                   — the optimized tour, kept for
  *    24h so identical coordinate sets are served instantly (HTTP 200 cache hit).
- *  - Job status    `tour:status:{jobUuid}`        — tracks a single async request
+ *    NOT user-scoped: the tour is a pure function of the coordinate set, so any
+ *    user submitting the same stops reuses it (the hash can only be reproduced by
+ *    someone who already holds those coordinates — nothing is leaked).
+ *  - Job status    `tour:status:{jobUuid}`         — tracks a single async request
  *    so the status endpoint (WebSocket fallback) can report pending/done/failed.
  *    Kept for 1h: long enough to outlive processing, short enough to self-clean.
  *  - Active-job lock `tour:active:{userId}:{hash}` — maps a coordinate set
  *    already being optimized to its jobUuid, so concurrent identical requests
  *    reuse the running job instead of firing a second (multi-minute) upstream
- *    call. TTL covers the worst-case job runtime so a crashed worker self-heals.
+ *    call. User-scoped on purpose: the job broadcasts to one user's private
+ *    channel, so dedup must only merge requests that share that channel. TTL
+ *    covers the worst-case job runtime so a crashed worker self-heals.
  */
 class TourCache
 {
@@ -29,9 +34,9 @@ class TourCache
 
     public function __construct(private readonly CacheRepository $cache) {}
 
-    public function tourKey(int $userId, string $coordinatesHash): string
+    public function tourKey(string $coordinatesHash): string
     {
-        return "tour:{$userId}:{$coordinatesHash}";
+        return "tour:{$coordinatesHash}";
     }
 
     public function jobStatusKey(string $jobUuid): string
@@ -51,17 +56,17 @@ class TourCache
      *     total_duration_s: int
      * }|null
      */
-    public function getTour(int $userId, string $coordinatesHash): ?array
+    public function getTour(string $coordinatesHash): ?array
     {
-        return $this->cache->get($this->tourKey($userId, $coordinatesHash));
+        return $this->cache->get($this->tourKey($coordinatesHash));
     }
 
     /**
      * @param  array<string, mixed>  $tour
      */
-    public function putTour(int $userId, string $coordinatesHash, array $tour): void
+    public function putTour(string $coordinatesHash, array $tour): void
     {
-        $this->cache->put($this->tourKey($userId, $coordinatesHash), $tour, self::TOUR_TTL_SECONDS);
+        $this->cache->put($this->tourKey($coordinatesHash), $tour, self::TOUR_TTL_SECONDS);
     }
 
     public function markPending(string $jobUuid): void

@@ -70,7 +70,7 @@ class TourOptimizationBroadcastTest extends TestCase
 
         $this->makeJob()->handle(app(OpenStreetTspClient::class), app(TourCache::class));
 
-        $cachedTour = app(TourCache::class)->getTour(42, 'hash-1');
+        $cachedTour = app(TourCache::class)->getTour('hash-1');
         $this->assertSame(1000, $cachedTour['total_distance_m']);
     }
 

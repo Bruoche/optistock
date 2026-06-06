@@ -72,7 +72,7 @@ This plan follows the project constitution: readable code, defensive error handl
 
 1. Frontend sends POST `/api/tour/optimize` with array of `[lat, lng]` coordinate pairs and user auth token. Coordinates are entered directly by the user; geocoding is out of scope.
 2. Controller validates and calls `CoordinateNormalizer::normalize()` to round and stable-sort coordinates to 5 decimal places.
-3. The controller then sha256-hashes that canonical list into the cache key: `tour:{user_id}:{hash}`.
+3. The controller then sha256-hashes that canonical list into the cache key: `tour:{hash}`.
 4. Controller checks Redis cache; if hit, return 200 with cached data.
 5. If miss, generate a Job UUID, `OptimizeTourJob::dispatch()` with UUID, user ID, and canonical payload; store a small placeholder in Redis with status 'pending' and short TTL (e.g., 1 hour) to avoid immediate requeues.
 6. Return HTTP 202 with `job_uuid` immediately.
@@ -95,7 +95,7 @@ This plan follows the project constitution: readable code, defensive error handl
 ## Environment & Configuration
 
 - `.env` entries: `OPENSTREET_API_URL=https://maps.open-street.com/api/tsp/`, `OPENSTREET_API_KEY`, `REDIS_URL`, `BROADCAST_DRIVER=reverb`, `QUEUE_CONNECTION=redis`, `REVERB_APP_ID`, `REVERB_APP_KEY`, `REVERB_APP_SECRET`, `REVERB_HOST`, `REVERB_PORT=8080`.
-- Redis key prefixes: `tour:{user_id}:{hash}` for results; `tour:status:{job_uuid}` for pending markers.
+- Redis key prefixes: `tour:{hash}` for results; `tour:status:{job_uuid}` for pending markers.
 
 ## Tasks (high-level)
 

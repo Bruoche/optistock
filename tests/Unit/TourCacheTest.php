@@ -17,28 +17,33 @@ class TourCacheTest extends TestCase
         $this->cache = new TourCache(new Repository(new ArrayStore));
     }
 
-    public function test_keys_are_namespaced_by_user_and_job(): void
+    public function test_keys_are_namespaced(): void
     {
-        $this->assertSame('tour:7:abc', $this->cache->tourKey(7, 'abc'));
+        $this->assertSame('tour:abc', $this->cache->tourKey('abc'));
         $this->assertSame('tour:status:uuid-1', $this->cache->jobStatusKey('uuid-1'));
+        $this->assertSame('tour:active:7:abc', $this->cache->activeJobKey(7, 'abc'));
     }
 
     public function test_tour_round_trips(): void
     {
         $tour = ['ordered_stops' => [], 'total_distance_m' => 100, 'total_duration_s' => 60];
 
-        $this->assertNull($this->cache->getTour(1, 'hash'));
+        $this->assertNull($this->cache->getTour('hash'));
 
-        $this->cache->putTour(1, 'hash', $tour);
+        $this->cache->putTour('hash', $tour);
 
-        $this->assertSame($tour, $this->cache->getTour(1, 'hash'));
+        $this->assertSame($tour, $this->cache->getTour('hash'));
     }
 
-    public function test_tour_is_isolated_per_user(): void
+    public function test_tour_is_shared_across_users(): void
     {
-        $this->cache->putTour(1, 'hash', ['total_distance_m' => 1]);
+        // The tour is a pure function of the coordinate set, so it is keyed by
+        // hash only — any user submitting the same stops reuses the cached tour.
+        $tour = ['ordered_stops' => [], 'total_distance_m' => 1];
 
-        $this->assertNull($this->cache->getTour(2, 'hash'));
+        $this->cache->putTour('hash', $tour);
+
+        $this->assertSame($tour, $this->cache->getTour('hash'));
     }
 
     public function test_active_job_claim_is_exclusive_until_cleared(): void

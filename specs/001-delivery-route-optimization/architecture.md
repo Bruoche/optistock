@@ -251,8 +251,11 @@ core async flow legible.
   Job ceiling covers all upstream attempts: `(retries+1) × read + backoff = 2×600 + 60 = 1260`
   (`services.openstreet.job_timeout`); `DB_QUEUE_RETRY_AFTER=1320` must exceed the worker timeout
   so a still-running job is never re-reserved and run twice.
-- **Order-independent caching**: the normalized sha256 hash means the same stop
-  set in any order reuses a cached tour.
+- **Order-independent, cross-user caching**: the result key is `tour:{hash}` (not
+  user-scoped) — the tour is a pure function of the coordinate set, so the same
+  stops in any order, from any user, reuse one cached tour. Safe because the hash
+  is only reproducible by someone who already holds those coordinates. (The
+  active-job lock stays user-scoped — see dedup below.)
 - **Concurrent-request dedup**: an atomic active-job lock (`claimActiveJob`, keyed by
   `{userId}:{hash}`) ensures two simultaneous identical requests share one upstream
   call — the loser reuses the winner's `job_uuid`. The job clears the lock on every

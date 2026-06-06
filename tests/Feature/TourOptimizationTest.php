@@ -94,7 +94,7 @@ class TourOptimizationTest extends TestCase
         $normalized = app(CoordinateNormalizer::class)->normalize($coordinates);
         $coordinatesHash = hash('sha256', (string) json_encode($normalized));
         $tour = ['ordered_stops' => [], 'total_distance_m' => 4200, 'total_duration_s' => 360];
-        app(TourCache::class)->putTour($user->id, $coordinatesHash, $tour);
+        app(TourCache::class)->putTour($coordinatesHash, $tour);
 
         $this->actingAs($user)
             ->postJson(route('api.tour.optimize'), ['coordinates' => $coordinates])

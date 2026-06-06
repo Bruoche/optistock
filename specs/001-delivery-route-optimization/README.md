@@ -203,9 +203,12 @@ Error codes: `api_error`, `timeout`, `invalid_response`, `job_failed`.
 
 ### Cache keys (database store)
 
-- Result: `tour:{userId}:{hash}` — 24h. `hash` = sha256 of normalized,
-  order-independent coordinates (round 5 decimals, stable-sorted).
+- Result: `tour:{hash}` — 24h. `hash` = sha256 of normalized,
+  order-independent coordinates (round 5 decimals, stable-sorted). Not user-scoped:
+  shared across users (the tour depends only on the coordinates).
 - Status: `tour:status:{jobUuid}` — 1h (`pending`/`done`/`failed`).
+- Active-job lock: `tour:active:{userId}:{hash}` — user-scoped (the job broadcasts
+  to one user's channel, so dedup must not merge across users).
 
 ---
 

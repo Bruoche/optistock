@@ -67,7 +67,7 @@ class OptimizeTourJob implements ShouldQueue
         }
 
         $cache->releaseActiveJob($this->userId, $this->coordinatesHash);
-        $cache->putTour($this->userId, $this->coordinatesHash, $tour);
+        $cache->putTour($this->coordinatesHash, $tour);
         $cache->markDone($this->jobUuid, $tour);
         TourOptimized::dispatch($this->userId, $this->jobUuid, $tour);
     }

@@ -35,7 +35,7 @@
 
 - [X] T006 [P] `app/Services/CoordinateNormalizer.php` — round to 5 decimals, stable-sort into a canonical, order-independent coordinate list (the controller sha256-hashes it into the cache key).
 - [X] T007 [P] `app/Services/OpenStreetTspClient.php` — GET to `services.openstreet.url` with `pts|`, `nb` (auto), `mode/unit/tour`, `key`; split timeout (connect 15s / read 600s); `retries+1` attempts, exponential backoff; maps verified `OPTIMIZATION[]` indices (→ caller coords) + `STEPS_DISTANCES.TOTAL`/`STEPS_DURATIONS.TOTAL` → `ordered_stops/total_distance_m/total_duration_s`; throws typed `TourOptimizationException`. **Verified live 2026-06-03.**
-- [X] T008 [P] `app/Services/TourCache.php` — read/write result key `tour:{userId}:{hash}` (24h) and status key `tour:status:{jobUuid}` (1h, pending/done/failed).
+- [X] T008 [P] `app/Services/TourCache.php` — read/write result key `tour:{hash}` (24h) and status key `tour:status:{jobUuid}` (1h, pending/done/failed).
 - [X] T009 [P] `app/Jobs/OptimizeTourJob.php` — calls client, caches result (24h), records status, broadcasts success/failure; `$timeout` from config (1260), `$tries=1`, `failed()` safety net.
 - [X] T010 `app/Events/TourOptimized.php` + `TourOptimizationFailed.php` — `ShouldBroadcast` on `PrivateChannel('App.Models.User.{id}')`; payloads `{ job_uuid, data }` / `{ job_uuid, error: { code, message } }`.
 - [X] T032 `failed(?Throwable)` broadcasts `TourOptimizationFailed` code `job_failed`; `$timeout` from config (1260); covered by `TourOptimizationBroadcastTest::test_failed_callback_broadcasts_failure_event`.
