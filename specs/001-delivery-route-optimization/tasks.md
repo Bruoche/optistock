@@ -8,7 +8,7 @@
 
 **Live verification + fixes (2026-06-03)** — `OpenStreetTspClient::optimize()` ran end-to-end against the real API. Two corrections:
 
-- **Response schema was wrong.** Real payload is `{ DIMENSION, TOUR, OPTIMIZATION:[indices], STEPS_DISTANCES:{TOTAL,..}, STEPS_DURATIONS:{TOTAL,..} }` — *not* the guessed `{status, route[], distance, time}`. `OPTIMIZATION` returns input-coordinate indices in visit order (no coords); the client now resolves them back to the caller's coordinates. `mapResponse()`, `plan.md`, and tests updated. See `README.md` §3.
+- **Response schema was wrong.** Real payload is `{ DIMENSION, TOUR, OPTIMIZATION:[indices], STEPS_DISTANCES:{TOTAL,..}, STEPS_DURATIONS:{TOTAL,..} }` — *not* the guessed `{status, route[], distance, time}`. `OPTIMIZATION` returns input-coordinate indices in visit order (no coords); the client now resolves them back to the caller's coordinates. `mapToTour()`, `plan.md`, and tests updated. See `README.md` §3.
 - **Timeouts re-sized for minute-scale calls.** Split connect (15s) vs read (600s); job timeout 660s (config-driven); requires `queue:work --timeout=690` and `DB_QUEUE_RETRY_AFTER=720`. See `README.md` §4.
 - **SSL/CA bundle** is a per-machine env requirement (`cURL error 60` otherwise). See `README.md` §1.2.
 

@@ -20,7 +20,7 @@ class TourCacheTest extends TestCase
     public function test_keys_are_namespaced_by_user_and_job(): void
     {
         $this->assertSame('tour:7:abc', $this->cache->tourKey(7, 'abc'));
-        $this->assertSame('tour:status:uuid-1', $this->cache->statusKey('uuid-1'));
+        $this->assertSame('tour:status:uuid-1', $this->cache->jobStatusKey('uuid-1'));
     }
 
     public function test_tour_round_trips(): void
@@ -58,21 +58,21 @@ class TourCacheTest extends TestCase
 
     public function test_status_transitions_pending_done_failed(): void
     {
-        $this->assertNull($this->cache->getStatus('job-1'));
+        $this->assertNull($this->cache->getJobStatus('job-1'));
 
         $this->cache->markPending('job-1');
-        $this->assertSame(['status' => 'pending'], $this->cache->getStatus('job-1'));
+        $this->assertSame(['status' => 'pending'], $this->cache->getJobStatus('job-1'));
 
         $this->cache->markDone('job-1', ['total_distance_m' => 5]);
         $this->assertSame(
             ['status' => 'done', 'data' => ['total_distance_m' => 5]],
-            $this->cache->getStatus('job-1'),
+            $this->cache->getJobStatus('job-1'),
         );
 
         $this->cache->markFailed('job-1', ['code' => 'timeout', 'message' => 'slow']);
         $this->assertSame(
             ['status' => 'failed', 'error' => ['code' => 'timeout', 'message' => 'slow']],
-            $this->cache->getStatus('job-1'),
+            $this->cache->getJobStatus('job-1'),
         );
     }
 }

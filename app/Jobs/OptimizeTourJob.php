@@ -48,7 +48,7 @@ class OptimizeTourJob implements ShouldQueue
     public function __construct(
         public readonly string $jobUuid,
         public readonly int $userId,
-        public readonly string $hash,
+        public readonly string $coordinatesHash,
         public readonly array $coordinates,
     ) {
         $this->timeout = (int) config('services.openstreet.job_timeout', 1260);
@@ -59,15 +59,15 @@ class OptimizeTourJob implements ShouldQueue
         try {
             $tour = $client->optimize($this->coordinates);
         } catch (TourOptimizationException $e) {
-            $cache->clearInflight($this->userId, $this->hash);
+            $cache->clearInflight($this->userId, $this->coordinatesHash);
             $cache->markFailed($this->jobUuid, $e->toPayload());
             TourOptimizationFailed::dispatch($this->userId, $this->jobUuid, $e->toPayload());
 
             return;
         }
 
-        $cache->clearInflight($this->userId, $this->hash);
-        $cache->putTour($this->userId, $this->hash, $tour);
+        $cache->clearInflight($this->userId, $this->coordinatesHash);
+        $cache->putTour($this->userId, $this->coordinatesHash, $tour);
         $cache->markDone($this->jobUuid, $tour);
         TourOptimized::dispatch($this->userId, $this->jobUuid, $tour);
     }
@@ -81,7 +81,7 @@ class OptimizeTourJob implements ShouldQueue
         $error = ['code' => 'job_failed', 'message' => $e?->getMessage() ?? 'Tour optimization job failed.'];
 
         $cache = app(TourCache::class);
-        $cache->clearInflight($this->userId, $this->hash);
+        $cache->clearInflight($this->userId, $this->coordinatesHash);
         $cache->markFailed($this->jobUuid, $error);
         TourOptimizationFailed::dispatch($this->userId, $this->jobUuid, $error);
     }

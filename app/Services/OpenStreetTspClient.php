@@ -53,7 +53,7 @@ class OpenStreetTspClient
             throw TourOptimizationException::apiError("OpenStreet API returned HTTP {$response->status()}.");
         }
 
-        return $this->mapResponse($response->json(), $coordinates);
+        return $this->mapToTour($response->json(), $coordinates);
     }
 
     private function send(string $points, int $count): Response
@@ -99,7 +99,7 @@ class OpenStreetTspClient
      *     total_duration_s: int
      * }
      */
-    private function mapResponse(mixed $body, array $coordinates): array
+    private function mapToTour(mixed $body, array $coordinates): array
     {
         if (! is_array($body) || ! isset($body['OPTIMIZATION']) || ! is_array($body['OPTIMIZATION'])) {
             $message = is_array($body) && isset($body['message'])

@@ -37,7 +37,7 @@ Provide an asynchronous, cache-backed route-optimization flow using Laravel back
 }
 ```
 Fields:
-- `OPTIMIZATION` — array of **input-coordinate indices** in optimal visit order. The API echoes **no coordinates**; the client resolves each index back to the coordinate the caller sent (`OpenStreetTspClient::mapResponse()`).
+- `OPTIMIZATION` — array of **input-coordinate indices** in optimal visit order. The API echoes **no coordinates**; the client resolves each index back to the coordinate the caller sent (`OpenStreetTspClient::mapToTour()`).
 - `STEPS_DISTANCES.TOTAL` — total distance in metres; `STEPS_DURATIONS.TOTAL` — total duration in seconds (per-step values, keyed by step index, sum to `TOTAL`).
 - `DIMENSION`, `TOUR`, `COMPUTE_TIME`, `TOTAL_TIME` — echo/diagnostics, unused.
 

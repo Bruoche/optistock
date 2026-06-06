@@ -29,19 +29,19 @@ class TourCache
 
     public function __construct(private readonly CacheRepository $cache) {}
 
-    public function tourKey(int $userId, string $hash): string
+    public function tourKey(int $userId, string $coordinatesHash): string
     {
-        return "tour:{$userId}:{$hash}";
+        return "tour:{$userId}:{$coordinatesHash}";
     }
 
-    public function statusKey(string $jobUuid): string
+    public function jobStatusKey(string $jobUuid): string
     {
         return "tour:status:{$jobUuid}";
     }
 
-    public function inflightKey(int $userId, string $hash): string
+    public function inflightKey(int $userId, string $coordinatesHash): string
     {
-        return "tour:inflight:{$userId}:{$hash}";
+        return "tour:inflight:{$userId}:{$coordinatesHash}";
     }
 
     /**
@@ -51,23 +51,23 @@ class TourCache
      *     total_duration_s: int
      * }|null
      */
-    public function getTour(int $userId, string $hash): ?array
+    public function getTour(int $userId, string $coordinatesHash): ?array
     {
-        return $this->cache->get($this->tourKey($userId, $hash));
+        return $this->cache->get($this->tourKey($userId, $coordinatesHash));
     }
 
     /**
      * @param  array<string, mixed>  $tour
      */
-    public function putTour(int $userId, string $hash, array $tour): void
+    public function putTour(int $userId, string $coordinatesHash, array $tour): void
     {
-        $this->cache->put($this->tourKey($userId, $hash), $tour, self::TOUR_TTL_SECONDS);
+        $this->cache->put($this->tourKey($userId, $coordinatesHash), $tour, self::TOUR_TTL_SECONDS);
     }
 
     public function markPending(string $jobUuid): void
     {
         $this->cache->put(
-            $this->statusKey($jobUuid),
+            $this->jobStatusKey($jobUuid),
             ['status' => 'pending'],
             self::STATUS_TTL_SECONDS,
         );
@@ -79,7 +79,7 @@ class TourCache
     public function markDone(string $jobUuid, array $tour): void
     {
         $this->cache->put(
-            $this->statusKey($jobUuid),
+            $this->jobStatusKey($jobUuid),
             ['status' => 'done', 'data' => $tour],
             self::STATUS_TTL_SECONDS,
         );
@@ -91,7 +91,7 @@ class TourCache
     public function markFailed(string $jobUuid, array $error): void
     {
         $this->cache->put(
-            $this->statusKey($jobUuid),
+            $this->jobStatusKey($jobUuid),
             ['status' => 'failed', 'error' => $error],
             self::STATUS_TTL_SECONDS,
         );
@@ -100,9 +100,9 @@ class TourCache
     /**
      * @return array{status: string, data?: array<string, mixed>, error?: array{code: string, message: string}}|null
      */
-    public function getStatus(string $jobUuid): ?array
+    public function getJobStatus(string $jobUuid): ?array
     {
-        return $this->cache->get($this->statusKey($jobUuid));
+        return $this->cache->get($this->jobStatusKey($jobUuid));
     }
 
     /**
@@ -110,22 +110,22 @@ class TourCache
      * this caller won the slot (and should dispatch the job), false if another
      * request already owns it (the caller should reuse {@see getInflight}).
      */
-    public function claimInflight(int $userId, string $hash, string $jobUuid): bool
+    public function claimInflight(int $userId, string $coordinatesHash, string $jobUuid): bool
     {
         return $this->cache->add(
-            $this->inflightKey($userId, $hash),
+            $this->inflightKey($userId, $coordinatesHash),
             $jobUuid,
             self::INFLIGHT_TTL_SECONDS,
         );
     }
 
-    public function getInflight(int $userId, string $hash): ?string
+    public function getInflight(int $userId, string $coordinatesHash): ?string
     {
-        return $this->cache->get($this->inflightKey($userId, $hash));
+        return $this->cache->get($this->inflightKey($userId, $coordinatesHash));
     }
 
-    public function clearInflight(int $userId, string $hash): void
+    public function clearInflight(int $userId, string $coordinatesHash): void
     {
-        $this->cache->forget($this->inflightKey($userId, $hash));
+        $this->cache->forget($this->inflightKey($userId, $coordinatesHash));
     }
 }

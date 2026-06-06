@@ -116,7 +116,7 @@ npm run dev                             # Vite (frontend, when built)
 | `DIMENSION`, `TOUR`, `COMPUTE_TIME`, `TOTAL_TIME` | Echo / diagnostics, unused. |
 
 > ⚠️ The original spec guessed a `{status:"ok", route:[{lat,lng,order}], distance, time}`
-> shape. That was **wrong**. `OpenStreetTspClient::mapResponse()` implements the
+> shape. That was **wrong**. `OpenStreetTspClient::mapToTour()` implements the
 > verified shape above.
 
 **Success detection**: presence of an `OPTIMIZATION` array (there is no

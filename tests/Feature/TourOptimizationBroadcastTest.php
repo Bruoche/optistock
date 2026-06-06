@@ -56,7 +56,7 @@ class TourOptimizationBroadcastTest extends TestCase
         });
         Event::assertNotDispatched(TourOptimizationFailed::class);
 
-        $status = app(TourCache::class)->getStatus('job-1');
+        $status = app(TourCache::class)->getJobStatus('job-1');
         $this->assertSame('done', $status['status']);
         $this->assertSame(['lat' => 49.89988, 'lng' => 2.30028, 'order' => 0], $status['data']['ordered_stops'][0]);
     }
@@ -86,7 +86,7 @@ class TourOptimizationBroadcastTest extends TestCase
         });
         Event::assertNotDispatched(TourOptimized::class);
 
-        $this->assertSame('failed', app(TourCache::class)->getStatus('job-1')['status']);
+        $this->assertSame('failed', app(TourCache::class)->getJobStatus('job-1')['status']);
     }
 
     public function test_invalid_response_broadcasts_failure_event(): void
@@ -111,6 +111,6 @@ class TourOptimizationBroadcastTest extends TestCase
             return $event->jobUuid === 'job-1' && $event->error['code'] === 'job_failed';
         });
 
-        $this->assertSame('failed', app(TourCache::class)->getStatus('job-1')['status']);
+        $this->assertSame('failed', app(TourCache::class)->getJobStatus('job-1')['status']);
     }
 }

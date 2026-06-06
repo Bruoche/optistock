@@ -58,14 +58,14 @@ class TourOptimizationController extends Controller
         return response()->json(['status' => 'pending', 'job_uuid' => $jobUuid], 202);
     }
 
-    public function status(string $jobUuid, TourCache $cache): JsonResponse
+    public function getJobStatus(string $jobUuid, TourCache $cache): JsonResponse
     {
-        $status = $cache->getStatus($jobUuid);
+        $jobStatus = $cache->getJobStatus($jobUuid);
 
-        if ($status === null) {
+        if ($jobStatus === null) {
             return response()->json(['status' => 'not_found'], 404);
         }
 
-        return response()->json($status);
+        return response()->json($jobStatus);
     }
 }

@@ -16,6 +16,6 @@ Route::middleware('auth')->group(function (): void {
         ->middleware('throttle:tour-optimize')
         ->name('tour.optimize');
 
-    Route::get('tour/status/{job_uuid}', [TourOptimizationController::class, 'status'])
+    Route::get('tour/status/{job_uuid}', [TourOptimizationController::class, 'getJobStatus'])
         ->name('tour.status');
 });

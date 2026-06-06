@@ -58,7 +58,7 @@ sequenceDiagram
 
         opt WebSocket missed (fallback polling)
             F->>W: GET /api/tour/status/{job_uuid}
-            W->>DB: getStatus(jobUuid)
+            W->>DB: getJobStatus(jobUuid)
             DB-->>W: pending | done | failed
             W-->>F: 200 status (or 404)
         end
