@@ -62,10 +62,8 @@ class OptimizeTourJob implements ShouldQueue
             $cache->releaseActiveJob($this->userId, $this->coordinatesHash);
             $cache->markFailed($this->jobUuid, $e->toPayload());
             TourOptimizationFailed::dispatch($this->userId, $this->jobUuid, $e->toPayload());
-
             return;
         }
-
         $cache->releaseActiveJob($this->userId, $this->coordinatesHash);
         $cache->putTour($this->coordinatesHash, $tour);
         $cache->markDone($this->jobUuid, $tour);
@@ -79,7 +77,6 @@ class OptimizeTourJob implements ShouldQueue
     public function failed(?Throwable $e): void
     {
         $error = ['code' => 'job_failed', 'message' => $e?->getMessage() ?? 'Tour optimization job failed.'];
-
         $cache = app(TourCache::class);
         $cache->releaseActiveJob($this->userId, $this->coordinatesHash);
         $cache->markFailed($this->jobUuid, $error);
