@@ -35,6 +35,17 @@ class RouteOptimizationController extends Controller
         }
 
         $jobUuid = (string) Str::uuid();
+
+        // Dedup concurrent identical requests: if an optimization for this exact
+        // coordinate set is already running, reuse its job_uuid instead of firing
+        // a second multi-minute upstream call. The frontend can wait on the same
+        // broadcast / poll the same status.
+        if (! $cache->claimInflight($userId, $normalized['hash'], $jobUuid)) {
+            if ($existing = $cache->getInflight($userId, $normalized['hash'])) {
+                return response()->json(['status' => 'pending', 'job_uuid' => $existing], 202);
+            }
+        }
+
         $cache->markPending($jobUuid);
 
         OptimizeRouteJob::dispatch(

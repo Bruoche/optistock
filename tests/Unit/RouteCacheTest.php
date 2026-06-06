@@ -41,6 +41,21 @@ class RouteCacheTest extends TestCase
         $this->assertNull($this->cache->getResult(2, 'hash'));
     }
 
+    public function test_inflight_claim_is_exclusive_until_cleared(): void
+    {
+        $this->assertNull($this->cache->getInflight(1, 'hash'));
+
+        $this->assertTrue($this->cache->claimInflight(1, 'hash', 'job-a'));
+        // Second claim for the same set loses; the original owner stands.
+        $this->assertFalse($this->cache->claimInflight(1, 'hash', 'job-b'));
+        $this->assertSame('job-a', $this->cache->getInflight(1, 'hash'));
+
+        $this->cache->clearInflight(1, 'hash');
+        $this->assertNull($this->cache->getInflight(1, 'hash'));
+        // After clearing, a fresh set can be claimed again.
+        $this->assertTrue($this->cache->claimInflight(1, 'hash', 'job-c'));
+    }
+
     public function test_status_transitions_pending_done_failed(): void
     {
         $this->assertNull($this->cache->getStatus('job-1'));

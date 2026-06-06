@@ -46,9 +46,11 @@ return [
         // refused connection) so a worker never hangs forever.
         'connect_timeout' => (int) env('OPENSTREET_API_CONNECT_TIMEOUT', 15),
         'retries' => (int) env('OPENSTREET_API_RETRIES', 1),
-        // Hard ceiling for a single queue-job attempt; must exceed the read
-        // timeout and stay below the queue connection's retry_after.
-        'job_timeout' => (int) env('OPENSTREET_API_JOB_TIMEOUT', 660),
+        // Hard ceiling for the whole queue job. Must cover EVERY upstream attempt
+        // — (retries + 1) calls × read timeout + backoff — so a retry is never cut
+        // short, and must stay below the queue connection's retry_after.
+        // Default: (1 + 1) × 600 + 60 buffer = 1260.
+        'job_timeout' => (int) env('OPENSTREET_API_JOB_TIMEOUT', 1260),
     ],
 
 ];

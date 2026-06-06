@@ -1,0 +1,65 @@
+sequenceDiagram
+    autonumber
+    actor U as Delivery planner
+    participant F as Frontend (SPA)
+    participant W as Web App (C2)
+    participant DB as Database (cache/queue)
+    participant Q as Queue Worker (C3)
+    participant API as OpenStreet TSP API
+    participant WS as Reverb (C4)
+
+    Note over F,WS: On load, SPA opens a persistent WebSocket and<br/>subscribes to private-App.Models.User.{id}
+    F->>WS: subscribe private user channel (wss)
+    F->>W: POST /broadcasting/auth
+    W-->>F: 200 channel authorized
+
+    U->>F: Submit coordinates
+    F->>W: POST /api/route/optimize (session cookie)
+    W->>W: validate + normalize (sha256 hash)
+    W->>DB: getResult(userId, hash)
+
+    alt Cache hit (instant)
+        DB-->>W: cached route
+        W-->>F: 200 {status: done, data}
+        F-->>U: Render route immediately
+    else Cache miss (async)
+        DB-->>W: null
+        W->>DB: claimInflight(userId, hash, jobUuid) [atomic add]
+        alt Lost claim — identical request already running
+            DB-->>W: claim refused
+            W->>DB: getInflight(userId, hash)
+            DB-->>W: existing jobUuid
+            W-->>F: 202 {status: pending, job_uuid} (reused)
+        else Won claim
+            DB-->>W: claim ok
+            W->>DB: markPending(jobUuid)
+            W->>DB: enqueue OptimizeRouteJob
+            W-->>F: 202 {status: pending, job_uuid}
+        end
+        F-->>U: Show "optimizing…" (UI never blocks)
+
+        Note over Q,API: Background thread — request already returned
+        Q->>DB: reserve job
+        Q->>API: GET /api/tsp (15s connect / 600s read, 1 retry)
+
+        alt API success
+            API-->>Q: optimized tour
+            Q->>DB: clearInflight + putResult(24h) + markDone
+            Q->>WS: push RouteOptimized (HTTP/Pusher, via broadcasts queue)
+            WS-->>F: RouteOptimized {job_uuid, data} (wss)
+            F-->>U: Render route the instant API answered
+        else API failure / timeout / crash
+            API-->>Q: error / timeout
+            Q->>DB: clearInflight + markFailed
+            Q->>WS: push RouteOptimizationFailed
+            WS-->>F: RouteOptimizationFailed {job_uuid, error}
+            F-->>U: Show error
+        end
+
+        opt WebSocket missed (fallback polling)
+            F->>W: GET /api/route/result/{job_uuid}
+            W->>DB: getStatus(jobUuid)
+            DB-->>W: pending | done | failed
+            W-->>F: 200 status (or 404)
+        end
+    end

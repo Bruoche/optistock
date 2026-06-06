@@ -30,10 +30,12 @@ class OptimizeRouteJob implements ShouldQueue
     use SerializesModels;
 
     /**
-     * Hard ceiling on a single attempt; sits above the client's read timeout
-     * and below the queue connection's retry_after. Set from config so all
-     * three limits stay in sync. The worker must run with
-     * `--timeout` >= this value and `retry_after` > the worker timeout.
+     * Hard ceiling for the whole job, covering ALL upstream attempts: the client
+     * makes up to (retries + 1) calls, each up to its read timeout, plus backoff.
+     * This must therefore sit above (retries + 1) × client read timeout, and the
+     * queue connection's retry_after must sit above this. Set from config so the
+     * limits stay in sync. The worker must run with `--timeout` >= this value and
+     * `retry_after` > the worker timeout.
      */
     public int $timeout;
 
@@ -49,7 +51,7 @@ class OptimizeRouteJob implements ShouldQueue
         public readonly string $hash,
         public readonly array $coordinates,
     ) {
-        $this->timeout = (int) config('services.openstreet.job_timeout', 660);
+        $this->timeout = (int) config('services.openstreet.job_timeout', 1260);
     }
 
     public function handle(OpenStreetTspClient $client, RouteCache $cache): void
@@ -57,12 +59,14 @@ class OptimizeRouteJob implements ShouldQueue
         try {
             $result = $client->optimize($this->coordinates);
         } catch (RouteOptimizationException $e) {
+            $cache->clearInflight($this->userId, $this->hash);
             $cache->markFailed($this->jobUuid, $e->toPayload());
             RouteOptimizationFailed::dispatch($this->userId, $this->jobUuid, $e->toPayload());
 
             return;
         }
 
+        $cache->clearInflight($this->userId, $this->hash);
         $cache->putResult($this->userId, $this->hash, $result);
         $cache->markDone($this->jobUuid, $result);
         RouteOptimized::dispatch($this->userId, $this->jobUuid, $result);
@@ -76,7 +80,9 @@ class OptimizeRouteJob implements ShouldQueue
     {
         $error = ['code' => 'job_failed', 'message' => $e?->getMessage() ?? 'Route optimization job failed.'];
 
-        app(RouteCache::class)->markFailed($this->jobUuid, $error);
+        $cache = app(RouteCache::class);
+        $cache->clearInflight($this->userId, $this->hash);
+        $cache->markFailed($this->jobUuid, $error);
         RouteOptimizationFailed::dispatch($this->userId, $this->jobUuid, $error);
     }
 }

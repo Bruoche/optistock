@@ -58,7 +58,7 @@
 - [ ] T016 [US1] *(deferred to frontend run)* Add frontend component in `resources/js/pages/` (NOT `resources/js/routes/` — that dir is Wayfinder-generated). Use channel `App.Models.User.{id}`:
   - On submit: POST `/api/route/optimize` with `{ coordinates: [[lat, lng], ...] }`
   - **200 response** (cache hit): render result immediately from response body (no WS needed)
-  - **202 response** (cache miss): show "pending" spinner; subscribe via `Echo.private('user.' + userId).listen('RouteOptimized', (e) => { if (e.job_uuid === jobUuid) renderResult(e.data); }).listen('RouteOptimizationFailed', (e) => { if (e.job_uuid === jobUuid) showError(e.error); })`; also poll `GET /api/route/result/{job_uuid}` as WS fallback
+  - **202 response** (cache miss): show "pending" spinner; subscribe via `Echo.private('App.Models.User.' + userId).listen('.RouteOptimized', (e) => { if (e.job_uuid === jobUuid) renderResult(e.data); }).listen('.RouteOptimizationFailed', (e) => { if (e.job_uuid === jobUuid) showError(e.error); })`; also poll `GET /api/route/result/{job_uuid}` as WS fallback
   - On receive: unsubscribe from channel; render `ordered_stops`, `total_distance_m`, `total_duration_s`
 
 ---

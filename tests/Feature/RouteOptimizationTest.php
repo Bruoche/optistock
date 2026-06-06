@@ -69,6 +69,23 @@ class RouteOptimizationTest extends TestCase
         });
     }
 
+    public function test_concurrent_identical_requests_reuse_one_job(): void
+    {
+        Queue::fake();
+        $user = User::factory()->create();
+        $payload = ['coordinates' => $this->validCoordinates()];
+
+        $first = $this->actingAs($user)->postJson(route('api.route.optimize'), $payload);
+        $second = $this->actingAs($user)->postJson(route('api.route.optimize'), $payload);
+
+        $first->assertStatus(202);
+        $second->assertStatus(202)
+            ->assertJson(['status' => 'pending', 'job_uuid' => $first->json('job_uuid')]);
+
+        // Only the first request dispatched the expensive upstream job.
+        Queue::assertPushed(OptimizeRouteJob::class, 1);
+    }
+
     public function test_cache_hit_returns_200_with_route(): void
     {
         $user = User::factory()->create();
