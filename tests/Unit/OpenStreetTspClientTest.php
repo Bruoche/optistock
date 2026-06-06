@@ -103,6 +103,22 @@ class OpenStreetTspClientTest extends TestCase
         $this->assertErrorCode('invalid_response', fn () => $client->optimize($this->coordinates()));
     }
 
+    public function test_it_throws_invalid_response_on_unknown_point_index(): void
+    {
+        $http = new HttpFactory;
+        // Index 5 has no matching input coordinate (only 2 sent) — must not be
+        // silently dropped or fatal; the client maps it to invalid_response.
+        $http->fake(['*' => $http->response([
+            'OPTIMIZATION' => [0, 5],
+            'STEPS_DISTANCES' => ['TOTAL' => 0],
+            'STEPS_DURATIONS' => ['TOTAL' => 0],
+        ])]);
+
+        $client = new OpenStreetTspClient($http, self::URL, 'secret-key', 8, 0);
+
+        $this->assertErrorCode('invalid_response', fn () => $client->optimize($this->coordinates()));
+    }
+
     public function test_it_throws_timeout_on_connection_failure(): void
     {
         $http = new HttpFactory;

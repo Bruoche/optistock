@@ -52,6 +52,43 @@ class TourOptimizationTest extends TestCase
             ->assertJsonValidationErrors('coordinates.0.0');
     }
 
+    public function test_it_rejects_more_than_ten_coordinates(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->postJson(route('api.tour.optimize'), ['coordinates' => array_fill(0, 11, [48.0, 2.0])])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('coordinates');
+    }
+
+    public function test_each_coordinate_must_be_a_lat_lng_pair(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->postJson(route('api.tour.optimize'), ['coordinates' => [[48.0], [2.0, 3.0]]])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('coordinates.0');
+    }
+
+    public function test_optimize_requests_are_rate_limited_per_user(): void
+    {
+        Queue::fake();
+        $user = User::factory()->create();
+        $payload = ['coordinates' => $this->validCoordinates()];
+
+        for ($i = 0; $i < 10; $i++) {
+            $this->actingAs($user)
+                ->postJson(route('api.tour.optimize'), $payload)
+                ->assertStatus(202);
+        }
+
+        $this->actingAs($user)
+            ->postJson(route('api.tour.optimize'), $payload)
+            ->assertStatus(429);
+    }
+
     public function test_cache_miss_queues_job_and_returns_202(): void
     {
         Queue::fake();
@@ -65,7 +102,10 @@ class TourOptimizationTest extends TestCase
             ->assertJsonStructure(['status', 'job_uuid']);
 
         Queue::assertPushed(OptimizeTourJob::class, function (OptimizeTourJob $job) use ($user): bool {
-            return $job->userId === $user->id && $job->jobUuid !== '';
+            return $job->userId === $user->id
+                && $job->jobUuid !== ''
+                && $job->coordinatesHash !== ''
+                && count($job->coordinates) === 3;
         });
     }
 
@@ -102,6 +142,26 @@ class TourOptimizationTest extends TestCase
             ->assertJson(['status' => 'done', 'data' => $tour]);
     }
 
+    public function test_reordered_coordinates_hit_the_same_cache(): void
+    {
+        Queue::fake();
+        $user = User::factory()->create();
+        $coordinates = $this->validCoordinates();
+
+        $normalized = app(CoordinateNormalizer::class)->normalize($coordinates);
+        $coordinatesHash = hash('sha256', (string) json_encode($normalized));
+        $tour = ['ordered_stops' => [], 'total_distance_m' => 4200, 'total_duration_s' => 360];
+        app(TourCache::class)->putTour($coordinatesHash, $tour);
+
+        // Same stops, reversed input order, must resolve to the same cache entry.
+        $this->actingAs($user)
+            ->postJson(route('api.tour.optimize'), ['coordinates' => array_reverse($coordinates)])
+            ->assertStatus(200)
+            ->assertJson(['status' => 'done', 'data' => $tour]);
+
+        Queue::assertNotPushed(OptimizeTourJob::class);
+    }
+
     public function test_status_endpoint_reports_status(): void
     {
         $user = User::factory()->create();
@@ -111,6 +171,29 @@ class TourOptimizationTest extends TestCase
             ->getJson(route('api.tour.status', ['job_uuid' => 'job-xyz']))
             ->assertStatus(200)
             ->assertJson(['status' => 'pending']);
+    }
+
+    public function test_status_endpoint_returns_done_with_data(): void
+    {
+        $user = User::factory()->create();
+        $tour = ['ordered_stops' => [], 'total_distance_m' => 10, 'total_duration_s' => 5];
+        app(TourCache::class)->markDone('job-done', $tour);
+
+        $this->actingAs($user)
+            ->getJson(route('api.tour.status', ['job_uuid' => 'job-done']))
+            ->assertStatus(200)
+            ->assertJson(['status' => 'done', 'data' => $tour]);
+    }
+
+    public function test_status_endpoint_returns_failed_with_error(): void
+    {
+        $user = User::factory()->create();
+        app(TourCache::class)->markFailed('job-bad', ['code' => 'timeout', 'message' => 'slow']);
+
+        $this->actingAs($user)
+            ->getJson(route('api.tour.status', ['job_uuid' => 'job-bad']))
+            ->assertStatus(200)
+            ->assertJson(['status' => 'failed', 'error' => ['code' => 'timeout']]);
     }
 
     public function test_status_endpoint_returns_404_for_unknown_job(): void

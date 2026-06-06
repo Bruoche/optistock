@@ -113,4 +113,43 @@ class TourOptimizationBroadcastTest extends TestCase
 
         $this->assertSame('failed', app(TourCache::class)->getJobStatus('job-1')['status']);
     }
+
+    public function test_job_releases_active_job_lock_on_success(): void
+    {
+        Event::fake();
+        Http::fake(['*' => Http::response(['OPTIMIZATION' => [0, 1], 'STEPS_DISTANCES' => ['TOTAL' => 1], 'STEPS_DURATIONS' => ['TOTAL' => 1]])]);
+
+        $cache = app(TourCache::class);
+        $cache->claimActiveJob(42, 'hash-1', 'job-1');
+
+        $this->makeJob()->handle(app(OpenStreetTspClient::class), $cache);
+
+        // Lock cleared so a later identical request is served from cache / re-dispatches.
+        $this->assertNull($cache->getActiveJob(42, 'hash-1'));
+    }
+
+    public function test_job_releases_active_job_lock_on_failure(): void
+    {
+        Event::fake();
+        Http::fake(['*' => Http::response('', 500)]);
+
+        $cache = app(TourCache::class);
+        $cache->claimActiveJob(42, 'hash-1', 'job-1');
+
+        $this->makeJob()->handle(app(OpenStreetTspClient::class), $cache);
+
+        $this->assertNull($cache->getActiveJob(42, 'hash-1'));
+    }
+
+    public function test_crash_callback_releases_active_job_lock(): void
+    {
+        Event::fake();
+
+        $cache = app(TourCache::class);
+        $cache->claimActiveJob(42, 'hash-1', 'job-1');
+
+        $this->makeJob()->failed(new RuntimeException('worker crashed'));
+
+        $this->assertNull($cache->getActiveJob(42, 'hash-1'));
+    }
 }
