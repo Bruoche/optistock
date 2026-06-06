@@ -21,12 +21,12 @@ OPENSTREET_API_KEY=<your-key>
 OPENSTREET_API_TIMEOUT=600          # read timeout (s) — API can take minutes
 OPENSTREET_API_CONNECT_TIMEOUT=15   # connect timeout (s) — fail fast on dead host
 OPENSTREET_API_RETRIES=1            # retries on failure (exponential backoff)
-OPENSTREET_API_JOB_TIMEOUT=660      # single queue-job ceiling (s)
+OPENSTREET_API_JOB_TIMEOUT=1260      # single queue-job ceiling (s)
 
 # Async infrastructure (database driver — no Redis)
 QUEUE_CONNECTION=database
 CACHE_STORE=database
-DB_QUEUE_RETRY_AFTER=720            # MUST exceed worker --timeout (see §4)
+DB_QUEUE_RETRY_AFTER=1320            # MUST exceed worker --timeout (see §4)
 
 # WebSocket (Laravel Reverb)
 BROADCAST_CONNECTION=reverb
@@ -76,7 +76,7 @@ the worker manually with the right timeout instead (see §4).
 ```powershell
 php artisan serve                       # HTTP app  :8000
 php artisan reverb:start                # WebSocket  :8080
-php artisan queue:work --timeout=690    # background jobs (see §4 for the number)
+php artisan queue:work --timeout=1290    # background jobs (see §4 for the number)
 npm run dev                             # Vite (frontend, when built)
 ```
 
@@ -147,16 +147,16 @@ design exists to tolerate that. Four independent limits can each kill a long
 call, so they must stay ordered:
 
 ```
-actual_work  ≤  job $timeout (660)  ≤  worker --timeout (690)  <  retry_after (720)
+actual_work  ≤  job $timeout (1260)  ≤  worker --timeout (1290)  <  retry_after (1320)
 ```
 
 | Limit | Where | Value | Notes |
 |---|---|---|---|
 | HTTP connect | `OpenStreetTspClient` | 15s | fail fast on unreachable host |
 | HTTP read | `OpenStreetTspClient` | 600s | tolerate slow compute |
-| job `$timeout` | `OptimizeTourJob` | 660s | from `services.openstreet.job_timeout` |
-| worker `--timeout` | `queue:work` flag | 690s | **default is 60s — must override** |
-| `retry_after` | `config/queue.php` (database) | 720s | from `DB_QUEUE_RETRY_AFTER`; must exceed worker timeout, else the job is re-dispatched mid-flight → duplicate API calls |
+| job `$timeout` | `OptimizeTourJob` | 1260s | from `services.openstreet.job_timeout`; covers all attempts: `(retries+1)×600 + 60` |
+| worker `--timeout` | `queue:work` flag | 1290s | **default is 60s — must override** |
+| `retry_after` | `config/queue.php` (database) | 1320s | from `DB_QUEUE_RETRY_AFTER`; must exceed worker timeout, else the job is re-dispatched mid-flight → duplicate API calls |
 
 **Not literal "no timeout"**: removing limits lets a hung TCP connection block
 a worker forever with no failure broadcast — the frontend would spin
@@ -233,7 +233,7 @@ A `cURL error 60` here means the CA bundle (§1.2) is not configured.
 
 ### 6.3 Full HTTP flow (needs login)
 
-`composer dev` (+ a worker with `--timeout=690`, §4), log in via browser, then
+`composer dev` (+ a worker with `--timeout=1290`, §4), log in via browser, then
 from devtools console:
 
 ```js

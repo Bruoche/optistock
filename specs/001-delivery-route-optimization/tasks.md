@@ -9,7 +9,7 @@
 **Live verification + fixes (2026-06-03)** — `OpenStreetTspClient::optimize()` ran end-to-end against the real API. Two corrections:
 
 - **Response schema was wrong.** Real payload is `{ DIMENSION, TOUR, OPTIMIZATION:[indices], STEPS_DISTANCES:{TOTAL,..}, STEPS_DURATIONS:{TOTAL,..} }` — *not* the guessed `{status, route[], distance, time}`. `OPTIMIZATION` returns input-coordinate indices in visit order (no coords); the client now resolves them back to the caller's coordinates. `mapToTour()`, `plan.md`, and tests updated. See `README.md` §3.
-- **Timeouts re-sized for minute-scale calls.** Split connect (15s) vs read (600s); job timeout 660s (config-driven); requires `queue:work --timeout=690` and `DB_QUEUE_RETRY_AFTER=720`. See `README.md` §4.
+- **Timeouts re-sized for minute-scale calls.** Split connect (15s) vs read (600s); job timeout 1260s (config-driven); requires `queue:work --timeout=1290` and `DB_QUEUE_RETRY_AFTER=1320`. See `README.md` §4.
 - **SSL/CA bundle** is a per-machine env requirement (`cURL error 60` otherwise). See `README.md` §1.2.
 
 **Stack reality differs from original plan** — implemented against the actual repo (Laravel 13 / PHP 8.3 / Inertia + React / Fortify auth):
@@ -36,9 +36,9 @@
 - [X] T006 [P] `app/Services/CoordinateNormalizer.php` — round to 5 decimals, stable-sort, canonical payload + `sha256` hash (order-independent cache key).
 - [X] T007 [P] `app/Services/OpenStreetTspClient.php` — GET to `services.openstreet.url` with `pts|`, `nb` (auto), `mode/unit/tour`, `key`; split timeout (connect 15s / read 600s); `retries+1` attempts, exponential backoff; maps verified `OPTIMIZATION[]` indices (→ caller coords) + `STEPS_DISTANCES.TOTAL`/`STEPS_DURATIONS.TOTAL` → `ordered_stops/total_distance_m/total_duration_s`; throws typed `TourOptimizationException`. **Verified live 2026-06-03.**
 - [X] T008 [P] `app/Services/TourCache.php` — read/write result key `tour:{userId}:{hash}` (24h) and status key `tour:status:{jobUuid}` (1h, pending/done/failed).
-- [X] T009 [P] `app/Jobs/OptimizeTourJob.php` — calls client, caches result (24h), records status, broadcasts success/failure; `$timeout=30`, `$tries=1`, `failed()` safety net.
+- [X] T009 [P] `app/Jobs/OptimizeTourJob.php` — calls client, caches result (24h), records status, broadcasts success/failure; `$timeout` from config (1260), `$tries=1`, `failed()` safety net.
 - [X] T010 `app/Events/TourOptimized.php` + `TourOptimizationFailed.php` — `ShouldBroadcast` on `PrivateChannel('App.Models.User.{id}')`; payloads `{ job_uuid, data }` / `{ job_uuid, error: { code, message } }`.
-- [X] T032 `failed(?Throwable)` broadcasts `TourOptimizationFailed` code `job_failed`; `$timeout=30`; covered by `TourOptimizationBroadcastTest::test_failed_callback_broadcasts_failure_event`.
+- [X] T032 `failed(?Throwable)` broadcasts `TourOptimizationFailed` code `job_failed`; `$timeout` from config (1260); covered by `TourOptimizationBroadcastTest::test_failed_callback_broadcasts_failure_event`.
 
 ---
 
@@ -49,8 +49,8 @@
 **Independent Test**: Submit 3 coordinates; on cache hit receive 200 with route; on cache miss receive 202 with `job_uuid`, and later receive a broadcast with that `job_uuid` and data.
 
 - [X] T011 [US1] `POST /api/tour/optimize` in `routes/api.php` (auth + `throttle:tour-optimize`).
-- [X] T012 [US1] `app/Http/Controllers/TourOptimizationController.php@store` + `app/Http/Requests/OptimizeTourRequest.php` — validate (2–10 coords, lat/lng range), normalize, cache check, 200 (hit) / 202 (miss).
-- [X] T013 [US1] `GET /api/tour/status/{job_uuid}` + `@result` — returns cached status (pending/done/failed) or 404.
+- [X] T012 [US1] `app/Http/Controllers/TourOptimizationController.php@optimizeTour` + `app/Http/Requests/OptimizeTourRequest.php` — validate (2–10 coords, lat/lng range), normalize, cache check, 200 (hit) / 202 (miss).
+- [X] T013 [US1] `GET /api/tour/status/{job_uuid}` + `@getJobStatus` — returns cached status (pending/done/failed) or 404.
 - [X] T014 [P] [US1] `tests/Unit/CoordinateNormalizerTest.php` (rounding, hash, order-independence).
 - [X] T015 [US1] `tests/Feature/TourOptimizationTest.php` — 401 unauth, 422 validation, 202 cache miss (job queued), 200 cache hit, result-endpoint status/404.
 - [X] T033 [US1] `tests/Unit/OpenStreetTspClientTest.php` (C1) — success mapping, query params, api_error/invalid_response/timeout paths.
