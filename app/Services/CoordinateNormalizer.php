@@ -3,13 +3,10 @@
 namespace App\Services;
 
 /**
- * Turns a raw list of [lat, lng] pairs into a canonical, deterministic form
- * plus a stable hash used as the cache key.
- *
- * Coordinates are rounded to {@see PRECISION} decimals (~1.1 m) and sorted, so
- * the same set of stops submitted in any order yields the same hash — letting
- * us serve a cached optimized tour regardless of input ordering (TSP reorders
- * the stops anyway).
+ * Canonicalizes a raw list of [lat, lng] pairs into a deterministic, sorted
+ * form: each coordinate rounded to {@see PRECISION} decimals (~1.1 m), then
+ * stable-sorted, so the same stops in any order produce identical output —
+ * letting a sha256 of the result serve as an order-independent cache key.
  */
 class CoordinateNormalizer
 {
@@ -18,7 +15,7 @@ class CoordinateNormalizer
 
     /**
      * @param  array<int, array{0: int|float|string, 1: int|float|string}>  $coordinates
-     * @return array{coordinates: array<int, array{lat: float, lng: float}>, hash: string}
+     * @return array<int, array{lat: float, lng: float}>
      */
     public function normalize(array $coordinates): array
     {
@@ -32,8 +29,6 @@ class CoordinateNormalizer
             static fn (array $a, array $b): int => [$a['lat'], $a['lng']] <=> [$b['lat'], $b['lng']],
         );
 
-        $hash = hash('sha256', (string) json_encode($normalizedCoordinates));
-
-        return ['coordinates' => $normalizedCoordinates, 'hash' => $hash];
+        return $normalizedCoordinates;
     }
 }

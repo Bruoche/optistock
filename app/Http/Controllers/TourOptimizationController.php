@@ -29,31 +29,38 @@ class TourOptimizationController extends Controller
     ): JsonResponse {
         $userId = (int) $request->user()->id;
         $normalizedCoordinates = $normalizer->normalize($request->validated('coordinates'));
+        // sha256 of the canonical coordinates → order-independent cache key.
+        $coordinatesHash = hash('sha256', (string) json_encode($normalizedCoordinates));
 
-        if ($cachedTour = $cache->getTour($userId, $normalizedCoordinates['hash'])) {
+        $cachedTour = $cache->getTour($userId, $coordinatesHash);
+
+        if ($cachedTour !== null) {
             return response()->json(['status' => 'done', 'data' => $cachedTour]);
         }
 
         $jobUuid = (string) Str::uuid();
 
-        // Dedup concurrent identical requests: if an optimization for this exact
-        // coordinate set is already running, reuse its job_uuid instead of firing
-        // a second multi-minute upstream call. The frontend can wait on the same
-        // broadcast / poll the same status.
-        if (! $cache->claimActiveJob($userId, $normalizedCoordinates['hash'], $jobUuid)) {
-            if ($existingJobUuid = $cache->getActiveJob($userId, $normalizedCoordinates['hash'])) {
-                return response()->json(['status' => 'pending', 'job_uuid' => $existingJobUuid], 202);
+        // Dedup concurrent identical requests. claimActiveJob atomically reserves
+        // the slot for this coordinate set: true = we won it and must dispatch,
+        // false = an identical optimization is already running.
+        $wonClaim = $cache->claimActiveJob($userId, $coordinatesHash, $jobUuid);
+
+        if (! $wonClaim) {
+            $runningJobUuid = $cache->getActiveJob($userId, $coordinatesHash);
+
+            // Reuse the running job so we never fire a second multi-minute upstream
+            // call; the frontend waits on the same broadcast / polls the same status.
+            if ($runningJobUuid !== null) {
+                return response()->json(['status' => 'pending', 'job_uuid' => $runningJobUuid], 202);
             }
+
+            // Rare race: that job released its slot between our failed claim and
+            // this read. Fall through and enqueue a fresh job.
         }
 
         $cache->markPending($jobUuid);
 
-        OptimizeTourJob::dispatch(
-            $jobUuid,
-            $userId,
-            $normalizedCoordinates['hash'],
-            $normalizedCoordinates['coordinates'],
-        );
+        OptimizeTourJob::dispatch($jobUuid, $userId, $coordinatesHash, $normalizedCoordinates);
 
         return response()->json(['status' => 'pending', 'job_uuid' => $jobUuid], 202);
     }

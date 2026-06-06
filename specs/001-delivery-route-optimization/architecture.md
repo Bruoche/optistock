@@ -123,8 +123,8 @@ flux enters and exits.
 
 | Class | Role |
 |---|---|
-| **TourOptimizationController** | Entry: cache-check → enqueue → respond |
-| **CoordinateNormalizer** | Canonical coordinates + hash → order-independent cache key |
+| **TourOptimizationController** | Entry: normalize → hash → cache-check → enqueue → respond |
+| **CoordinateNormalizer** | Rounds + stable-sorts coordinates into a canonical, order-independent form |
 | **TourCache** | Cache hit/miss, and dedup of identical active-job requests |
 | **OptimizeTourJob** | Runs the optimization off the request cycle |
 | **OpenStreetTspClient** | Calls the external API, maps the optimized tour |
@@ -140,8 +140,8 @@ C4Component
     System_Ext(osm, "OpenStreet TSP API", "External optimizer")
 
     Container_Boundary(web, "Web App — request side") {
-        Component(ctrl, "TourOptimizationController", "Controller", "Cache-check → enqueue → respond")
-        Component(norm, "CoordinateNormalizer", "Service", "Canonical coords + hash → cache key")
+        Component(ctrl, "TourOptimizationController", "Controller", "Normalize → hash → cache-check → enqueue")
+        Component(norm, "CoordinateNormalizer", "Service", "Round 5dp + stable-sort → canonical coords")
         Component(cache, "TourCache", "Service", "Cache hit/miss + request dedup")
     }
 
