@@ -6,12 +6,12 @@ use RuntimeException;
 use Throwable;
 
 /**
- * Raised when the OpenStreet TSP API call cannot produce a usable route.
+ * Raised when the OpenStreet TSP API call cannot produce a usable tour.
  *
  * The {@see $errorCode} is a stable, client-safe identifier broadcast to the
  * frontend so it can show an appropriate message without leaking internals.
  */
-class RouteOptimizationException extends RuntimeException
+class TourOptimizationException extends RuntimeException
 {
     public function __construct(
         public readonly string $errorCode,

@@ -2,43 +2,43 @@
 
 namespace Tests\Unit;
 
-use App\Services\RouteCache;
+use App\Services\TourCache;
 use Illuminate\Cache\ArrayStore;
 use Illuminate\Cache\Repository;
 use PHPUnit\Framework\TestCase;
 
-class RouteCacheTest extends TestCase
+class TourCacheTest extends TestCase
 {
-    private RouteCache $cache;
+    private TourCache $cache;
 
     protected function setUp(): void
     {
         parent::setUp();
-        $this->cache = new RouteCache(new Repository(new ArrayStore));
+        $this->cache = new TourCache(new Repository(new ArrayStore));
     }
 
     public function test_keys_are_namespaced_by_user_and_job(): void
     {
-        $this->assertSame('route:opt:7:abc', $this->cache->resultKey(7, 'abc'));
-        $this->assertSame('route:opt:pending:uuid-1', $this->cache->statusKey('uuid-1'));
+        $this->assertSame('tour:7:abc', $this->cache->tourKey(7, 'abc'));
+        $this->assertSame('tour:status:uuid-1', $this->cache->statusKey('uuid-1'));
     }
 
-    public function test_result_round_trips(): void
+    public function test_tour_round_trips(): void
     {
-        $data = ['ordered_stops' => [], 'total_distance_m' => 100, 'total_duration_s' => 60];
+        $tour = ['ordered_stops' => [], 'total_distance_m' => 100, 'total_duration_s' => 60];
 
-        $this->assertNull($this->cache->getResult(1, 'hash'));
+        $this->assertNull($this->cache->getTour(1, 'hash'));
 
-        $this->cache->putResult(1, 'hash', $data);
+        $this->cache->putTour(1, 'hash', $tour);
 
-        $this->assertSame($data, $this->cache->getResult(1, 'hash'));
+        $this->assertSame($tour, $this->cache->getTour(1, 'hash'));
     }
 
-    public function test_result_is_isolated_per_user(): void
+    public function test_tour_is_isolated_per_user(): void
     {
-        $this->cache->putResult(1, 'hash', ['total_distance_m' => 1]);
+        $this->cache->putTour(1, 'hash', ['total_distance_m' => 1]);
 
-        $this->assertNull($this->cache->getResult(2, 'hash'));
+        $this->assertNull($this->cache->getTour(2, 'hash'));
     }
 
     public function test_inflight_claim_is_exclusive_until_cleared(): void

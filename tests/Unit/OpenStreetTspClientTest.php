@@ -2,7 +2,7 @@
 
 namespace Tests\Unit;
 
-use App\Exceptions\RouteOptimizationException;
+use App\Exceptions\TourOptimizationException;
 use App\Services\OpenStreetTspClient;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Factory as HttpFactory;
@@ -116,19 +116,19 @@ class OpenStreetTspClientTest extends TestCase
     }
 
     /**
-     * Assert the callback throws a RouteOptimizationException with the given code,
+     * Assert the callback throws a TourOptimizationException with the given code,
      * returning the exception for further assertions.
      */
-    private function assertErrorCode(string $expectedCode, callable $callback): RouteOptimizationException
+    private function assertErrorCode(string $expectedCode, callable $callback): TourOptimizationException
     {
         try {
             $callback();
-        } catch (RouteOptimizationException $e) {
+        } catch (TourOptimizationException $e) {
             $this->assertSame($expectedCode, $e->errorCode);
 
             return $e;
         }
 
-        $this->fail("Expected RouteOptimizationException with code [{$expectedCode}] was not thrown.");
+        $this->fail("Expected TourOptimizationException with code [{$expectedCode}] was not thrown.");
     }
 }

@@ -19,7 +19,7 @@ use Illuminate\Queue\SerializesModels;
  * push off the queue job's critical path so a broadcast outage can't cascade
  * into the job lifecycle.
  */
-class RouteOptimizationFailed implements ShouldBroadcast
+class TourOptimizationFailed implements ShouldBroadcast
 {
     use Dispatchable;
     use InteractsWithSockets;
@@ -44,12 +44,12 @@ class RouteOptimizationFailed implements ShouldBroadcast
 
     public function broadcastAs(): string
     {
-        return 'RouteOptimizationFailed';
+        return 'TourOptimizationFailed';
     }
 
     /**
      * Push on a dedicated queue so the failure notification is never stuck behind
-     * multi-minute OptimizeRouteJob runs on the default queue. Run a worker for
+     * multi-minute OptimizeTourJob runs on the default queue. Run a worker for
      * it: `php artisan queue:work --queue=broadcasts`.
      */
     public function broadcastQueue(): string

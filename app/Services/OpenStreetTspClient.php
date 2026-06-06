@@ -2,7 +2,7 @@
 
 namespace App\Services;
 
-use App\Exceptions\RouteOptimizationException;
+use App\Exceptions\TourOptimizationException;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Factory as HttpFactory;
 use Illuminate\Http\Client\Response;
@@ -17,7 +17,7 @@ use Illuminate\Http\Client\Response;
  * several minutes for large point sets. We therefore use a generous *read*
  * timeout (slow compute is expected) but a short *connect* timeout (a dead
  * host must fail fast, never hang a worker), with bounded exponential-backoff
- * retries, and map every failure to a typed {@see RouteOptimizationException}.
+ * retries, and map every failure to a typed {@see TourOptimizationException}.
  */
 class OpenStreetTspClient
 {
@@ -38,7 +38,7 @@ class OpenStreetTspClient
      *     total_duration_s: int
      * }
      *
-     * @throws RouteOptimizationException
+     * @throws TourOptimizationException
      */
     public function optimize(array $coordinates): array
     {
@@ -50,7 +50,7 @@ class OpenStreetTspClient
         $response = $this->send($points, count($coordinates));
 
         if ($response->failed()) {
-            throw RouteOptimizationException::apiError("OpenStreet API returned HTTP {$response->status()}.");
+            throw TourOptimizationException::apiError("OpenStreet API returned HTTP {$response->status()}.");
         }
 
         return $this->mapResponse($response->json(), $coordinates);
@@ -77,7 +77,7 @@ class OpenStreetTspClient
                     'key' => $this->apiKey,
                 ]);
         } catch (ConnectionException $e) {
-            throw RouteOptimizationException::timeout(
+            throw TourOptimizationException::timeout(
                 "OpenStreet API did not respond within {$this->timeout}s: {$e->getMessage()}",
                 $e,
             );
@@ -106,7 +106,7 @@ class OpenStreetTspClient
                 ? (string) $body['message']
                 : 'OpenStreet API returned an unexpected payload.';
 
-            throw RouteOptimizationException::invalidResponse($message);
+            throw TourOptimizationException::invalidResponse($message);
         }
 
         $orderedStops = [];
@@ -114,7 +114,7 @@ class OpenStreetTspClient
             $pointIndex = (int) $pointIndex;
 
             if (! isset($coordinates[$pointIndex])) {
-                throw RouteOptimizationException::invalidResponse(
+                throw TourOptimizationException::invalidResponse(
                     "OpenStreet API referenced unknown point index {$pointIndex}.",
                 );
             }

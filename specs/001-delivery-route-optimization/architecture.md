@@ -123,10 +123,10 @@ flux enters and exits.
 
 | Class | Role |
 |---|---|
-| **RouteOptimizationController** | Entry: cache-check → enqueue → respond |
-| **RouteNormalizer** | Canonical coordinates + hash → order-independent cache key |
-| **RouteCache** | Cache hit/miss, and dedup of identical in-flight requests |
-| **OptimizeRouteJob** | Runs the optimization off the request cycle |
+| **TourOptimizationController** | Entry: cache-check → enqueue → respond |
+| **CoordinateNormalizer** | Canonical coordinates + hash → order-independent cache key |
+| **TourCache** | Cache hit/miss, and dedup of identical in-flight requests |
+| **OptimizeTourJob** | Runs the optimization off the request cycle |
 | **OpenStreetTspClient** | Calls the external API, maps the optimized tour |
 | **Broadcast Events** | Push the result back to the browser |
 
@@ -140,13 +140,13 @@ C4Component
     System_Ext(osm, "OpenStreet TSP API", "External optimizer")
 
     Container_Boundary(web, "Web App — request side") {
-        Component(ctrl, "RouteOptimizationController", "Controller", "Cache-check → enqueue → respond")
-        Component(norm, "RouteNormalizer", "Service", "Canonical coords + hash → cache key")
-        Component(cache, "RouteCache", "Service", "Cache hit/miss + request dedup")
+        Component(ctrl, "TourOptimizationController", "Controller", "Cache-check → enqueue → respond")
+        Component(norm, "CoordinateNormalizer", "Service", "Canonical coords + hash → cache key")
+        Component(cache, "TourCache", "Service", "Cache hit/miss + request dedup")
     }
 
     Container_Boundary(worker, "Queue Worker — async side") {
-        Component(job, "OptimizeRouteJob", "Job", "Optimize off the request")
+        Component(job, "OptimizeTourJob", "Job", "Optimize off the request")
         Component(client, "OpenStreetTspClient", "Service", "Call API, map optimized tour")
         Component(evt, "Broadcast Events", "Events", "Push the result")
     }
@@ -196,7 +196,7 @@ sequenceDiagram
     Note over F,WS: WebSocket already open from page load
 
     U->>F: Submit coordinates
-    F->>W: POST /api/route/optimize
+    F->>W: POST /api/tour/optimize
     W->>DB: look up cached route (by hash)
 
     alt Cache hit
@@ -205,18 +205,18 @@ sequenceDiagram
         F-->>U: Render route immediately
     else Cache miss
         DB-->>W: not found
-        W->>DB: enqueue OptimizeRouteJob
+        W->>DB: enqueue OptimizeTourJob
         W-->>F: 202 {pending, job_uuid}
         F-->>U: Show "optimizing…" (UI never blocks)
 
         Note over Q,API: Background — request already returned
-        Q->>DB: reserve OptimizeRouteJob (from queue)
+        Q->>DB: reserve OptimizeTourJob (from queue)
         Q->>API: GET /api/tsp (slow call)
         API-->>Q: optimized tour
         Q->>DB: cache result + queue broadcast
         BW->>DB: reserve broadcast job
-        BW->>WS: push RouteOptimized (HTTP/Pusher)
-        WS->>F: RouteOptimized {job_uuid, data}
+        BW->>WS: push TourOptimized (HTTP/Pusher)
+        WS->>F: TourOptimized {job_uuid, data}
         F-->>U: Render route the instant API answered
     end
 ```

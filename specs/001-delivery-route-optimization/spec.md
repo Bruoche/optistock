@@ -56,7 +56,7 @@ A planner can see the best route result with total distance or travel estimate, 
 - What happens when the planner submits only one coordinate pair? The system should explain that at least two coordinates are needed for route optimization.
 - How does the system handle duplicate or identical coordinates? The system should detect duplicates and warn the user or collapse them before optimization.
 - What happens if the OpenStreet TSP API is unavailable or returns an error? The system should broadcast a failure event to the frontend with a friendly error message.
-- What if the queue worker crashes or the job never runs? The system must broadcast a failure event (via `OptimizeRouteJob::failed()`) so the frontend is never stuck waiting indefinitely.
+- What if the queue worker crashes or the job never runs? The system must broadcast a failure event (via `OptimizeTourJob::failed()`) so the frontend is never stuck waiting indefinitely.
 - What if the TSP API returns an unreachable or invalid route? The system should broadcast the error payload so the frontend surfaces it clearly.
 
 ## Requirements *(mandatory)*

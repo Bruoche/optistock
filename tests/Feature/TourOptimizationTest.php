@@ -2,15 +2,15 @@
 
 namespace Tests\Feature;
 
-use App\Jobs\OptimizeRouteJob;
+use App\Jobs\OptimizeTourJob;
 use App\Models\User;
-use App\Services\RouteCache;
-use App\Services\RouteNormalizer;
+use App\Services\CoordinateNormalizer;
+use App\Services\TourCache;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
 use Tests\TestCase;
 
-class RouteOptimizationTest extends TestCase
+class TourOptimizationTest extends TestCase
 {
     use RefreshDatabase;
 
@@ -28,7 +28,7 @@ class RouteOptimizationTest extends TestCase
 
     public function test_unauthenticated_request_is_rejected(): void
     {
-        $this->postJson(route('api.route.optimize'), ['coordinates' => $this->validCoordinates()])
+        $this->postJson(route('api.tour.optimize'), ['coordinates' => $this->validCoordinates()])
             ->assertUnauthorized();
     }
 
@@ -37,7 +37,7 @@ class RouteOptimizationTest extends TestCase
         $user = User::factory()->create();
 
         $this->actingAs($user)
-            ->postJson(route('api.route.optimize'), ['coordinates' => [[49.89988, 2.30028]]])
+            ->postJson(route('api.tour.optimize'), ['coordinates' => [[49.89988, 2.30028]]])
             ->assertStatus(422)
             ->assertJsonValidationErrors('coordinates');
     }
@@ -47,7 +47,7 @@ class RouteOptimizationTest extends TestCase
         $user = User::factory()->create();
 
         $this->actingAs($user)
-            ->postJson(route('api.route.optimize'), ['coordinates' => [[200, 2.30028], [48.45101, 6.74833]]])
+            ->postJson(route('api.tour.optimize'), ['coordinates' => [[200, 2.30028], [48.45101, 6.74833]]])
             ->assertStatus(422)
             ->assertJsonValidationErrors('coordinates.0.0');
     }
@@ -58,13 +58,13 @@ class RouteOptimizationTest extends TestCase
         $user = User::factory()->create();
 
         $response = $this->actingAs($user)
-            ->postJson(route('api.route.optimize'), ['coordinates' => $this->validCoordinates()]);
+            ->postJson(route('api.tour.optimize'), ['coordinates' => $this->validCoordinates()]);
 
         $response->assertStatus(202)
             ->assertJson(['status' => 'pending'])
             ->assertJsonStructure(['status', 'job_uuid']);
 
-        Queue::assertPushed(OptimizeRouteJob::class, function (OptimizeRouteJob $job) use ($user): bool {
+        Queue::assertPushed(OptimizeTourJob::class, function (OptimizeTourJob $job) use ($user): bool {
             return $job->userId === $user->id && $job->jobUuid !== '';
         });
     }
@@ -75,49 +75,49 @@ class RouteOptimizationTest extends TestCase
         $user = User::factory()->create();
         $payload = ['coordinates' => $this->validCoordinates()];
 
-        $first = $this->actingAs($user)->postJson(route('api.route.optimize'), $payload);
-        $second = $this->actingAs($user)->postJson(route('api.route.optimize'), $payload);
+        $first = $this->actingAs($user)->postJson(route('api.tour.optimize'), $payload);
+        $second = $this->actingAs($user)->postJson(route('api.tour.optimize'), $payload);
 
         $first->assertStatus(202);
         $second->assertStatus(202)
             ->assertJson(['status' => 'pending', 'job_uuid' => $first->json('job_uuid')]);
 
         // Only the first request dispatched the expensive upstream job.
-        Queue::assertPushed(OptimizeRouteJob::class, 1);
+        Queue::assertPushed(OptimizeTourJob::class, 1);
     }
 
-    public function test_cache_hit_returns_200_with_route(): void
+    public function test_cache_hit_returns_200_with_tour(): void
     {
         $user = User::factory()->create();
         $coordinates = $this->validCoordinates();
 
-        $normalized = app(RouteNormalizer::class)->normalize($coordinates);
-        $route = ['ordered_stops' => [], 'total_distance_m' => 4200, 'total_duration_s' => 360];
-        app(RouteCache::class)->putResult($user->id, $normalized['hash'], $route);
+        $normalizedCoordinates = app(CoordinateNormalizer::class)->normalize($coordinates);
+        $tour = ['ordered_stops' => [], 'total_distance_m' => 4200, 'total_duration_s' => 360];
+        app(TourCache::class)->putTour($user->id, $normalizedCoordinates['hash'], $tour);
 
         $this->actingAs($user)
-            ->postJson(route('api.route.optimize'), ['coordinates' => $coordinates])
+            ->postJson(route('api.tour.optimize'), ['coordinates' => $coordinates])
             ->assertStatus(200)
-            ->assertJson(['status' => 'done', 'data' => $route]);
+            ->assertJson(['status' => 'done', 'data' => $tour]);
     }
 
-    public function test_result_endpoint_reports_status(): void
+    public function test_status_endpoint_reports_status(): void
     {
         $user = User::factory()->create();
-        app(RouteCache::class)->markPending('job-xyz');
+        app(TourCache::class)->markPending('job-xyz');
 
         $this->actingAs($user)
-            ->getJson(route('api.route.result', ['job_uuid' => 'job-xyz']))
+            ->getJson(route('api.tour.status', ['job_uuid' => 'job-xyz']))
             ->assertStatus(200)
             ->assertJson(['status' => 'pending']);
     }
 
-    public function test_result_endpoint_returns_404_for_unknown_job(): void
+    public function test_status_endpoint_returns_404_for_unknown_job(): void
     {
         $user = User::factory()->create();
 
         $this->actingAs($user)
-            ->getJson(route('api.route.result', ['job_uuid' => 'does-not-exist']))
+            ->getJson(route('api.tour.status', ['job_uuid' => 'does-not-exist']))
             ->assertStatus(404);
     }
 }

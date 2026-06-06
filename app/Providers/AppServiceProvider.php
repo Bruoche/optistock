@@ -48,7 +48,7 @@ class AppServiceProvider extends ServiceProvider
      */
     protected function configureRateLimiting(): void
     {
-        RateLimiter::for('route-optimize', static fn (Request $request): Limit => Limit::perMinute(10)
+        RateLimiter::for('tour-optimize', static fn (Request $request): Limit => Limit::perMinute(10)
             ->by((string) ($request->user()?->id ?: $request->ip())));
     }
 

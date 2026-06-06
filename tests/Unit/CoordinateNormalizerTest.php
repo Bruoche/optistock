@@ -2,17 +2,17 @@
 
 namespace Tests\Unit;
 
-use App\Services\RouteNormalizer;
+use App\Services\CoordinateNormalizer;
 use PHPUnit\Framework\TestCase;
 
-class RouteNormalizerTest extends TestCase
+class CoordinateNormalizerTest extends TestCase
 {
-    private RouteNormalizer $normalizer;
+    private CoordinateNormalizer $normalizer;
 
     protected function setUp(): void
     {
         parent::setUp();
-        $this->normalizer = new RouteNormalizer;
+        $this->normalizer = new CoordinateNormalizer;
     }
 
     public function test_it_rounds_coordinates_to_five_decimals(): void

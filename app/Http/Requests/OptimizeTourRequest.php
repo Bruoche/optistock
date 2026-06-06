@@ -5,10 +5,10 @@ namespace App\Http\Requests;
 use Illuminate\Foundation\Http\FormRequest;
 
 /**
- * Validates an optimization request: 2–10 coordinate pairs, each a
+ * Validates a tour-optimization request: 2–10 coordinate pairs, each a
  * `[lat, lng]` array with in-range numeric values.
  */
-class OptimizeRouteRequest extends FormRequest
+class OptimizeTourRequest extends FormRequest
 {
     public function authorize(): bool
     {
@@ -34,7 +34,7 @@ class OptimizeRouteRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'coordinates.min' => 'At least two coordinates are required for route optimization.',
+            'coordinates.min' => 'At least two coordinates are required for tour optimization.',
             'coordinates.max' => 'A maximum of 10 coordinates can be optimized at once.',
             'coordinates.*.size' => 'Each coordinate must be a [latitude, longitude] pair.',
             'coordinates.*.0.between' => 'Latitude must be between -90 and 90.',

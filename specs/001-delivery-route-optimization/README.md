@@ -122,7 +122,7 @@ npm run dev                             # Vite (frontend, when built)
 **Success detection**: presence of an `OPTIMIZATION` array (there is no
 `status` field). Error mapping in the client:
 
-| Condition | `RouteOptimizationException` code |
+| Condition | `TourOptimizationException` code |
 |---|---|
 | HTTP non-2xx | `api_error` |
 | Connection failure / timeout | `timeout` |
@@ -154,14 +154,14 @@ actual_work  ≤  job $timeout (660)  ≤  worker --timeout (690)  <  retry_afte
 |---|---|---|---|
 | HTTP connect | `OpenStreetTspClient` | 15s | fail fast on unreachable host |
 | HTTP read | `OpenStreetTspClient` | 600s | tolerate slow compute |
-| job `$timeout` | `OptimizeRouteJob` | 660s | from `services.openstreet.job_timeout` |
+| job `$timeout` | `OptimizeTourJob` | 660s | from `services.openstreet.job_timeout` |
 | worker `--timeout` | `queue:work` flag | 690s | **default is 60s — must override** |
 | `retry_after` | `config/queue.php` (database) | 720s | from `DB_QUEUE_RETRY_AFTER`; must exceed worker timeout, else the job is re-dispatched mid-flight → duplicate API calls |
 
 **Not literal "no timeout"**: removing limits lets a hung TCP connection block
 a worker forever with no failure broadcast — the frontend would spin
 indefinitely. The 600s read ceiling is the safety net: legitimate slow calls
-finish; truly-stuck ones fail cleanly → `RouteOptimizationFailed` broadcast.
+finish; truly-stuck ones fail cleanly → `TourOptimizationFailed` broadcast.
 To allow longer, raise `OPENSTREET_API_TIMEOUT`, `OPENSTREET_API_JOB_TIMEOUT`,
 `DB_QUEUE_RETRY_AFTER`, and the worker `--timeout` together, keeping the order.
 
@@ -172,9 +172,9 @@ To allow longer, raise `OPENSTREET_API_TIMEOUT`, `OPENSTREET_API_JOB_TIMEOUT`,
 All routes are under `/api`, `web` + `auth` middleware (session-cookie auth,
 same-origin Inertia — no API tokens).
 
-### `POST /api/route/optimize`  (`api.route.optimize`)
+### `POST /api/tour/optimize`  (`api.tour.optimize`)
 
-Throttled `route-optimize` (10/min/user).
+Throttled `tour-optimize` (10/min/user).
 
 ```json
 { "coordinates": [[49.8998757, 2.300284], [48.4510104, 6.7483327]] }
@@ -185,7 +185,7 @@ Throttled `route-optimize` (10/min/user).
 - **202** (cache miss): `{ "status": "pending", "job_uuid": "..." }` — job queued.
 - **401** unauthenticated · **422** validation · **429** rate limited.
 
-### `GET /api/route/result/{job_uuid}`  (`api.route.result`)
+### `GET /api/tour/status/{job_uuid}`  (`api.tour.status`)
 
 Polling fallback for the WebSocket.
 
@@ -196,16 +196,16 @@ Polling fallback for the WebSocket.
 
 ### WebSocket events (private channel `App.Models.User.{id}`)
 
-- `RouteOptimized` → `{ "job_uuid": "...", "data": { ...result } }`
-- `RouteOptimizationFailed` → `{ "job_uuid": "...", "error": { "code": "...", "message": "..." } }`
+- `TourOptimized` → `{ "job_uuid": "...", "data": { ...result } }`
+- `TourOptimizationFailed` → `{ "job_uuid": "...", "error": { "code": "...", "message": "..." } }`
 
 Error codes: `api_error`, `timeout`, `invalid_response`, `job_failed`.
 
 ### Cache keys (database store)
 
-- Result: `route:opt:{userId}:{hash}` — 24h. `hash` = sha256 of normalized,
+- Result: `tour:{userId}:{hash}` — 24h. `hash` = sha256 of normalized,
   order-independent coordinates (round 5 decimals, stable-sorted).
-- Status: `route:opt:pending:{jobUuid}` — 1h (`pending`/`done`/`failed`).
+- Status: `tour:status:{jobUuid}` — 1h (`pending`/`done`/`failed`).
 
 ---
 
@@ -214,7 +214,7 @@ Error codes: `api_error`, `timeout`, `invalid_response`, `job_failed`.
 ### 6.1 Tests
 
 ```powershell
-php artisan test --filter "RouteOptimization|OpenStreetTspClient|RouteCache|RouteNormalizer"
+php artisan test --filter "TourOptimization|OpenStreetTspClient|TourCache|CoordinateNormalizer"
 ```
 
 26 tests cover normalization, client mapping (incl. the verified schema),
@@ -238,14 +238,14 @@ from devtools console:
 
 ```js
 const csrf = decodeURIComponent(document.cookie.match(/XSRF-TOKEN=([^;]+)/)[1]);
-const r = await fetch('/api/route/optimize', {
+const r = await fetch('/api/tour/optimize', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-XSRF-TOKEN': csrf },
   body: JSON.stringify({ coordinates: [[49.8998757,2.300284],[48.4510104,6.7483327],[48.7830011,2.333158],[49.929876,1.078363]] }),
 });
 console.log(r.status, await r.json());   // 202 { status:'pending', job_uuid }
 // then poll:
-const res = await fetch('/api/route/result/PASTE_JOB_UUID', { headers: { 'Accept': 'application/json' } });
+const res = await fetch('/api/tour/status/PASTE_JOB_UUID', { headers: { 'Accept': 'application/json' } });
 console.log(await res.json());           // { status:'done', data:{...} }
 ```
 

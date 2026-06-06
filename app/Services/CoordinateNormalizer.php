@@ -8,10 +8,10 @@ namespace App\Services;
  *
  * Coordinates are rounded to {@see PRECISION} decimals (~1.1 m) and sorted, so
  * the same set of stops submitted in any order yields the same hash — letting
- * us serve a cached optimized route regardless of input ordering (TSP reorders
+ * us serve a cached optimized tour regardless of input ordering (TSP reorders
  * the stops anyway).
  */
-class RouteNormalizer
+class CoordinateNormalizer
 {
     /** Decimal places kept per coordinate (5 ≈ 1.1 m at the equator). */
     public const PRECISION = 5;
@@ -22,18 +22,18 @@ class RouteNormalizer
      */
     public function normalize(array $coordinates): array
     {
-        $normalized = array_map(static fn (array $pair): array => [
+        $normalizedCoordinates = array_map(static fn (array $pair): array => [
             'lat' => round((float) $pair[0], self::PRECISION),
             'lng' => round((float) $pair[1], self::PRECISION),
         ], array_values($coordinates));
 
         usort(
-            $normalized,
+            $normalizedCoordinates,
             static fn (array $a, array $b): int => [$a['lat'], $a['lng']] <=> [$b['lat'], $b['lng']],
         );
 
-        $hash = hash('sha256', (string) json_encode($normalized));
+        $hash = hash('sha256', (string) json_encode($normalizedCoordinates));
 
-        return ['coordinates' => $normalized, 'hash' => $hash];
+        return ['coordinates' => $normalizedCoordinates, 'hash' => $hash];
     }
 }

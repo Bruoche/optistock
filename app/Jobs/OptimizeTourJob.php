@@ -2,11 +2,11 @@
 
 namespace App\Jobs;
 
-use App\Events\RouteOptimizationFailed;
-use App\Events\RouteOptimized;
-use App\Exceptions\RouteOptimizationException;
+use App\Events\TourOptimizationFailed;
+use App\Events\TourOptimized;
+use App\Exceptions\TourOptimizationException;
 use App\Services\OpenStreetTspClient;
-use App\Services\RouteCache;
+use App\Services\TourCache;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -17,12 +17,12 @@ use Throwable;
 /**
  * Calls the (slow, unreliable) OpenStreet TSP API off the request cycle.
  *
- * On success: caches the route for 24h, records job status, and broadcasts
- * {@see RouteOptimized}. On a handled API failure or an unhandled crash
+ * On success: caches the tour for 24h, records job status, and broadcasts
+ * {@see TourOptimized}. On a handled API failure or an unhandled crash
  * ({@see failed()}), records the failure and broadcasts
- * {@see RouteOptimizationFailed} so the frontend never waits forever.
+ * {@see TourOptimizationFailed} so the frontend never waits forever.
  */
-class OptimizeRouteJob implements ShouldQueue
+class OptimizeTourJob implements ShouldQueue
 {
     use Dispatchable;
     use InteractsWithQueue;
@@ -54,22 +54,22 @@ class OptimizeRouteJob implements ShouldQueue
         $this->timeout = (int) config('services.openstreet.job_timeout', 1260);
     }
 
-    public function handle(OpenStreetTspClient $client, RouteCache $cache): void
+    public function handle(OpenStreetTspClient $client, TourCache $cache): void
     {
         try {
-            $result = $client->optimize($this->coordinates);
-        } catch (RouteOptimizationException $e) {
+            $tour = $client->optimize($this->coordinates);
+        } catch (TourOptimizationException $e) {
             $cache->clearInflight($this->userId, $this->hash);
             $cache->markFailed($this->jobUuid, $e->toPayload());
-            RouteOptimizationFailed::dispatch($this->userId, $this->jobUuid, $e->toPayload());
+            TourOptimizationFailed::dispatch($this->userId, $this->jobUuid, $e->toPayload());
 
             return;
         }
 
         $cache->clearInflight($this->userId, $this->hash);
-        $cache->putResult($this->userId, $this->hash, $result);
-        $cache->markDone($this->jobUuid, $result);
-        RouteOptimized::dispatch($this->userId, $this->jobUuid, $result);
+        $cache->putTour($this->userId, $this->hash, $tour);
+        $cache->markDone($this->jobUuid, $tour);
+        TourOptimized::dispatch($this->userId, $this->jobUuid, $tour);
     }
 
     /**
@@ -78,11 +78,11 @@ class OptimizeRouteJob implements ShouldQueue
      */
     public function failed(?Throwable $e): void
     {
-        $error = ['code' => 'job_failed', 'message' => $e?->getMessage() ?? 'Route optimization job failed.'];
+        $error = ['code' => 'job_failed', 'message' => $e?->getMessage() ?? 'Tour optimization job failed.'];
 
-        $cache = app(RouteCache::class);
+        $cache = app(TourCache::class);
         $cache->clearInflight($this->userId, $this->hash);
         $cache->markFailed($this->jobUuid, $error);
-        RouteOptimizationFailed::dispatch($this->userId, $this->jobUuid, $error);
+        TourOptimizationFailed::dispatch($this->userId, $this->jobUuid, $error);
     }
 }

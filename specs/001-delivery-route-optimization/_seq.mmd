@@ -14,9 +14,9 @@ sequenceDiagram
     W-->>F: 200 channel authorized
 
     U->>F: Submit coordinates
-    F->>W: POST /api/route/optimize (session cookie)
+    F->>W: POST /api/tour/optimize (session cookie)
     W->>W: validate + normalize (sha256 hash)
-    W->>DB: getResult(userId, hash)
+    W->>DB: getTour(userId, hash)
 
     alt Cache hit (instant)
         DB-->>W: cached route
@@ -33,7 +33,7 @@ sequenceDiagram
         else Won claim
             DB-->>W: claim ok
             W->>DB: markPending(jobUuid)
-            W->>DB: enqueue OptimizeRouteJob
+            W->>DB: enqueue OptimizeTourJob
             W-->>F: 202 {status: pending, job_uuid}
         end
         F-->>U: Show "optimizing…" (UI never blocks)
@@ -44,20 +44,20 @@ sequenceDiagram
 
         alt API success
             API-->>Q: optimized tour
-            Q->>DB: clearInflight + putResult(24h) + markDone
-            Q->>WS: push RouteOptimized (HTTP/Pusher, via broadcasts queue)
-            WS-->>F: RouteOptimized {job_uuid, data} (wss)
+            Q->>DB: clearInflight + putTour(24h) + markDone
+            Q->>WS: push TourOptimized (HTTP/Pusher, via broadcasts queue)
+            WS-->>F: TourOptimized {job_uuid, data} (wss)
             F-->>U: Render route the instant API answered
         else API failure / timeout / crash
             API-->>Q: error / timeout
             Q->>DB: clearInflight + markFailed
-            Q->>WS: push RouteOptimizationFailed
-            WS-->>F: RouteOptimizationFailed {job_uuid, error}
+            Q->>WS: push TourOptimizationFailed
+            WS-->>F: TourOptimizationFailed {job_uuid, error}
             F-->>U: Show error
         end
 
         opt WebSocket missed (fallback polling)
-            F->>W: GET /api/route/result/{job_uuid}
+            F->>W: GET /api/tour/status/{job_uuid}
             W->>DB: getStatus(jobUuid)
             DB-->>W: pending | done | failed
             W-->>F: 200 status (or 404)

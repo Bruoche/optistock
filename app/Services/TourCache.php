@@ -5,22 +5,22 @@ namespace App\Services;
 use Illuminate\Contracts\Cache\Repository as CacheRepository;
 
 /**
- * Owns all cache reads/writes for route optimization.
+ * Owns all cache reads/writes for tour optimization.
  *
- * Two distinct entries:
- *  - Result cache  `route:opt:{userId}:{hash}`  — the optimized route, kept for
+ * Three distinct entries:
+ *  - Tour cache    `tour:{userId}:{hash}`         — the optimized tour, kept for
  *    24h so identical coordinate sets are served instantly (HTTP 200 cache hit).
- *  - Job status    `route:opt:pending:{jobUuid}` — tracks a single async request
- *    so the polling endpoint (WebSocket fallback) can report pending/done/failed.
+ *  - Job status    `tour:status:{jobUuid}`        — tracks a single async request
+ *    so the status endpoint (WebSocket fallback) can report pending/done/failed.
  *    Kept for 1h: long enough to outlive processing, short enough to self-clean.
- *  - In-flight lock `route:opt:inflight:{userId}:{hash}` — maps a coordinate set
+ *  - In-flight lock `tour:inflight:{userId}:{hash}` — maps a coordinate set
  *    already being optimized to its jobUuid, so concurrent identical requests
  *    reuse the running job instead of firing a second (multi-minute) upstream
  *    call. TTL covers the worst-case job runtime so a crashed worker self-heals.
  */
-class RouteCache
+class TourCache
 {
-    private const RESULT_TTL_SECONDS = 86400; // 24 hours
+    private const TOUR_TTL_SECONDS = 86400; // 24 hours
 
     private const STATUS_TTL_SECONDS = 3600;  // 1 hour
 
@@ -29,19 +29,19 @@ class RouteCache
 
     public function __construct(private readonly CacheRepository $cache) {}
 
-    public function resultKey(int $userId, string $hash): string
+    public function tourKey(int $userId, string $hash): string
     {
-        return "route:opt:{$userId}:{$hash}";
+        return "tour:{$userId}:{$hash}";
     }
 
     public function statusKey(string $jobUuid): string
     {
-        return "route:opt:pending:{$jobUuid}";
+        return "tour:status:{$jobUuid}";
     }
 
     public function inflightKey(int $userId, string $hash): string
     {
-        return "route:opt:inflight:{$userId}:{$hash}";
+        return "tour:inflight:{$userId}:{$hash}";
     }
 
     /**
@@ -51,17 +51,17 @@ class RouteCache
      *     total_duration_s: int
      * }|null
      */
-    public function getResult(int $userId, string $hash): ?array
+    public function getTour(int $userId, string $hash): ?array
     {
-        return $this->cache->get($this->resultKey($userId, $hash));
+        return $this->cache->get($this->tourKey($userId, $hash));
     }
 
     /**
-     * @param  array<string, mixed>  $data
+     * @param  array<string, mixed>  $tour
      */
-    public function putResult(int $userId, string $hash, array $data): void
+    public function putTour(int $userId, string $hash, array $tour): void
     {
-        $this->cache->put($this->resultKey($userId, $hash), $data, self::RESULT_TTL_SECONDS);
+        $this->cache->put($this->tourKey($userId, $hash), $tour, self::TOUR_TTL_SECONDS);
     }
 
     public function markPending(string $jobUuid): void
@@ -74,13 +74,13 @@ class RouteCache
     }
 
     /**
-     * @param  array<string, mixed>  $data
+     * @param  array<string, mixed>  $tour
      */
-    public function markDone(string $jobUuid, array $data): void
+    public function markDone(string $jobUuid, array $tour): void
     {
         $this->cache->put(
             $this->statusKey($jobUuid),
-            ['status' => 'done', 'data' => $data],
+            ['status' => 'done', 'data' => $tour],
             self::STATUS_TTL_SECONDS,
         );
     }

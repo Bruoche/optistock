@@ -44,8 +44,8 @@ Fields:
 Success detection: presence of an `OPTIMIZATION` array. No `status` field exists. Any payload lacking `OPTIMIZATION` → `invalid_response`; HTTP non-2xx → `api_error`; connection failure/timeout → `timeout`.
 
 **Broadcast Payload Schema**:
-- Success event (`RouteOptimized`): `{ "job_uuid": "...", "data": { "ordered_stops": [{"lat": 0.0, "lng": 0.0, "order": 0}], "total_distance_m": 450000, "total_duration_s": 18000 } }`
-- Failure event (`RouteOptimizationFailed`): `{ "job_uuid": "...", "error": { "code": "api_error|timeout|invalid_response|job_failed", "message": "..." } }`
+- Success event (`TourOptimized`): `{ "job_uuid": "...", "data": { "ordered_stops": [{"lat": 0.0, "lng": 0.0, "order": 0}], "total_distance_m": 450000, "total_duration_s": 18000 } }`
+- Failure event (`TourOptimizationFailed`): `{ "job_uuid": "...", "error": { "code": "api_error|timeout|invalid_response|job_failed", "message": "..." } }`
 
 **Constraints**: External OpenStreet TSP API can be slow (minutes for large point sets) or unreliable — must be called only from background jobs. `OpenStreetTspClient` uses a split timeout: connect=15s (fail fast on dead host), read=600s (tolerate slow compute), retries=1 (exponential backoff). Timeout layers must stay ordered `read < job $timeout < worker --timeout < retry_after` (see README). API credentials stored in `.env`, never returned to clients.
 
@@ -57,33 +57,33 @@ This plan follows the project constitution: readable code, defensive error handl
 
 ## Project Structure (feature-specific)
 
-- `app/Http/Controllers/RouteOptimizationController.php`
-- `app/Jobs/OptimizeRouteJob.php`
-- `app/Services/RouteNormalizer.php`
+- `app/Http/Controllers/TourOptimizationController.php`
+- `app/Jobs/OptimizeTourJob.php`
+- `app/Services/CoordinateNormalizer.php`
 - `app/Services/OpenStreetTspClient.php`
-- `app/Services/RouteCache.php`
-- `routes/api.php` (POST `/api/route/optimize`, GET `/api/route/result/{job_uuid}`)
-- `resources/js/routes/` (React: `OptimizeRouteForm.tsx`, `RouteResult.tsx`)
-- `tests/Feature/RouteOptimizationTest.php`
-- `tests/Feature/RouteOptimizationBroadcastTest.php`
-- `tests/Unit/RouteNormalizerTest.php`
+- `app/Services/TourCache.php`
+- `routes/api.php` (POST `/api/tour/optimize`, GET `/api/tour/status/{job_uuid}`)
+- `resources/js/routes/` (React: `OptimizeTourForm.tsx`, `RouteResult.tsx`)
+- `tests/Feature/TourOptimizationTest.php`
+- `tests/Feature/TourOptimizationBroadcastTest.php`
+- `tests/Unit/CoordinateNormalizerTest.php`
 
 ## Flow (detailed)
 
-1. Frontend sends POST `/api/route/optimize` with array of `[lat, lng]` coordinate pairs and user auth token. Coordinates are entered directly by the user; geocoding is out of scope.
-2. Controller validates and calls `RouteNormalizer::normalize()` to round and stable-sort coordinates to 5 decimal places.
-3. Normalizer returns a canonical list and `sha256` hash used as cache key: `route:opt:{user_id}:{hash}`.
+1. Frontend sends POST `/api/tour/optimize` with array of `[lat, lng]` coordinate pairs and user auth token. Coordinates are entered directly by the user; geocoding is out of scope.
+2. Controller validates and calls `CoordinateNormalizer::normalize()` to round and stable-sort coordinates to 5 decimal places.
+3. Normalizer returns a canonical list and `sha256` hash used as cache key: `tour:{user_id}:{hash}`.
 4. Controller checks Redis cache; if hit, return 200 with cached data.
-5. If miss, generate a Job UUID, `OptimizeRouteJob::dispatch()` with UUID, user ID, and canonical payload; store a small placeholder in Redis with status 'pending' and short TTL (e.g., 1 hour) to avoid immediate requeues.
+5. If miss, generate a Job UUID, `OptimizeTourJob::dispatch()` with UUID, user ID, and canonical payload; store a small placeholder in Redis with status 'pending' and short TTL (e.g., 1 hour) to avoid immediate requeues.
 6. Return HTTP 202 with `job_uuid` immediately.
-7. `OptimizeRouteJob` calls `OpenStreetTspClient` using credentials from `.env`; on success store full result in Redis with 24-hour TTL and publish broadcast event on channel `private-user.{id}` with payload `{ job_uuid, data }`.
+7. `OptimizeTourJob` calls `OpenStreetTspClient` using credentials from `.env`; on success store full result in Redis with 24-hour TTL and publish broadcast event on channel `private-user.{id}` with payload `{ job_uuid, data }`.
 8. On failure, job stores an error record and broadcasts a failure event `{ job_uuid, error }` to `private-user.{id}`.
-9. Frontend subscribes to `private-user.{id}` and filters events by `job_uuid`; also shows immediate 202 UI and optionally poll for cache result (long-poll or GET `/api/route/result/{job_uuid}`) if WS unavailable.
+9. Frontend subscribes to `private-user.{id}` and filters events by `job_uuid`; also shows immediate 202 UI and optionally poll for cache result (long-poll or GET `/api/tour/status/{job_uuid}`) if WS unavailable.
 
 ## Security & Rate Limiting
 
 - Use Laravel BroadcastAuth to ensure `private-user.{id}` channels require auth and match current user ID.
-- Rate limit POST `/api/route/optimize` to 10/min per authenticated user via `ThrottleRequests` middleware and/or custom limiter in `RouteServiceProvider`.
+- Rate limit POST `/api/tour/optimize` to 10/min per authenticated user via `ThrottleRequests` middleware and/or custom limiter in `RouteServiceProvider`.
 - Validate inputs strictly (coordinate arrays, min 2 points, max N points — default N=10).
 
 ## Error Handling & Observability
@@ -95,14 +95,14 @@ This plan follows the project constitution: readable code, defensive error handl
 ## Environment & Configuration
 
 - `.env` entries: `OPENSTREET_API_URL=https://maps.open-street.com/api/tsp/`, `OPENSTREET_API_KEY`, `REDIS_URL`, `BROADCAST_DRIVER=reverb`, `QUEUE_CONNECTION=redis`, `REVERB_APP_ID`, `REVERB_APP_KEY`, `REVERB_APP_SECRET`, `REVERB_HOST`, `REVERB_PORT=8080`.
-- Redis key prefixes: `route:opt:{user_id}:{hash}` for results; `route:opt:pending:{job_uuid}` for pending markers.
+- Redis key prefixes: `tour:{user_id}:{hash}` for results; `tour:status:{job_uuid}` for pending markers.
 
 ## Tasks (high-level)
 
 - Implement API endpoint and validation
-- Implement `RouteNormalizer` and hashing
+- Implement `CoordinateNormalizer` and hashing
 - Add Redis cache checks and TTL
-- Create `OptimizeRouteJob` background worker
+- Create `OptimizeTourJob` background worker
 - Implement `OpenStreetTspClient` with robust retries and timeouts
 - Integrate broadcasting on job success/failure
 - Add frontend components and WS handling
@@ -119,7 +119,7 @@ This plan follows the project constitution: readable code, defensive error handl
 
 ## Next Steps
 
-1. Implement `RouteNormalizer` and unit tests
+1. Implement `CoordinateNormalizer` and unit tests
 2. Add API endpoint and cache lookup
 3. Implement job and external client
 4. Implement frontend hooks and broadcasting

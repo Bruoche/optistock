@@ -9,17 +9,17 @@ use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 
 /**
- * Broadcast to the requesting user once their optimized route is ready.
+ * Broadcast to the requesting user once their optimized tour is ready.
  *
  * The frontend subscribes to its private user channel and filters incoming
  * events by `job_uuid` to match the request it is waiting on.
  *
  * Queued (ShouldBroadcast, not ShouldBroadcastNow) on purpose: the Reverb push
- * runs in a separate broadcast job, decoupled from OptimizeRouteJob's critical
+ * runs in a separate broadcast job, decoupled from OptimizeTourJob's critical
  * path. A Reverb outage can therefore never throw inside the optimization job
  * and flip an already-cached successful result to "failed".
  */
-class RouteOptimized implements ShouldBroadcast
+class TourOptimized implements ShouldBroadcast
 {
     use Dispatchable;
     use InteractsWithSockets;
@@ -48,12 +48,12 @@ class RouteOptimized implements ShouldBroadcast
 
     public function broadcastAs(): string
     {
-        return 'RouteOptimized';
+        return 'TourOptimized';
     }
 
     /**
      * Push on a dedicated queue so the user-facing notification is never stuck
-     * behind multi-minute OptimizeRouteJob runs on the default queue. Run a
+     * behind multi-minute OptimizeTourJob runs on the default queue. Run a
      * worker for it: `php artisan queue:work --queue=broadcasts`.
      */
     public function broadcastQueue(): string
