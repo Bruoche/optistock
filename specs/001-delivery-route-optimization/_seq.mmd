@@ -19,9 +19,9 @@ sequenceDiagram
     W->>DB: getTour(userId, hash)
 
     alt Cache hit (instant)
-        DB-->>W: cached route
+        DB-->>W: cached tour
         W-->>F: 200 {status: done, data}
-        F-->>U: Render route immediately
+        F-->>U: Render tour immediately
     else Cache miss (async)
         DB-->>W: null
         W->>DB: claimActiveJob(userId, hash, jobUuid) [atomic add]
@@ -47,7 +47,7 @@ sequenceDiagram
             Q->>DB: releaseActiveJob + putTour(24h) + markDone
             Q->>WS: push TourOptimized (HTTP/Pusher, via broadcasts queue)
             WS-->>F: TourOptimized {job_uuid, data} (wss)
-            F-->>U: Render route the instant API answered
+            F-->>U: Render tour the instant API answered
         else API failure / timeout / crash
             API-->>Q: error / timeout
             Q->>DB: releaseActiveJob + markFailed

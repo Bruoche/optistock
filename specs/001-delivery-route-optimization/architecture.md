@@ -32,27 +32,27 @@ talking to one external optimizer.
 
 | Container | Tech | Role |
 |---|---|---|
-| **Frontend** | Inertia + React | Submit stops, render route, receive live updates |
+| **Frontend** | Inertia + React | Submit stops, render tour, receive live updates |
 | **Web App** | Laravel (HTTP) | Validate, check cache, enqueue work, respond — never calls the slow API |
 | **Queue Worker** | Laravel queue | Optimize off the request: call the API, cache, broadcast |
-| **WebSocket Server** | Laravel Reverb | Push the finished route to the browser |
+| **WebSocket Server** | Laravel Reverb | Push the finished tour to the browser |
 | **Database** | SQLite / MySQL | Cache, job queue, sessions |
 
 ```mermaid
 C4Container
     title Containers — Optistock (Monolith codebase)
 
-    Person(user, "Delivery planner", "Submits stops, gets optimized route")
+    Person(user, "Delivery planner", "Submits stops, gets optimized tour")
 
 
     System_Boundary(optistock, "Optistock") {
         System_Boundary(backend, "Back-End") {
             Container(web, "Web App", "Laravel (HTTP)", "Validate, check cache, enqueue, respond")
             Container(worker, "Queue Worker", "Laravel queue", "Optimize off the request: call API, cache, broadcast")
-            Container(reverb, "WebSocket Server", "Laravel Reverb", "Push the finished route to the browser")
+            Container(reverb, "WebSocket Server", "Laravel Reverb", "Push the finished tour to the browser")
         }
         ContainerDb(db, "Database", "SQLite / MySQL", "Cache, queue, sessions")
-        Container(spa, "Frontend", "Inertia + React", "Submit stops, render route, live updates")
+        Container(spa, "Frontend", "Inertia + React", "Submit stops, render tour, live updates")
     }
 
     System_Ext(osm, "OpenStreet TSP API", "External route optimizer (slow)")
@@ -134,7 +134,7 @@ flux enters and exits.
 C4Component
     title Optimization flow — back-end business components
 
-    Container(spa, "Frontend", "SPA", "Enter: submit / Exit: render route")
+    Container(spa, "Frontend", "SPA", "Enter: submit / Exit: render tour")
     ContainerDb(db, "Database", "Cache + queue", "")
     Container(reverb, "WebSocket Server", "Laravel Reverb", "")
     System_Ext(osm, "OpenStreet TSP API", "External optimizer")
@@ -197,12 +197,12 @@ sequenceDiagram
 
     U->>F: Submit coordinates
     F->>W: POST /api/tour/optimize
-    W->>DB: look up cached route (by hash)
+    W->>DB: look up cached tour (by hash)
 
     alt Cache hit
-        DB-->>W: cached route
+        DB-->>W: cached tour
         W-->>F: 200 {done, data}
-        F-->>U: Render route immediately
+        F-->>U: Render tour immediately
     else Cache miss
         DB-->>W: not found
         W->>DB: enqueue OptimizeTourJob
@@ -217,7 +217,7 @@ sequenceDiagram
         BW->>DB: reserve broadcast job
         BW->>WS: push TourOptimized (HTTP/Pusher)
         WS->>F: TourOptimized {job_uuid, data}
-        F-->>U: Render route the instant API answered
+        F-->>U: Render tour the instant API answered
     end
 ```
 
@@ -234,7 +234,7 @@ core async flow legible.
   hop; no client polling delay on the happy path.
 - Broadcasts ride a **dedicated `broadcasts` queue** — notification delivery never
   waits behind another long optimization job.
-- Polling (`GET result`) is a **fallback only**, for a dropped WS connection.
+- Polling (`GET /api/tour/status`) is a **fallback only**, for a dropped WS connection.
 
 ---
 
@@ -252,7 +252,7 @@ core async flow legible.
   (`services.openstreet.job_timeout`); `DB_QUEUE_RETRY_AFTER=1320` must exceed the worker timeout
   so a still-running job is never re-reserved and run twice.
 - **Order-independent caching**: the normalized sha256 hash means the same stop
-  set in any order reuses a cached route.
+  set in any order reuses a cached tour.
 - **Concurrent-request dedup**: an atomic active-job lock (`claimActiveJob`, keyed by
   `{userId}:{hash}`) ensures two simultaneous identical requests share one upstream
   call — the loser reuses the winner's `job_uuid`. The job clears the lock on every

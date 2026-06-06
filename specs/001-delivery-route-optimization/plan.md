@@ -63,7 +63,7 @@ This plan follows the project constitution: readable code, defensive error handl
 - `app/Services/OpenStreetTspClient.php`
 - `app/Services/TourCache.php`
 - `routes/api.php` (POST `/api/tour/optimize`, GET `/api/tour/status/{job_uuid}`)
-- `resources/js/routes/` (React: `OptimizeTourForm.tsx`, `RouteResult.tsx`)
+- `resources/js/routes/` (React: `OptimizeTourForm.tsx`, `TourResult.tsx`)
 - `tests/Feature/TourOptimizationTest.php`
 - `tests/Feature/TourOptimizationBroadcastTest.php`
 - `tests/Unit/CoordinateNormalizerTest.php`
