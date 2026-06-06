@@ -24,10 +24,10 @@ sequenceDiagram
         F-->>U: Render route immediately
     else Cache miss (async)
         DB-->>W: null
-        W->>DB: claimInflight(userId, hash, jobUuid) [atomic add]
+        W->>DB: claimActiveJob(userId, hash, jobUuid) [atomic add]
         alt Lost claim — identical request already running
             DB-->>W: claim refused
-            W->>DB: getInflight(userId, hash)
+            W->>DB: getActiveJob(userId, hash)
             DB-->>W: existing jobUuid
             W-->>F: 202 {status: pending, job_uuid} (reused)
         else Won claim
@@ -44,13 +44,13 @@ sequenceDiagram
 
         alt API success
             API-->>Q: optimized tour
-            Q->>DB: clearInflight + putTour(24h) + markDone
+            Q->>DB: releaseActiveJob + putTour(24h) + markDone
             Q->>WS: push TourOptimized (HTTP/Pusher, via broadcasts queue)
             WS-->>F: TourOptimized {job_uuid, data} (wss)
             F-->>U: Render route the instant API answered
         else API failure / timeout / crash
             API-->>Q: error / timeout
-            Q->>DB: clearInflight + markFailed
+            Q->>DB: releaseActiveJob + markFailed
             Q->>WS: push TourOptimizationFailed
             WS-->>F: TourOptimizationFailed {job_uuid, error}
             F-->>U: Show error

@@ -40,8 +40,8 @@ class TourOptimizationController extends Controller
         // coordinate set is already running, reuse its job_uuid instead of firing
         // a second multi-minute upstream call. The frontend can wait on the same
         // broadcast / poll the same status.
-        if (! $cache->claimInflight($userId, $normalizedCoordinates['hash'], $jobUuid)) {
-            if ($existingJobUuid = $cache->getInflight($userId, $normalizedCoordinates['hash'])) {
+        if (! $cache->claimActiveJob($userId, $normalizedCoordinates['hash'], $jobUuid)) {
+            if ($existingJobUuid = $cache->getActiveJob($userId, $normalizedCoordinates['hash'])) {
                 return response()->json(['status' => 'pending', 'job_uuid' => $existingJobUuid], 202);
             }
         }

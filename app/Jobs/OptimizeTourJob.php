@@ -59,14 +59,14 @@ class OptimizeTourJob implements ShouldQueue
         try {
             $tour = $client->optimize($this->coordinates);
         } catch (TourOptimizationException $e) {
-            $cache->clearInflight($this->userId, $this->coordinatesHash);
+            $cache->releaseActiveJob($this->userId, $this->coordinatesHash);
             $cache->markFailed($this->jobUuid, $e->toPayload());
             TourOptimizationFailed::dispatch($this->userId, $this->jobUuid, $e->toPayload());
 
             return;
         }
 
-        $cache->clearInflight($this->userId, $this->coordinatesHash);
+        $cache->releaseActiveJob($this->userId, $this->coordinatesHash);
         $cache->putTour($this->userId, $this->coordinatesHash, $tour);
         $cache->markDone($this->jobUuid, $tour);
         TourOptimized::dispatch($this->userId, $this->jobUuid, $tour);
@@ -81,7 +81,7 @@ class OptimizeTourJob implements ShouldQueue
         $error = ['code' => 'job_failed', 'message' => $e?->getMessage() ?? 'Tour optimization job failed.'];
 
         $cache = app(TourCache::class);
-        $cache->clearInflight($this->userId, $this->coordinatesHash);
+        $cache->releaseActiveJob($this->userId, $this->coordinatesHash);
         $cache->markFailed($this->jobUuid, $error);
         TourOptimizationFailed::dispatch($this->userId, $this->jobUuid, $error);
     }

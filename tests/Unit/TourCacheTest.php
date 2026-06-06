@@ -41,19 +41,19 @@ class TourCacheTest extends TestCase
         $this->assertNull($this->cache->getTour(2, 'hash'));
     }
 
-    public function test_inflight_claim_is_exclusive_until_cleared(): void
+    public function test_active_job_claim_is_exclusive_until_cleared(): void
     {
-        $this->assertNull($this->cache->getInflight(1, 'hash'));
+        $this->assertNull($this->cache->getActiveJob(1, 'hash'));
 
-        $this->assertTrue($this->cache->claimInflight(1, 'hash', 'job-a'));
+        $this->assertTrue($this->cache->claimActiveJob(1, 'hash', 'job-a'));
         // Second claim for the same set loses; the original owner stands.
-        $this->assertFalse($this->cache->claimInflight(1, 'hash', 'job-b'));
-        $this->assertSame('job-a', $this->cache->getInflight(1, 'hash'));
+        $this->assertFalse($this->cache->claimActiveJob(1, 'hash', 'job-b'));
+        $this->assertSame('job-a', $this->cache->getActiveJob(1, 'hash'));
 
-        $this->cache->clearInflight(1, 'hash');
-        $this->assertNull($this->cache->getInflight(1, 'hash'));
+        $this->cache->releaseActiveJob(1, 'hash');
+        $this->assertNull($this->cache->getActiveJob(1, 'hash'));
         // After clearing, a fresh set can be claimed again.
-        $this->assertTrue($this->cache->claimInflight(1, 'hash', 'job-c'));
+        $this->assertTrue($this->cache->claimActiveJob(1, 'hash', 'job-c'));
     }
 
     public function test_status_transitions_pending_done_failed(): void

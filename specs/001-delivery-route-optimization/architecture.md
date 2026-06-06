@@ -125,7 +125,7 @@ flux enters and exits.
 |---|---|
 | **TourOptimizationController** | Entry: cache-check → enqueue → respond |
 | **CoordinateNormalizer** | Canonical coordinates + hash → order-independent cache key |
-| **TourCache** | Cache hit/miss, and dedup of identical in-flight requests |
+| **TourCache** | Cache hit/miss, and dedup of identical active-job requests |
 | **OptimizeTourJob** | Runs the optimization off the request cycle |
 | **OpenStreetTspClient** | Calls the external API, maps the optimized tour |
 | **Broadcast Events** | Push the result back to the browser |
@@ -221,7 +221,7 @@ sequenceDiagram
     end
 ```
 
-The full diagram also covers concurrent-request dedup (atomic in-flight
+The full diagram also covers concurrent-request dedup (atomic active-job
 lock), API-failure broadcast, and the WebSocket-miss polling fallback —
 see *Key architectural decisions* below. They are omitted here to keep the
 core async flow legible.
@@ -253,7 +253,7 @@ core async flow legible.
   so a still-running job is never re-reserved and run twice.
 - **Order-independent caching**: the normalized sha256 hash means the same stop
   set in any order reuses a cached route.
-- **Concurrent-request dedup**: an atomic in-flight lock (`claimInflight`, keyed by
+- **Concurrent-request dedup**: an atomic active-job lock (`claimActiveJob`, keyed by
   `{userId}:{hash}`) ensures two simultaneous identical requests share one upstream
   call — the loser reuses the winner's `job_uuid`. The job clears the lock on every
   exit (success / handled failure / crash); the lock's TTL (1380s) self-heals a dead

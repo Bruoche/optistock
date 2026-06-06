@@ -13,7 +13,7 @@ use Illuminate\Contracts\Cache\Repository as CacheRepository;
  *  - Job status    `tour:status:{jobUuid}`        — tracks a single async request
  *    so the status endpoint (WebSocket fallback) can report pending/done/failed.
  *    Kept for 1h: long enough to outlive processing, short enough to self-clean.
- *  - In-flight lock `tour:inflight:{userId}:{hash}` — maps a coordinate set
+ *  - Active-job lock `tour:active:{userId}:{hash}` — maps a coordinate set
  *    already being optimized to its jobUuid, so concurrent identical requests
  *    reuse the running job instead of firing a second (multi-minute) upstream
  *    call. TTL covers the worst-case job runtime so a crashed worker self-heals.
@@ -25,7 +25,7 @@ class TourCache
     private const STATUS_TTL_SECONDS = 3600;  // 1 hour
 
     /** ≥ worst-case job runtime; auto-expires if a worker dies without clearing. */
-    private const INFLIGHT_TTL_SECONDS = 1380;
+    private const ACTIVE_JOB_TTL_SECONDS = 1380;
 
     public function __construct(private readonly CacheRepository $cache) {}
 
@@ -39,9 +39,9 @@ class TourCache
         return "tour:status:{$jobUuid}";
     }
 
-    public function inflightKey(int $userId, string $coordinatesHash): string
+    public function activeJobKey(int $userId, string $coordinatesHash): string
     {
-        return "tour:inflight:{$userId}:{$coordinatesHash}";
+        return "tour:active:{$userId}:{$coordinatesHash}";
     }
 
     /**
@@ -106,26 +106,26 @@ class TourCache
     }
 
     /**
-     * Atomically claim the in-flight slot for a coordinate set. Returns true if
+     * Atomically claim the active-job slot for a coordinate set. Returns true if
      * this caller won the slot (and should dispatch the job), false if another
-     * request already owns it (the caller should reuse {@see getInflight}).
+     * request already owns it (the caller should reuse {@see getActiveJob}).
      */
-    public function claimInflight(int $userId, string $coordinatesHash, string $jobUuid): bool
+    public function claimActiveJob(int $userId, string $coordinatesHash, string $jobUuid): bool
     {
         return $this->cache->add(
-            $this->inflightKey($userId, $coordinatesHash),
+            $this->activeJobKey($userId, $coordinatesHash),
             $jobUuid,
-            self::INFLIGHT_TTL_SECONDS,
+            self::ACTIVE_JOB_TTL_SECONDS,
         );
     }
 
-    public function getInflight(int $userId, string $coordinatesHash): ?string
+    public function getActiveJob(int $userId, string $coordinatesHash): ?string
     {
-        return $this->cache->get($this->inflightKey($userId, $coordinatesHash));
+        return $this->cache->get($this->activeJobKey($userId, $coordinatesHash));
     }
 
-    public function clearInflight(int $userId, string $coordinatesHash): void
+    public function releaseActiveJob(int $userId, string $coordinatesHash): void
     {
-        $this->cache->forget($this->inflightKey($userId, $coordinatesHash));
+        $this->cache->forget($this->activeJobKey($userId, $coordinatesHash));
     }
 }
