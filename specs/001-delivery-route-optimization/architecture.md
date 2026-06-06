@@ -2,7 +2,8 @@
 
 # C4 Model
 
-Describes the feature at **C4 Level 2 (Containers)** and **Level 3 (Components)**.
+Describes the feature as C4 **containers** (Level 2) and **components** (Level 3),
+plus a **deployment** view and a runtime **sequence**.
 Derived from the implemented code (branch `001-delivery-route-optimization`),
 verified 2026-06-05. Pairs with `README.md` (ops) and `plan.md` (rationale).
 
@@ -175,9 +176,9 @@ delivered over WebSocket the moment the API answers.
 
 Two threads run independently after the `202`:
 
-- **Request thread (C2)** — returns in milliseconds, never touches the external API.
-- **Worker thread (C3)** — owns the seconds-to-minutes external call, then pushes
-  the result back through the WebSocket Server (Laravel Reverb, C4) over the
+- **Request thread** — returns in milliseconds, never touches the external API.
+- **Worker thread** — owns the seconds-to-minutes external call, then pushes
+  the result back through the WebSocket Server (Laravel Reverb) over the
   already-open WebSocket.
 
 ```mermaid
@@ -185,12 +186,12 @@ sequenceDiagram
     autonumber
     actor U as Delivery planner
     participant F as Frontend (SPA)
-    participant W as Web App (C2)
+    participant W as Web App
     participant DB as Database (cache/queue)
-    participant Q as Optimization Worker (C3)
+    participant Q as Optimization Worker
     participant API as OpenStreet TSP API
-    participant BW as Broadcast Worker (C3b)
-    participant WS as WebSocket Server (C4)
+    participant BW as Broadcast Worker
+    participant WS as WebSocket Server
 
     Note over F,WS: WebSocket already open from page load
 
@@ -209,13 +210,13 @@ sequenceDiagram
         F-->>U: Show "optimizing…" (UI never blocks)
 
         Note over Q,API: Background — request already returned
-        DB->>Q: reserve OptimizeRouteJob (from queue)
+        Q->>DB: reserve OptimizeRouteJob (from queue)
         Q->>API: GET /api/tsp (slow call)
         API-->>Q: optimized tour
         Q->>DB: cache result + queue broadcast
-        DB-->>BW: reserve broadcast job
+        BW->>DB: reserve broadcast job
         BW->>WS: push RouteOptimized (HTTP/Pusher)
-        WS-->>F: RouteOptimized {job_uuid, data}
+        WS->>F: RouteOptimized {job_uuid, data}
         F-->>U: Render route the instant API answered
     end
 ```
