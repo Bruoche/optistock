@@ -104,9 +104,10 @@ C4Deployment
     Rel(spa, web, "Submit / poll", "HTTPS")
     Rel(spa, reverb, "Subscribe / receive", "WebSocket")
     Rel(web, db, "Cache + enqueue", "SQL")
-    Rel(worker, db, "Read job, cache result", "SQL")
+    Rel(worker, db, "Reserve job, cache result, queue broadcast", "SQL")
     Rel(worker, osm, "Optimize request", "HTTPS")
-    Rel(worker, reverb, "Push result", "HTTP")
+    Rel(bworker, db, "Reserve broadcast job", "SQL")
+    Rel(bworker, reverb, "Push event", "HTTP / Pusher")
 ```
 
 ---
@@ -186,8 +187,9 @@ sequenceDiagram
     participant F as Frontend (SPA)
     participant W as Web App (C2)
     participant DB as Database (cache/queue)
-    participant Q as Queue Worker (C3)
+    participant Q as Optimization Worker (C3)
     participant API as OpenStreet TSP API
+    participant BW as Broadcast Worker (C3b)
     participant WS as WebSocket Server (C4)
 
     Note over F,WS: WebSocket already open from page load
@@ -207,10 +209,12 @@ sequenceDiagram
         F-->>U: Show "optimizing…" (UI never blocks)
 
         Note over Q,API: Background — request already returned
+        DB->>Q: reserve OptimizeRouteJob (from queue)
         Q->>API: GET /api/tsp (slow call)
         API-->>Q: optimized tour
-        Q->>DB: cache result
-        Q->>WS: push RouteOptimized
+        Q->>DB: cache result + queue broadcast
+        DB-->>BW: reserve broadcast job
+        BW->>WS: push RouteOptimized (HTTP/Pusher)
         WS-->>F: RouteOptimized {job_uuid, data}
         F-->>U: Render route the instant API answered
     end
