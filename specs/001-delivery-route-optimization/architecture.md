@@ -123,7 +123,8 @@ flux enters and exits.
 
 | Class | Role |
 |---|---|
-| **TourOptimizationController** | Entry: normalize → hash → cache-check → enqueue → respond |
+| **TourOptimizationController** | HTTP entry: delegate to the service, translate the result into 200/202 |
+| **TourOptimizationService** | Orchestrates: normalize → hash → cache-check → dedup → dispatch; returns ready-or-pending |
 | **CoordinateNormalizer** | Rounds + stable-sorts coordinates into a canonical, order-independent form |
 | **TourCache** | Cache hit/miss, and dedup of identical active-job requests |
 | **OptimizeTourJob** | Runs the optimization off the request cycle |
@@ -140,9 +141,10 @@ C4Component
     System_Ext(osm, "OpenStreet TSP API", "External optimizer")
 
     Container_Boundary(web, "Web App — request side") {
-        Component(ctrl, "TourOptimizationController", "Controller", "Normalize → hash → cache-check → enqueue")
+        Component(ctrl, "TourOptimizationController", "Controller", "HTTP translate → 200/202")
+        Component(svc, "TourOptimizationService", "Service", "Normalize → hash → cache → dedup → dispatch")
         Component(norm, "CoordinateNormalizer", "Service", "Round 5dp + stable-sort → canonical coords")
-        Component(cache, "TourCache", "Service", "Cache hit/miss + request dedup")
+        Component(cache, "TourCache", "Service", "Cache hit/miss + active-job dedup")
     }
 
     Container_Boundary(worker, "Queue Worker — async side") {
@@ -152,16 +154,17 @@ C4Component
     }
 
     Rel(spa, ctrl, "Submit coordinates")
-    Rel(ctrl, norm, "Normalize → key")
-    Rel(ctrl, cache, "Hit → respond / Miss → enqueue")
-    Rel(ctrl, job, "Dispatch")
+    Rel(ctrl, svc, "optimize() / jobStatus()")
+    Rel(svc, norm, "Normalize")
+    Rel(svc, cache, "Get tour / claim job")
+    Rel(svc, job, "Dispatch")
     Rel(cache, db, "Get / put", "SQL")
     Rel(job, client, "Optimize")
     Rel(client, osm, "Get tour", "HTTPS")
     Rel(job, cache, "Store result")
     Rel(job, evt, "Dispatch result")
     Rel(evt, reverb, "Push")
-    Rel(reverb, spa, "Deliver route")
+    Rel(reverb, spa, "Deliver tour")
 ```
 
 # Sequence Diagram

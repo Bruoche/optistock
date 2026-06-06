@@ -57,7 +57,9 @@ This plan follows the project constitution: readable code, defensive error handl
 
 ## Project Structure (feature-specific)
 
-- `app/Http/Controllers/TourOptimizationController.php`
+- `app/Http/Controllers/TourOptimizationController.php` (thin — HTTP translation only)
+- `app/Services/TourOptimizationService.php` (orchestrates the request flow)
+- `app/Services/TourOptimizationResult.php` (ready-or-pending result DTO)
 - `app/Jobs/OptimizeTourJob.php`
 - `app/Services/CoordinateNormalizer.php`
 - `app/Services/OpenStreetTspClient.php`
@@ -71,11 +73,11 @@ This plan follows the project constitution: readable code, defensive error handl
 ## Flow (detailed)
 
 1. Frontend sends POST `/api/tour/optimize` with array of `[lat, lng]` coordinate pairs and user auth token. Coordinates are entered directly by the user; geocoding is out of scope.
-2. Controller validates and calls `CoordinateNormalizer::normalize()` to round and stable-sort coordinates to 5 decimal places.
-3. The controller then sha256-hashes that canonical list into the cache key: `tour:{hash}`.
-4. Controller checks Redis cache; if hit, return 200 with cached data.
-5. If miss, generate a Job UUID, `OptimizeTourJob::dispatch()` with UUID, user ID, and canonical payload; store a small placeholder in Redis with status 'pending' and short TTL (e.g., 1 hour) to avoid immediate requeues.
-6. Return HTTP 202 with `job_uuid` immediately.
+2. Controller validates the request and hands off to `TourOptimizationService::optimize()`; everything below runs in the service.
+3. Service calls `CoordinateNormalizer::normalize()` (round + stable-sort) then sha256-hashes that canonical list into the cache key: `tour:{hash}`.
+4. Service checks the cache; if hit, it returns a "ready" result and the controller responds 200 with the cached data.
+5. If miss, the service generates a Job UUID, dedups via the active-job lock (reusing a running job if any), `OptimizeTourJob::dispatch()`es with UUID/user ID/canonical payload, and marks status 'pending' (short TTL).
+6. Service returns a "pending" result; the controller responds HTTP 202 with `job_uuid` immediately.
 7. `OptimizeTourJob` calls `OpenStreetTspClient` using credentials from `.env`; on success store full result in Redis with 24-hour TTL and publish broadcast event on channel `private-user.{id}` with payload `{ job_uuid, data }`.
 8. On failure, job stores an error record and broadcasts a failure event `{ job_uuid, error }` to `private-user.{id}`.
 9. Frontend subscribes to `private-user.{id}` and filters events by `job_uuid`; also shows immediate 202 UI and optionally poll for cache result (long-poll or GET `/api/tour/status/{job_uuid}`) if WS unavailable.
