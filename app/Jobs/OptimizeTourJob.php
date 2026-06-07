@@ -12,6 +12,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Log;
 use Throwable;
 
 /**
@@ -59,6 +60,12 @@ class OptimizeTourJob implements ShouldQueue
         try {
             $tour = $client->optimize($this->coordinates);
         } catch (TourOptimizationException $e) {
+            Log::warning('Tour optimization failed', [
+                'job_uuid' => $this->jobUuid,
+                'user_id' => $this->userId,
+                'coordinates_hash' => $this->coordinatesHash,
+                'error' => $e->toPayload(),
+            ]);
             $cache->releaseActiveJob($this->userId, $this->coordinatesHash);
             $cache->markFailed($this->jobUuid, $e->toPayload());
             TourOptimizationFailed::dispatch($this->userId, $this->jobUuid, $e->toPayload());
@@ -77,6 +84,12 @@ class OptimizeTourJob implements ShouldQueue
     public function failed(?Throwable $e): void
     {
         $error = ['code' => 'job_failed', 'message' => $e?->getMessage() ?? 'Tour optimization job failed.'];
+        Log::error('Tour optimization job crashed', [
+            'job_uuid' => $this->jobUuid,
+            'user_id' => $this->userId,
+            'coordinates_hash' => $this->coordinatesHash,
+            'exception' => $e,
+        ]);
         $cache = app(TourCache::class);
         $cache->releaseActiveJob($this->userId, $this->coordinatesHash);
         $cache->markFailed($this->jobUuid, $error);
