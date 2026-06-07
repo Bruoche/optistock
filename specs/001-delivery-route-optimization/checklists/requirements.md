@@ -32,3 +32,4 @@
 ## Notes
 
 - Items marked complete indicate this spec is ready for planning review.
+- 2026-06-07: Front-end scope added (US1 map-pick + loading states, US2 un-deferred for stop-list review/remove, US3 result/duration display, FR-009–FR-018 UI/layout/visual-design, SC-006/SC-007, design tokens). Re-validated — all items still pass. Address geocoding/address-search input remains the only deferred portion of US2.

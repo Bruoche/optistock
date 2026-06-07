@@ -22,18 +22,21 @@ A delivery planner enters a set of coordinate pairs (`[lat, lng]`), submits them
 
 1. **Given** a planner has entered two or more valid coordinate pairs, **when** they request optimization, **then** the system returns HTTP 202 immediately, then notifies the frontend via WebSocket with an ordered route covering all submitted coordinates and summary metrics.
 2. **Given** a planner submits a malformed or out-of-range coordinate, **when** they request optimization, **then** the system returns a clear validation error identifying the invalid coordinate and does not dispatch a route job.
+3. **Given** a planner is on the optimization screen, **when** they click a location on the interactive map, **then** a stop is added to the tour and appears both as a marker on the map and as an entry in the coordinate list beneath the map.
+4. **Given** a planner has at least two stops, **when** they press the "Optimize" button above the list, **then** the list becomes greyed out and non-editable, and a small horizontal bar at the bottom shows an "Optimizing..." message with a rotating loading indicator until a result or failure arrives.
 
 ---
 
-### User Story 2 - Review and adjust coordinates before optimization (Priority: P2) [DEFERRED]
+### User Story 2 - Review and adjust selected stops before optimization (Priority: P2)
 
-> **DEFERRED**: Address geocoding and address-management UI are out of scope for this feature. This user story will be implemented in a future feature branch. Current feature accepts coordinate pairs directly.
+> **NOTE**: Only the *coordinate-list review/remove* portion is in scope (managing pins the user dropped on the map). **Address geocoding / address-search input remains DEFERRED** to a future feature — stops are still created by picking points on the map, not by typing addresses.
 
-A planner can review selected coordinates, remove or re-include items, and confirm the final set before asking for the optimized route.
+A planner can review the stops they placed on the map as a list beneath the map, remove any stop that was added by mistake, and confirm the final set before requesting the optimized route.
 
 **Acceptance Scenarios**:
 
-1. **Given** a planner has an active coordinate list, **when** they remove a coordinate or add a new one, **then** the system updates the selection and uses the final list for optimization.
+1. **Given** a planner has placed several stops on the map, **when** they remove a stop from the list, **then** the system removes the matching marker from the map and excludes that stop from the next optimization request.
+2. **Given** a planner has placed only one or zero stops, **when** they look at the "Optimize" button, **then** the button is disabled (optimization needs at least two stops) until a second stop is added.
 
 ---
 
@@ -47,7 +50,9 @@ A planner can see the best route result with total distance or travel estimate, 
 
 **Acceptance Scenarios**:
 
-1. **Given** a planner has a valid optimized route, **when** the result is displayed, **then** the system shows the ordered stop list, total route estimate, and route quality summary.
+1. **Given** a planner has a valid optimized route, **when** the result is displayed, **then** the system shows the optimized route on the map and replaces the coordinate list area with the tour result; for this feature the result area shows the total tour duration at the top (in the position the "Optimize" button occupied).
+2. **Given** an optimization result arrives via WebSocket, **when** the frontend updates, **then** the "Optimizing..." loading bar is removed and the optimized ordered route is rendered without the user reloading the page.
+3. **Given** the lower area previously held the editable stop list, **when** a result is shown, **then** the space the list occupied is left available for future content (a planned drivers list — out of scope for this feature) and is not filled with unnecessary information.
 
 ---
 
@@ -63,14 +68,30 @@ A planner can see the best route result with total distance or travel estimate, 
 
 ### Functional Requirements
 
-- **FR-001**: The system MUST allow a user to enter a list of coordinate pairs (`[lat, lng]`) for route optimization.
-- **FR-002** [DEFERRED]: The system MUST allow the user to review, add, remove, and confirm the final set of selected coordinates before optimization.
+- **FR-001**: The system MUST allow a user to enter a list of coordinate pairs (`[lat, lng]`) for route optimization by picking points on an interactive map.
+- **FR-002**: The system MUST allow the user to review and remove selected stops (shown as a list beneath the map) and confirm the final set before optimization. (Adding stops is done by picking points on the map; typing/searching addresses remains deferred.)
 - **FR-003**: The system MUST submit the selected coordinate pairs to the OpenStreet TSP API and request the most optimized route order via an asynchronous background job.
 - **FR-004**: The system MUST notify the frontend via WebSocket with the optimized route result as an ordered list of stops once the background job completes.
 - **FR-005**: The system MUST include summary metrics in the WebSocket result payload (total distance in metres, total duration in seconds).
 - **FR-006**: The system MUST return a validation error for invalid coordinates (malformed, out-of-range, or fewer than 2 points) and prevent dispatching a route job until corrected.
-- **FR-007** [DEFERRED]: The system MUST preserve the selected coordinate list until the user clears it or submits a new optimization request.
+- **FR-007**: The system MUST preserve the selected stop list until the user clears it or submits a new optimization request.
 - **FR-008**: The system MUST allow the user to submit a new optimization request after the previous result is received or cleared.
+
+### User Interface & Layout Requirements
+
+- **FR-009**: The screen MUST place an interactive map at the top-center occupying approximately two-thirds (2/3) of the vertical space; the stop list and controls occupy the remaining lower third.
+- **FR-010**: The system MUST show selected stops as a list directly beneath the map, with each entry individually removable so a planner can correct a mistaken pick.
+- **FR-011**: The system MUST display an "Optimize" action button positioned at the top of the stop list; it MUST be disabled until at least two stops are selected.
+- **FR-012**: When optimization is requested, the system MUST grey out and disable the stop list to indicate it cannot be edited while a calculation is in progress.
+- **FR-013**: While optimization is in progress, the system MUST show a small horizontal status bar at the bottom of the screen displaying an "Optimizing..." message with a rotating loading indicator.
+- **FR-014**: When the optimization result arrives via WebSocket, the system MUST remove the loading bar, render the optimized route on the map, and replace the stop-list area's controls so the total tour duration is shown at the top (where the "Optimize" button was).
+- **FR-015**: The lower-area space previously occupied by the stop list MUST be left free of unnecessary content after a result (reserved for a future drivers list, out of scope here).
+- **FR-016**: The interface MUST be minimalist and legible — no distracting/decorative effects, and no unnecessary information beyond what the planner needs to act.
+
+### Visual Design Requirements
+
+- **FR-017**: The background MUST be pure white (`#FFFFFF`). The primary color MUST be orange `#FF9A3C` (e.g., the primary "Optimize"/"Submit" action). A pale orange secondary `#FFCF8C` MUST be used for lower-importance elements placed next to a primary element (e.g., a "Cancel" control).
+- **FR-018**: The yellow accent `#FFC802` MUST be used very sparingly — only to make a single element stand out on a primary-heavy area, and optionally in gradients (gradients themselves used sparingly). Text MUST be black even on colored (orange/yellow) backgrounds for legibility.
 
 ### Key Entities *(include if feature involves data)*
 
@@ -88,6 +109,8 @@ A planner can see the best route result with total distance or travel estimate, 
 - **SC-003**: At least 90% of valid optimization requests return a route with a complete ordered stop list and summary metrics.
 - **SC-004** [DEFERRED]: The system identifies invalid or unresolvable addresses in the selected list and shows a corrective message in at least 95% of those cases.
 - **SC-005**: The route result is presented in a way that a planner can tell the visit order and total route estimate without extra explanation.
+- **SC-006**: A planner can place stops on the map, remove a mistaken stop, and launch optimization using only on-screen controls, with no written instructions needed.
+- **SC-007**: The optimized route's total duration is visible at the top of the result area immediately after the result arrives, without a page reload.
 
 ## Assumptions
 
@@ -97,5 +120,19 @@ A planner can see the best route result with total distance or travel estimate, 
 - Address input is provided as street-level address information or similarly resolvable location details.
 - A minimum of two delivery addresses is required for meaningful route optimization.
 - User authentication is a prerequisite dependency for this feature (required for per-user cache isolation and private WebSocket channels); implementing an auth system is outside the scope of this feature.
-- The frontend submits coordinates directly (`[lat, lng]` pairs); address geocoding is out of scope for this feature.
+- The frontend submits coordinates directly (`[lat, lng]` pairs); address geocoding / address-search input is out of scope for this feature.
+- Stops are created by picking points on an interactive map; the map displays standard street-level tiles for orientation.
+- The optimized route is rendered on the map as ordered stops (numbered markers and/or a connecting path) so the visit order is visible at a glance.
+- For this feature the result area surfaces only the total tour duration; the freed list space is reserved for a future drivers list (out of scope).
+- A driver/vehicle selection list will occupy the lower area in a future feature; it is explicitly out of scope here.
 - Routes are closed-tour by default (return to origin); `tour=closed` is submitted to the TSP API.
+
+## Visual Design Tokens (reference)
+
+| Token | Hex | Usage |
+|-------|-----|-------|
+| Background | `#FFFFFF` | Page background (pure white) |
+| Primary | `#FF9A3C` | Primary actions/elements (e.g., "Optimize", "Submit") |
+| Secondary (pale orange) | `#FFCF8C` | Lower-importance element beside a primary one (e.g., "Cancel") |
+| Accent (yellow) | `#FFC802` | Very sparing standout / occasional gradient only |
+| Text | `#000000` | All text, including on colored backgrounds, for legibility |
