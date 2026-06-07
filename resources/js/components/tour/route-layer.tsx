@@ -11,16 +11,19 @@ type RouteLayerProps = {
     closed?: boolean;
 };
 
+// Used only if the CSS var can't be read (SSR / before styles apply).
+const PRIMARY_FALLBACK = '#ff9a3c';
+
 // MapLibre paint properties can't reference CSS classes/vars, so resolve the
 // primary role color at runtime — keeps the palette single-source (Constitution VI).
 function primaryColor(): string {
     if (typeof window === 'undefined') {
-        return '#ff9a3c';
+        return PRIMARY_FALLBACK;
     }
 
     const value = getComputedStyle(document.documentElement).getPropertyValue('--primary').trim();
 
-    return value || '#ff9a3c';
+    return value || PRIMARY_FALLBACK;
 }
 
 export function RouteLayer({ path, closed = true }: RouteLayerProps) {

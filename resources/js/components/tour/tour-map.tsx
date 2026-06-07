@@ -3,15 +3,10 @@
 // children so they draw inside the same map context.
 import 'maplibre-gl/dist/maplibre-gl.css';
 
-import {  useCallback } from 'react';
-import type {ReactNode} from 'react';
-import {
-    Map,
-    Marker
-    
-    
-} from 'react-map-gl/maplibre';
-import type {MapLayerMouseEvent, StyleSpecification} from 'react-map-gl/maplibre';
+import { useCallback } from 'react';
+import type { ReactNode } from 'react';
+import { Map, Marker } from 'react-map-gl/maplibre';
+import type { MapLayerMouseEvent, StyleSpecification } from 'react-map-gl/maplibre';
 import type { Stop } from '@/types/tour';
 
 // Raster OSM style — no API token required.
