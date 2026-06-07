@@ -20,7 +20,7 @@ Unlike the TSP call, `/route` is **fast** — treated as a normal request, **no 
 front-end. Session-cookie auth; endpoints under `/api` (`web` middleware group).
 
 **New backend dependency**: OpenStreet `/route` endpoint —
-`GET https://maps.open-street.com/api/route/?origin=lat,lng&destination=lat,lng&mode=driving&key=...`.
+`GET https://maps.open-street.com/api/route/?origin=lat,lng&destination=lat,lng&mode=trucking&key=...`.
 Response (per user): `{ polyline: string, total_distance: number, total_time: number, status: int }`.
 Synchronous, low-latency → standard HTTP timeout, no async machinery.
 
@@ -28,8 +28,12 @@ Synchronous, low-latency → standard HTTP timeout, no async machinery.
 (`OPENSTREET_ROUTE_URL`, default `https://maps.open-street.com/api/route/`). Reuse existing
 `key`. Add a short HTTP timeout (`OPENSTREET_ROUTE_TIMEOUT`, default ~15s) — this is a fast call.
 
-**Mode congruence**: the `mode` sent to `/route` MUST match the mode used for the optimization tour
-(001 sends `mode=driving` to the TSP API). Centralise the mode so both calls stay consistent.
+**Mode congruence**: the `mode` MUST match between the optimization tour and the geometry trace.
+Default mode is **`trucking`** everywhere (these are delivery routes). Centralise it via
+`config/services.php` `services.openstreet.mode` (`OPENSTREET_MODE`, default `trucking`) so both the
+TSP client (001) and the route client (002) read the same value. There is no user-facing mode
+selector yet; `mode` is effectively a constant (`trucking`). Updating 001's TSP client to read this
+config (it previously hard-coded `driving`) is part of this feature's centralisation.
 
 **Front-end**: no new map library needed — `RouteLayer` already consumes a coordinate list
 (001 FR-019). The backend returns **decoded coordinates** (see Decision D1), so the front feeds them
@@ -62,7 +66,7 @@ No violations.
   the raw `polyline` string for debugging.) Alternative (front decodes raw polylines via a JS lib)
   rejected to keep the front thin and the `RouteLayer` interface unchanged.
 - **D2 — On-demand synchronous endpoint, front-driven progressive enhancement.** The front shows
-  straight lines from the 001 result, then calls `POST /api/tour/route`. Rationale: matches the spec's
+  straight lines from the 001 result, then calls `POST /api/tour/geometry`. Rationale: matches the spec's
   "draw straight first, then replace" and the fast nature of `/route`; no caching/broadcast needed for
   v1. (Optional later: cache geometry by tour hash — out of scope now.)
 - **D3 — Send the ordered tour, get one aggregated response.** The endpoint receives the optimized
@@ -80,15 +84,21 @@ Backend:
   `{polyline,total_distance,total_time,status}` → `{coordinates[], distance_m, duration_s}`; decodes
   the polyline; throws a typed failure on bad `status`/HTTP/timeout.
 - `app/Services/PolylineDecoder.php` (or a method) — decode encoded polyline → `[[lat,lng],...]`.
-- `app/Services/TourRouteService.php` — iterate consecutive legs (closed tour, last→first), call the
+- `app/Services/TourGeometryService.php` — iterate consecutive legs (closed tour, last→first), call the
   client per leg, compound distance/duration, assemble per-leg results; per-leg try/catch + logging.
-- `app/Http/Controllers/TourRouteController.php` (thin) + `RouteGeometryRequest` (validate ordered
-  coordinates) → `POST /api/tour/route` in `routes/api.php` (auth; consider `throttle`).
-- `config/services.php` — add `route_url`, `route_timeout`.
+- `app/Http/Controllers/TourGeometryController.php` (thin) + `TourGeometryRequest` (validate ordered
+  coordinates) → `POST /api/tour/geometry` in `routes/api.php` (auth + a dedicated
+  `throttle:tour-geometry` limiter, separate from `tour-optimize`).
+- `app/Providers/AppServiceProvider.php` — bind `OpenStreetRouteClient` (config) **and** define the
+  `tour-geometry` rate limiter.
+- `config/services.php` — add `route_url`, `route_timeout`, `mode`.
 
 Front-end:
-- `resources/js/hooks/use-tour-optimization.ts` — after `done`, fetch geometry; hold `geometry` +
-  `roadMetrics` state; expose to the page. Guard against stale tours (FR-010).
+- `resources/js/hooks/use-tour-geometry.ts` — **new, separate hook** (do NOT bloat 001's
+  `use-tour-optimization.ts`). Given the done tour (ordered stops + `job_uuid`), fetch geometry, hold
+  `geometry` + composed `RoutePath` + road metrics, and expose them. Owns its own stale-request token
+  so a superseded tour's late response is ignored (FR-010) — it does not reuse 001's `activeJob`
+  (which `use-tour-optimization` already clears on `done`). The page composes the two hooks.
 - `resources/js/components/tour/route-layer.tsx` — unchanged interface; receives road coordinates when
   available, else the straight path.
 - `resources/js/components/tour/result-summary.tsx` — show initial estimate, then road-accurate value
@@ -97,16 +107,16 @@ Front-end:
 
 Tests:
 - `tests/Unit/OpenStreetRouteClientTest.php`, `tests/Unit/PolylineDecoderTest.php`,
-  `tests/Feature/TourRouteTest.php` (success, per-leg failure, whole-tour failure, auth/validation).
-- `resources/js/hooks/use-tour-optimization.test.ts` — geometry fetch success, failure fallback, stale
+  `tests/Feature/TourGeometryTest.php` (success, per-leg failure, whole-tour failure, auth/validation).
+- `resources/js/hooks/use-tour-geometry.test.ts` — geometry fetch success, failure fallback, stale
   guard.
 
 ## Flow (detailed)
 
 1. User optimizes (001) → result shown with **straight lines** + initial estimate (or "Unavailable" for
    2-point).
-2. Front-end POSTs the ordered tour stops to `POST /api/tour/route` (one call).
-3. `TourRouteController` validates → `TourRouteService::trace(orderedStops, mode)`.
+2. Front-end POSTs the ordered tour stops to `POST /api/tour/geometry` (one call).
+3. `TourGeometryController` validates → `TourGeometryService::trace(orderedStops, mode)`.
 4. Service builds consecutive legs incl. the closing leg (last→first), calls `OpenStreetRouteClient`
    per leg with `origin`, `destination`, `mode` (congruent with optimization), `key`.
 5. Each leg: decode `polyline` → coordinates; read `total_distance`/`total_time`; check `status`.
@@ -119,7 +129,7 @@ Tests:
 
 ## API Contract
 
-**Our endpoint** — `POST /api/tour/route` (auth):
+**Our endpoint** — `POST /api/tour/geometry` (auth):
 - Request: `{ "stops": [[lat,lng], ...], "mode": "driving|walking|trucking" }` (ordered; closed tour
   implied — service appends the return leg).
 - Response `200`: `{ "legs": [ { "ok": true, "coordinates": [[lat,lng],...], "distance_m": int, "duration_s": int }, { "ok": false } ], "total_distance_m": int|null, "total_duration_s": int|null }`.
@@ -146,7 +156,7 @@ one call (would let us avoid N calls).
 
 - `research.md` — live `/route` verification results + decode/decision rationale.
 - `data-model.md` — leg/tour geometry view models + payloads.
-- `contracts/tour-route.md` — our endpoint + upstream contract.
+- `contracts/tour-geometry.md` — our endpoint + upstream contract.
 - `quickstart.md` — env, run, manual verification.
 
 ---

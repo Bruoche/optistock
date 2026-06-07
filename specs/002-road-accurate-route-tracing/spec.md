@@ -104,7 +104,7 @@ If the road geometry can't be retrieved (endpoint down, a leg fails), the planne
 - Builds on completed feature 001; the optimized stop order, the `RouteLayer` boundary (001 FR-019), and the broadcast/result flow are reused.
 - OpenStreet exposes a `/route` endpoint of the form `GET .../api/route/?origin=lat,lng&destination=lat,lng&mode=...&key=...`. **Its exact response shape (encoded polyline vs GeoJSON vs coordinate array) and whether it supports multiple waypoints in one call are UNVERIFIED and MUST be confirmed against the live API before mapping code is written** (the TSP schema was guessed wrong in 001 — do not repeat).
 - If `/route` is point-to-point only, a closed N-stop tour requires N per-leg calls; this is acceptable as a background enhancement.
-- `mode=driving` (or the trucking/driving mode consistent with 001) is used; unit is metres/seconds to match 001.
+- `mode=trucking` is the default (these are delivery routes) and is the same mode used for the 001 optimization (centralised in config); unit is metres/seconds to match 001. No user-facing mode selector yet.
 - Geometry retrieval is server-side (FR-011); the client receives already-computed geometry from the application's own backend.
 - Map rendering continues to use the existing map component; only the `RouteLayer` data source changes (per 001 FR-019), so the page/list logic is untouched.
 - This feature does not change how stops are picked, optimized, or ordered — only how the resulting tour is drawn and measured.

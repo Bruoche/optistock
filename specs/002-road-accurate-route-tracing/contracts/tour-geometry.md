@@ -1,21 +1,23 @@
-# Contract: Road-Accurate Route Tracing
+# Contract: Road-Accurate Route Tracing (Tour Geometry)
 
 **Date**: 2026-06-07
 
-## Our endpoint — `POST /api/tour/route`
+## Our endpoint — `POST /api/tour/geometry`
 
-- Auth: session (web middleware), same as 001. Consider `throttle` (e.g. 30/min/user).
+- Auth: session (web middleware), same as 001. Rate-limited by a **dedicated** `tour-geometry` limiter
+  (e.g. 30/min/user) defined in `AppServiceProvider` — NOT the shared `tour-optimize` limiter.
 - Synchronous (no queue) — the upstream `/route` call is fast.
 
 ### Request
 ```json
 {
   "stops": [[48.8566, 2.3522], [45.7640, 4.8357], [43.2965, 5.3698]],
-  "mode": "driving"
+  "mode": "trucking"
 }
 ```
 - `stops`: ordered optimized stops (2..10), `[lat,lng]`, lat ∈ [-90,90], lng ∈ [-180,180].
-- `mode`: one of `driving|walking|trucking`; MUST match the optimization mode (default `driving`).
+- `mode`: one of `driving|walking|trucking`; **defaults to `trucking`** (delivery routes) and MUST match
+  the optimization mode. No user-facing selector yet — effectively the config constant.
 - Closed tour: the server appends the return leg (last→first); the client does not send it.
 
 ### Responses
@@ -36,7 +38,10 @@
 
 ## Upstream — OpenStreet `/route`
 
-`GET {OPENSTREET_ROUTE_URL}?origin=lat,lng&destination=lat,lng&mode=driving&key=...`
+`GET {OPENSTREET_ROUTE_URL}?origin=lat,lng&destination=lat,lng&mode=trucking&key=...`
+
+(Client class: `OpenStreetRouteClient` — named after the external endpoint, the same exception as
+`OpenStreetTspClient`; all first-party domain code uses "Tour"/"Geometry", never "Route".)
 
 Response:
 ```json
@@ -50,7 +55,7 @@ Response:
 
 ## Invariants
 
-- Front makes exactly **one** call to `/api/tour/route` per tour; the N upstream calls are server-side.
-- Geometry is a pure enhancement: a non-200 or network error on `/api/tour/route` leaves the 001
+- Front makes exactly **one** call to `/api/tour/geometry` per tour; the N upstream calls are server-side.
+- Geometry is a pure enhancement: a non-200 or network error on `/api/tour/geometry` leaves the 001
   straight-line result + initial estimate intact (FR-005).
 - A response for a superseded tour is ignored by the front (FR-010).

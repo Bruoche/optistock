@@ -8,8 +8,10 @@ Add to `.env` + `.env.example` (reuses the existing `OPENSTREET_API_KEY`):
 ```
 OPENSTREET_ROUTE_URL="https://maps.open-street.com/api/route/"
 OPENSTREET_ROUTE_TIMEOUT=15
+OPENSTREET_MODE=trucking
 ```
-`config/services.php` → `services.openstreet.route_url`, `services.openstreet.route_timeout`.
+`config/services.php` → `services.openstreet.route_url`, `services.openstreet.route_timeout`,
+`services.openstreet.mode` (default `trucking`; shared by the 001 TSP call and the 002 geometry call).
 
 ## 2. No new deps
 
@@ -19,7 +21,7 @@ consumes coordinates (001 FR-019); the backend returns decoded coordinates.
 ## 3. Run
 
 Same as 001 (serve + reverb + queue worker + vite). `/route` adds no process — it's a normal request
-inside `POST /api/tour/route`.
+inside `POST /api/tour/geometry`.
 
 ## 4. Manual verification (the two soft assumptions)
 
