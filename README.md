@@ -1,8 +1,9 @@
 # Optistock
 
-Delivery route optimization: a planner picks delivery stops on an interactive map, the app asks the
-OpenStreet API for the best visit order (a closed tour), then traces the actual road path and travel
-time on the map. Laravel 13 + Inertia/React back end and front end in one codebase.
+A web application allowing to plan, optimize and assign delivery tours to help manage drivers routes efficiently.
+
+Laravel 13 + Inertia/React back end and front end in one codebase.
+Uses the OpenStreet API for itinary calculations.
 
 ## Run it locally
 
