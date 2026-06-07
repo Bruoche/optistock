@@ -40,7 +40,9 @@ return [
             'connection' => env('DB_QUEUE_CONNECTION'),
             'table' => env('DB_QUEUE_TABLE', 'jobs'),
             'queue' => env('DB_QUEUE', 'default'),
-            'retry_after' => (int) env('DB_QUEUE_RETRY_AFTER', 90),
+            // Must exceed the longest job's timeout (route optimization job_timeout
+            // = 1260s) so a still-running job is never re-reserved and run twice.
+            'retry_after' => (int) env('DB_QUEUE_RETRY_AFTER', 1320),
             'after_commit' => false,
         ],
 

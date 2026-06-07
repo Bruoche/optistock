@@ -1,0 +1,65 @@
+sequenceDiagram
+    autonumber
+    actor U as Delivery planner
+    participant F as Frontend (SPA)
+    participant W as Web App (C2)
+    participant DB as Database (cache/queue)
+    participant Q as Queue Worker (C3)
+    participant API as OpenStreet TSP API
+    participant WS as Reverb (C4)
+
+    Note over F,WS: On load, SPA opens a persistent WebSocket and<br/>subscribes to private-App.Models.User.{id}
+    F->>WS: subscribe private user channel (wss)
+    F->>W: POST /broadcasting/auth
+    W-->>F: 200 channel authorized
+
+    U->>F: Submit coordinates
+    F->>W: POST /api/tour/optimize (session cookie)
+    W->>W: validate + normalize (sha256 hash)
+    W->>DB: getTour(userId, hash)
+
+    alt Cache hit (instant)
+        DB-->>W: cached tour
+        W-->>F: 200 {status: done, data}
+        F-->>U: Render tour immediately
+    else Cache miss (async)
+        DB-->>W: null
+        W->>DB: claimActiveJob(userId, hash, jobUuid) [atomic add]
+        alt Lost claim — identical request already running
+            DB-->>W: claim refused
+            W->>DB: getActiveJob(userId, hash)
+            DB-->>W: existing jobUuid
+            W-->>F: 202 {status: pending, job_uuid} (reused)
+        else Won claim
+            DB-->>W: claim ok
+            W->>DB: markPending(jobUuid)
+            W->>DB: enqueue OptimizeTourJob
+            W-->>F: 202 {status: pending, job_uuid}
+        end
+        F-->>U: Show "optimizing…" (UI never blocks)
+
+        Note over Q,API: Background thread — request already returned
+        Q->>DB: reserve job
+        Q->>API: GET /api/tsp (15s connect / 600s read, 1 retry)
+
+        alt API success
+            API-->>Q: optimized tour
+            Q->>DB: releaseActiveJob + putTour(24h) + markDone
+            Q->>WS: push TourOptimized (HTTP/Pusher, via broadcasts queue)
+            WS-->>F: TourOptimized {job_uuid, data} (wss)
+            F-->>U: Render tour the instant API answered
+        else API failure / timeout / crash
+            API-->>Q: error / timeout
+            Q->>DB: releaseActiveJob + markFailed
+            Q->>WS: push TourOptimizationFailed
+            WS-->>F: TourOptimizationFailed {job_uuid, error}
+            F-->>U: Show error
+        end
+
+        opt WebSocket missed (fallback polling)
+            F->>W: GET /api/tour/status/{job_uuid}
+            W->>DB: getJobStatus(jobUuid)
+            DB-->>W: pending | done | failed
+            W-->>F: 200 status (or 404)
+        end
+    end

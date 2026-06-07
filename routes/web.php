@@ -19,4 +19,8 @@ Route::middleware(['auth'])->group(function () {
     Route::get('invitations/{invitation}/accept', [TeamInvitationController::class, 'accept'])->name('invitations.accept');
 });
 
+Route::middleware(['auth', 'verified'])->group(function () {
+    Route::inertia('tour', 'tour/optimize')->name('tour.optimize.page');
+});
+
 require __DIR__.'/settings.php';
