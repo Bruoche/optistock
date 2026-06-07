@@ -83,42 +83,42 @@
 
 ### Front-end Setup & Foundational
 
-- [ ] T035 [P] Install front-end deps `maplibre-gl`, `react-map-gl`, `laravel-echo`, `pusher-js` (update `package.json` + `package-lock.json` via `npm install`).
-- [ ] T036 Re-theme role CSS vars in `resources/css/app.css` — `:root` (background `#FFFFFF`, foreground `#000000`, primary `#FF9A3C`, secondary `#FFCF8C`, accent `#FFC802`, all `-foreground` `#000000`) and `.dark` (background `#11100F`, foreground `#FFFFFF`, primary `#F99435`, secondary `#FFCF8C`, accent `#FFC802`); add `--text-on-color` (`#000000` light / `#11100F` dark) and register `--color-text-on-color: var(--text-on-color);` in the `@theme` block. No parallel palette, no off-palette literals (FR-017/FR-018, Constitution VI).
-- [ ] T037 [P] Add `VITE_REVERB_APP_KEY`, `VITE_REVERB_HOST`, `VITE_REVERB_PORT`, `VITE_REVERB_SCHEME` to `.env` and `.env.example`.
-- [ ] T038 Create Echo singleton in `resources/js/lib/echo.ts` (`broadcaster: 'reverb'`, `Pusher` from `pusher-js`, config from `import.meta.env.VITE_REVERB_*`). Depends on T035, T037.
-- [ ] T039 [P] Define front-end types in `resources/js/types/tour.ts` (`Stop`, `OptimizedStop`, `TourResult`, `TourError`, `OptimizeState`) per `data-model.md`.
+- [X] T035 [P] Install front-end deps `maplibre-gl`, `react-map-gl`, `laravel-echo`, `pusher-js` (update `package.json` + `package-lock.json` via `npm install`).
+- [X] T036 Re-theme role CSS vars in `resources/css/app.css` — `:root` (background `#FFFFFF`, foreground `#000000`, primary `#FF9A3C`, secondary `#FFCF8C`, accent `#FFC802`, all `-foreground` `#000000`) and `.dark` (background `#11100F`, foreground `#FFFFFF`, primary `#F99435`, secondary `#FFCF8C`, accent `#FFC802`); add `--text-on-color` (`#000000` light / `#11100F` dark) and register `--color-text-on-color: var(--text-on-color);` in the `@theme` block. No parallel palette, no off-palette literals (FR-017/FR-018, Constitution VI).
+- [X] T037 [P] Add `VITE_REVERB_APP_KEY`, `VITE_REVERB_HOST`, `VITE_REVERB_PORT`, `VITE_REVERB_SCHEME` to `.env` and `.env.example`.
+- [X] T038 Create Echo singleton in `resources/js/lib/echo.ts` (`broadcaster: 'reverb'`, `Pusher` from `pusher-js`, config from `import.meta.env.VITE_REVERB_*`). Depends on T035, T037.
+- [X] T039 [P] Define front-end types in `resources/js/types/tour.ts` (`Stop`, `OptimizedStop`, `TourResult`, `TourError`, `OptimizeState`) per `data-model.md`.
 
 ### Phase 6 — User Story 1 (P1): pick coordinates, submit, loading state
 
-- [ ] T040 [P] [US1] `resources/js/components/tour/route-layer.tsx` — FR-019 isolation boundary. Props `{ path: {lat,lng}[] }`; render straight-line segments as a GeoJSON `LineString` (`<Source>`+`<Layer>`). No page/list logic inside; only consumes path. Depends on T035, T039.
-- [ ] T041 [US1] `resources/js/components/tour/tour-map.tsx` — wrap `react-map-gl` Map (OSM-compatible style); click adds a `Stop`; render numbered `<Marker>` per stop; emit add/select callbacks. Depends on T035, T039.
-- [ ] T042 [P] [US1] `resources/js/components/tour/optimizing-bar.tsx` — bottom horizontal bar, reuse `components/ui/spinner.tsx` + "Optimizing…" text (FR-013). Depends on T039.
-- [ ] T046 [US1] `resources/js/components/tour/stop-list.tsx` — **display** the placed stops as a list beneath the map; Optimize `<Button>` slot on top, disabled when `<2` stops; greyed + non-interactive (`opacity-50 pointer-events-none`, `aria-disabled`) while `pending` (FR-010 display, FR-011, FR-012). Per-row remove is added later in US2 (T051); ship a non-removable list first so US1 is independently shippable. Depends on T039.
-- [ ] T043 [US1] `resources/js/hooks/use-tour-optimization.ts` — `OptimizeState` machine; POST `/api/tour/optimize` `{coordinates:[[lat,lng]...]}`; 200⇒`done` from body, 202⇒`pending` subscribe `Echo.private('App.Models.User.'+userId)` filter by `job_uuid` on `.TourOptimized`/`.TourOptimizationFailed`; poll `GET /api/tour/status/{job_uuid}` as WS fallback; unsubscribe on terminal; failure ⇒ `sonner` toast (FR-004/006/008, contract). Depends on T038, T039.
-- [ ] T044 [US1] Inertia GET route + thin controller render for the page (`routes/web.php` → `Inertia::render('tour/optimize')`, behind `auth`); pass `userId` prop. Depends on none (backend-side render only).
-- [ ] T045 [US1] `resources/js/pages/tour/optimize.tsx` — screen layout: map top ~2/3 (`TourMap` + `RouteLayer`), lower third hosts `StopList` with Optimize `<Button>` on top; bottom-anchored `OptimizingBar` while `pending`; wire `use-tour-optimization` (FR-009). Depends on T040, T041, T042, T043, T044, T046.
+- [X] T040 [P] [US1] `resources/js/components/tour/route-layer.tsx` — FR-019 isolation boundary. Props `{ path: {lat,lng}[] }`; render straight-line segments as a GeoJSON `LineString` (`<Source>`+`<Layer>`). No page/list logic inside; only consumes path. Depends on T035, T039.
+- [X] T041 [US1] `resources/js/components/tour/tour-map.tsx` — wrap `react-map-gl` Map (OSM-compatible style); click adds a `Stop`; render numbered `<Marker>` per stop; emit add/select callbacks. Depends on T035, T039.
+- [X] T042 [P] [US1] `resources/js/components/tour/optimizing-bar.tsx` — bottom horizontal bar, reuse `components/ui/spinner.tsx` + "Optimizing…" text (FR-013). Depends on T039.
+- [X] T046 [US1] `resources/js/components/tour/stop-list.tsx` — **display** the placed stops as a list beneath the map; Optimize `<Button>` slot on top, disabled when `<2` stops; greyed + non-interactive (`opacity-50 pointer-events-none`, `aria-disabled`) while `pending` (FR-010 display, FR-011, FR-012). Per-row remove is added later in US2 (T051); ship a non-removable list first so US1 is independently shippable. Depends on T039.
+- [X] T043 [US1] `resources/js/hooks/use-tour-optimization.ts` — `OptimizeState` machine; POST `/api/tour/optimize` `{coordinates:[[lat,lng]...]}`; 200⇒`done` from body, 202⇒`pending` subscribe `Echo.private('App.Models.User.'+userId)` filter by `job_uuid` on `.TourOptimized`/`.TourOptimizationFailed`; poll `GET /api/tour/status/{job_uuid}` as WS fallback; unsubscribe on terminal; failure ⇒ `sonner` toast (FR-004/006/008, contract). Depends on T038, T039.
+- [X] T044 [US1] Inertia GET route + thin controller render for the page (`routes/web.php` → `Inertia::render('tour/optimize')`, behind `auth`); pass `userId` prop. Depends on none (backend-side render only).
+- [X] T045 [US1] `resources/js/pages/tour/optimize.tsx` — screen layout: map top ~2/3 (`TourMap` + `RouteLayer`), lower third hosts `StopList` with Optimize `<Button>` on top; bottom-anchored `OptimizingBar` while `pending`; wire `use-tour-optimization` (FR-009). Depends on T040, T041, T042, T043, T044, T046.
 
 ### Phase 6 — User Story 2 (P2): review & remove stops
 
-- [ ] T051 [US2] Add per-row **remove** to `resources/js/components/tour/stop-list.tsx` (`lucide-react` trash icon per row); removing a stop also removes its map marker via shared state and excludes it from the next request (FR-002, FR-010 remove). Builds on the US1 list (T046). Depends on T046.
+- [X] T051 [US2] Add per-row **remove** to `resources/js/components/tour/stop-list.tsx` (`lucide-react` trash icon per row); removing a stop also removes its map marker via shared state and excludes it from the next request (FR-002, FR-010 remove). Builds on the US1 list (T046). Depends on T046.
 
 ### Phase 6 — User Story 3 (P3): result & duration display
 
-- [ ] T047 [P] [US3] `resources/js/components/tour/result-summary.tsx` — replaces the Optimize button row on `done`; show total tour duration formatted from `total_duration_s` at top; leave freed list space empty (reserved future drivers list) (FR-014/FR-015). Depends on T039.
-- [ ] T048 [US3] Wire result into page: on `done`, draw optimized `ordered_stops` via `RouteLayer` and swap button row → `ResultSummary` without reload (FR-014, SC-007). Depends on T045, T047.
+- [X] T047 [P] [US3] `resources/js/components/tour/result-summary.tsx` — replaces the Optimize button row on `done`; show total tour duration formatted from `total_duration_s` at top; leave freed list space empty (reserved future drivers list) (FR-014/FR-015). Depends on T039.
+- [X] T048 [US3] Wire result into page: on `done`, draw optimized `ordered_stops` via `RouteLayer` and swap button row → `ResultSummary` without reload (FR-014, SC-007). Depends on T045, T047.
 
 ### Phase 6 — Tests (logic only; Constitution Principle I / "new behavior MUST include tests")
 
 > Scope: test the bug-prone **logic**, not pixels/map. Visual layout + MapLibre rendering stay under manual smoke (T050).
 
-- [ ] T052 [P] Set up front-end test tooling: add `vitest`, `@testing-library/react`, `@testing-library/jest-dom`, `jsdom`; `vitest.config.ts` (jsdom env) + test setup file; `"test": "vitest"` script in `package.json`. Depends on T035.
-- [ ] T053 [US1] `resources/js/hooks/use-tour-optimization.test.ts` — cover the state machine: `idle→submitting`, 200⇒`done` (body), 202⇒`pending` (job_uuid), `.TourOptimized`⇒`done` (filtered by job_uuid), `.TourOptimizationFailed`⇒`failed` (+toast), status-poll fallback fires when WS silent, unsubscribe on terminal, reset to `idle` (FR-004/006/008). Mock Echo + fetch. Depends on T043, T052.
-- [ ] T054 [P] [US2] `resources/js/components/tour/stop-list.test.tsx` — Optimize disabled when `<2` stops (FR-011), list non-interactive while `pending` (FR-012), remove drops the row (FR-002/FR-010). Depends on T046, T051, T052.
+- [X] T052 [P] Set up front-end test tooling: add `vitest`, `@testing-library/react`, `@testing-library/jest-dom`, `jsdom`; `vitest.config.ts` (jsdom env) + test setup file; `"test": "vitest"` script in `package.json`. Depends on T035.
+- [X] T053 [US1] `resources/js/hooks/use-tour-optimization.test.ts` — cover the state machine: `idle→submitting`, 200⇒`done` (body), 202⇒`pending` (job_uuid), `.TourOptimized`⇒`done` (filtered by job_uuid), `.TourOptimizationFailed`⇒`failed` (+toast), status-poll fallback fires when WS silent, unsubscribe on terminal, reset to `idle` (FR-004/006/008). Mock Echo + fetch. Depends on T043, T052.
+- [X] T054 [P] [US2] `resources/js/components/tour/stop-list.test.tsx` — Optimize disabled when `<2` stops (FR-011), list non-interactive while `pending` (FR-012), remove drops the row (FR-002/FR-010). Depends on T046, T051, T052.
 
 ### Phase 6 — Polish (front-end)
 
-- [ ] T049 [P] Cohesion audit: grep `resources/js/components/tour/` + `pages/tour/` for raw hex in className/style — expect none; only role utilities (`bg-primary`, `text-foreground`, `text-text-on-color`). (Constitution VI, quickstart §6.)
+- [X] T049 [P] Cohesion audit: grep `resources/js/components/tour/` + `pages/tour/` for raw hex in className/style — expect none; only role utilities (`bg-primary`, `text-foreground`, `text-text-on-color`). (Constitution VI, quickstart §6.)
 - [ ] T050 Manual smoke test per `quickstart.md` §5 — US1 happy path (cache miss → WS), 200 cache-hit path, and forced-failure path (worker down / bad key) → toast + list re-enabled.
 
 ---

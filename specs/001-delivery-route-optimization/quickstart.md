@@ -27,13 +27,18 @@ Echo singleton (`resources/js/lib/echo.ts`) uses `broadcaster: 'reverb'` with th
 
 Edit role vars in `resources/css/app.css` only (`:root` + `.dark`) per plan.md "Theming" table; add `--text-on-color` (+ `--color-text-on-color` in `@theme`). No new palette files. Dark mode toggles via existing `use-appearance` hook.
 
-## 4. Run (three processes)
+## 4. Run (four processes)
 
 ```bash
-php artisan reverb:start                 # WebSocket server
+php artisan serve                        # HTTP app server → http://localhost:8000
+php artisan reverb:start                 # WebSocket server → :8080
 php artisan queue:work --timeout=1290    # job worker (timeout per README §4)
-npm run dev                              # Vite + Inertia
+npm run dev                              # Vite asset/HMR server → :5173
 ```
+
+Open **http://localhost:8000** (the app), not the Vite port. `npm run dev` only serves
+assets — without `php artisan serve` (or Herd/Valet) nothing listens on :8000 and the
+browser shows `ERR_CONNECTION_REFUSED`.
 
 `DB_QUEUE_RETRY_AFTER=1320` must be set (see README §4) so long TSP jobs aren't retried mid-flight.
 

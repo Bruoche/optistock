@@ -67,7 +67,7 @@ This plan follows the project constitution: readable code, defensive error handl
 - `app/Services/OpenStreetTspClient.php`
 - `app/Services/TourCache.php`
 - `routes/api.php` (POST `/api/tour/optimize`, GET `/api/tour/status/{job_uuid}`)
-- `resources/js/routes/` (React: `OptimizeTourForm.tsx`, `TourResult.tsx`)
+- Front-end (see "Front-End Implementation Plan" for detail): `resources/js/pages/tour/optimize.tsx`, `resources/js/components/tour/{tour-map,route-layer,stop-list,optimizing-bar,result-summary}.tsx`, `resources/js/hooks/use-tour-optimization.ts`, `resources/js/lib/echo.ts`, `resources/js/types/tour.ts`. (NOT `resources/js/routes/` — that dir is Wayfinder-generated.)
 - `tests/Feature/TourOptimizationTest.php`
 - `tests/Feature/TourOptimizationBroadcastTest.php`
 - `tests/Unit/CoordinateNormalizerTest.php`

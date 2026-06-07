@@ -38,6 +38,8 @@
     --color-accent: var(--accent);
     --color-accent-foreground: var(--accent-foreground);
 
+    --color-text-on-color: var(--text-on-color);
+
     --color-destructive: var(--destructive);
     --color-destructive-foreground: var(--destructive-foreground);
 
@@ -62,20 +64,23 @@
 }
 
 :root {
-    --background: oklch(1 0 0);
-    --foreground: oklch(0.145 0 0);
-    --card: oklch(1 0 0);
-    --card-foreground: oklch(0.145 0 0);
-    --popover: oklch(1 0 0);
-    --popover-foreground: oklch(0.145 0 0);
-    --primary: oklch(0.205 0 0);
-    --primary-foreground: oklch(0.985 0 0);
-    --secondary: oklch(0.97 0 0);
-    --secondary-foreground: oklch(0.205 0 0);
+    /* Optistock palette (feature 001) — role vars; light theme. */
+    --background: #ffffff;
+    --foreground: #000000;
+    --card: #ffffff;
+    --card-foreground: #000000;
+    --popover: #ffffff;
+    --popover-foreground: #000000;
+    --primary: #ff9a3c;
+    --primary-foreground: #000000;
+    --secondary: #ffcf8c;
+    --secondary-foreground: #000000;
     --muted: oklch(0.97 0 0);
     --muted-foreground: oklch(0.556 0 0);
-    --accent: oklch(0.97 0 0);
-    --accent-foreground: oklch(0.205 0 0);
+    --accent: #ffc802;
+    --accent-foreground: #000000;
+    /* Text drawn on a colored (primary/secondary/accent) fill. */
+    --text-on-color: #000000;
     --destructive: oklch(0.577 0.245 27.325);
     --destructive-foreground: oklch(0.577 0.245 27.325);
     --border: oklch(0.922 0 0);
@@ -98,20 +103,23 @@
 }
 
 .dark {
-    --background: oklch(0.145 0 0);
-    --foreground: oklch(0.985 0 0);
-    --card: oklch(0.145 0 0);
-    --card-foreground: oklch(0.985 0 0);
-    --popover: oklch(0.145 0 0);
-    --popover-foreground: oklch(0.985 0 0);
-    --primary: oklch(0.985 0 0);
-    --primary-foreground: oklch(0.205 0 0);
-    --secondary: oklch(0.269 0 0);
-    --secondary-foreground: oklch(0.985 0 0);
+    /* Optistock palette (feature 001) — role vars; dark theme. */
+    --background: #11100f;
+    --foreground: #ffffff;
+    --card: #11100f;
+    --card-foreground: #ffffff;
+    --popover: #11100f;
+    --popover-foreground: #ffffff;
+    --primary: #f99435;
+    --primary-foreground: #11100f;
+    --secondary: #ffcf8c;
+    --secondary-foreground: #11100f;
     --muted: oklch(0.269 0 0);
     --muted-foreground: oklch(0.708 0 0);
-    --accent: oklch(0.269 0 0);
-    --accent-foreground: oklch(0.985 0 0);
+    --accent: #ffc802;
+    --accent-foreground: #11100f;
+    /* Text drawn on a colored (primary/secondary/accent) fill. */
+    --text-on-color: #11100f;
     --destructive: oklch(0.396 0.141 25.723);
     --destructive-foreground: oklch(0.637 0.237 25.331);
     --border: oklch(0.269 0 0);
