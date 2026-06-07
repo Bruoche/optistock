@@ -1,8 +1,8 @@
 <!--
 Sync Impact Report
-Version change: 1.0.0 → 1.1.0
-Modified principles: none renamed
-Added sections: Principle VI — Consistent, Reusable Front-End Styling
+Version change: 1.1.0 → 1.2.0
+Modified principles: IV. Robustness as Standard — added explicit no-silent-failure / mandatory-logging clause
+Added sections (1.1.0): Principle VI — Consistent, Reusable Front-End Styling
 Removed sections: none
 Templates requiring updates:
   - .specify/templates/plan-template.md ✅ reviewed (generic Constitution Check; no change needed)
@@ -26,6 +26,8 @@ Design MUST favor the simplest solution that solves the problem correctly. Compl
 
 ### IV. Robustness as Standard
 Robust code MUST validate inputs, handle failure modes explicitly, and preserve invariants. Errors MUST be surfaced clearly and safely rather than hidden, and defensive checks MUST protect production behavior without sacrificing clarity.
+
+The application MUST NEVER fail silently. Every failure path MUST be logged with enough context to diagnose it (the operation, relevant identifiers, and the error detail). Catching an exception to handle, recover from, or broadcast it MUST NOT swallow it: a caught failure MUST still record a log entry at an appropriate level (e.g. `warning` for expected/handled failures, `error` for crashes). Background jobs, queued work, and external-service calls — where failures are invisible to the user's request cycle — MUST log their outcomes.
 
 ### V. Performance with Clarity
 Performance MUST be achieved without sacrificing readability or correctness. Optimizations MUST be measurable or justified; algorithmic efficiency, predictable resource use, and maintainable code paths are preferred over premature micro-optimization.
@@ -62,5 +64,5 @@ This constitution supersedes informal habits and local conventions for code qual
 - Every pull request touching architecture, testing, or shared quality practices MUST reference at least one principle and note compliance in the description.
 - Compliance reviews SHOULD occur whenever the project enters a new development phase or when a major feature lands.
 
-**Version**: 1.1.0 | **Ratified**: 2026-06-02 | **Last Amended**: 2026-06-07
+**Version**: 1.2.0 | **Ratified**: 2026-06-02 | **Last Amended**: 2026-06-07
 
