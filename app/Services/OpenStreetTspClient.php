@@ -11,7 +11,8 @@ use Illuminate\Http\Client\Response;
  * Thin client for the OpenStreet TSP route-optimization API.
  *
  * Request shape (GET):
- *   {url}?pts=lat,lng|lat,lng|...&nb=N&mode=driving&unit=m&tour=closed&key=...
+ *   {url}?pts=lat,lng|lat,lng|...&nb=N&mode={mode}&unit=m&tour=closed&key=...
+ *   (mode comes from config `services.openstreet.mode`; default `trucking`)
  *
  * MUST only be called from a background job — the upstream API can take
  * several minutes for large point sets. We therefore use a generous *read*

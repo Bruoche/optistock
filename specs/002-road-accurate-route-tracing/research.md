@@ -25,19 +25,18 @@
   `LIMIT_REACHED` (quota exhausted), `WRONG_KEY` (bad auth key), `REQUEST_DENIED` (cannot respond).
 - A non-success `status`, a non-2xx HTTP, or a timeout → typed leg failure (logged, `ok:false`).
 
-## R3. Units — RESOLVED (one soft assumption)
+## R3. Units — RESOLVED
 
-- **Decision**: `total_distance` is in **metres** (confirmed). Matches 001's `total_distance_m`.
-- **Soft assumption**: `total_time` is in **seconds** (not stated; consistent with 001's
-  `total_duration_s` and the m/s convention). Sanity-check the magnitude on the first real result
-  (a Paris→Lyon leg should be a few hours, ~10⁴ s — not 10⁷ ms).
+- **Decision**: `total_distance` is in **metres**, `total_time` is in **seconds** — both CONFIRMED live
+  (2026-06-07): sound durations (≈20 min city trip, ≈1 h around Paris, ≈26 h across the country). Matches
+  001's `total_distance_m` / `total_duration_s`.
 
 ## R4. Per-call shape — RESOLVED
 
 - **Decision**: `/route` is **point-to-point** (`origin` + `destination` only; no waypoints shown) →
   one call per consecutive leg. A closed N-stop tour = N legs (incl. last→first). Acceptable: the call
   is fast and synchronous (no queue), aggregated server-side into one response to the front (D3).
-- **Mode**: send the same `mode` used for optimization (001 = `driving`); centralise so both stay
+- **Mode**: send the same `mode` used for optimization (now `trucking` for both, centralised in config); centralise so both stay
   congruent.
 
 ## R5. Synchronicity — RESOLVED
@@ -48,5 +47,5 @@
 
 ## Open items carried to implementation
 
-- Precision 5 vs 6 (R1) and `total_time` unit (R3) are **soft assumptions** — verify on the first live
-  render/result, not blocking. Everything else is confirmed.
+- None remaining. Both former soft assumptions are confirmed live (2026-06-07): polyline **precision 6**
+  (R1) and `total_time` in **seconds** (R3).

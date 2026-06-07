@@ -72,7 +72,7 @@ no blank state; per-leg failure → only that leg falls back.
 ## Phase 6: Polish & Cross-Cutting
 
 - [X] T022 [P] Cohesion audit: no raw hex in `resources/js/components/tour/` + `pages/tour/` JSX (route color reads `--primary` var; Constitution VI).
-- [ ] T023 Manual smoke per `quickstart.md` §4–5: confirm polyline **precision 5** renders on real roads (else switch decoder to 6) and `total_time` magnitude is seconds (else ms); verify ≥3-stop, 2-point, and forced-failure paths.
+- [X] T023 Manual smoke per `quickstart.md` §4–5 — verified live 2026-06-07: polyline precision **6** renders on real roads; `total_time` is **seconds** (sound durations); ≥3-stop, 2-point, and forced-failure paths all confirmed.
 
 ---
 

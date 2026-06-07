@@ -24,7 +24,7 @@ Provide an asynchronous, cache-backed route-optimization flow using a Laravel ba
 
 **Performance Goals**: Respond to requests within 200ms when cache hit; queue-based processing for cache miss; support at least 10 requests/min per user (rate-limited)
 
-**Routing API**: `https://maps.open-street.com/api/tsp/` — query params: `pts=lat,lng|lat,lng|...` (pipe-separated coordinate pairs), `nb=N` (must equal point count), `mode=driving`, `unit=m`, `tour=closed` (route returns to start), `key=OPENSTREET_API_KEY`. Base URL and key configured via `.env`.
+**Routing API**: `https://maps.open-street.com/api/tsp/` — query params: `pts=lat,lng|lat,lng|...` (pipe-separated coordinate pairs), `nb=N` (must equal point count), `mode` (from `services.openstreet.mode`, default `trucking` — was `driving` before feature 002 centralised it), `unit=m`, `tour=closed` (route returns to start), `key=OPENSTREET_API_KEY`. Base URL and key configured via `.env`.
 
 **TSP API Response Schema** (VERIFIED against live API 2026-06-03 — earlier `status`/`route[]` guess was wrong):
 ```json

@@ -87,12 +87,12 @@ npm run dev                             # Vite (frontend, when built)
 ### Request (GET)
 
 ```
-{OPENSTREET_API_URL}?pts=lat,lng|lat,lng|...&nb=N&mode=driving&unit=m&tour=closed&key=...
+{OPENSTREET_API_URL}?pts=lat,lng|lat,lng|...&nb=N&mode={mode}&unit=m&tour=closed&key=...
 ```
 
 - `pts` — pipe-separated `lat,lng` pairs.
 - `nb` — point count (must equal number of pairs).
-- `mode=driving`, `unit=m` (metres), `tour=closed` (returns to start).
+- `mode` (from `OPENSTREET_MODE`, default `trucking`; centralised in feature 002), `unit=m` (metres), `tour=closed` (returns to start).
 
 ### Response (HTTP 200) — actual shape
 

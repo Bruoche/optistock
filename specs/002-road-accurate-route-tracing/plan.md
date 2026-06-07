@@ -83,7 +83,12 @@ Backend:
 - `app/Services/OpenStreetRouteClient.php` — calls `/route` for one origin→destination leg; maps
   `{polyline,total_distance,total_time,status}` → `{coordinates[], distance_m, duration_s}`; decodes
   the polyline; throws a typed failure on bad `status`/HTTP/timeout.
-- `app/Services/PolylineDecoder.php` (or a method) — decode encoded polyline → `[[lat,lng],...]`.
+- `app/Services/PolylineDecoder.php` — decode encoded polyline → `[[lat,lng],...]`.
+- `app/Services/Coordinate.php` — small readonly DTO (`lat`,`lng`) replacing loose `[lat,lng]` arrays at
+  the flow's boundaries (added during review).
+- `app/Exceptions/ExternalApiException.php` — shared base for `TourGeometryException` (and 001's
+  `TourOptimizationException`); owns `errorCode`, the `timeout()/apiError()/invalidResponse()` factories,
+  and `toPayload()` (added during review to remove duplication).
 - `app/Services/TourGeometryService.php` — iterate consecutive legs (closed tour, last→first), call the
   client per leg, compound distance/duration, assemble per-leg results; per-leg try/catch + logging.
 - `app/Http/Controllers/TourGeometryController.php` (thin) + `TourGeometryRequest` (validate ordered
