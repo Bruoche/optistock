@@ -55,7 +55,7 @@
 - [X] T015 [US1] `tests/Feature/TourOptimizationTest.php` — 401 unauth, 422 validation, 202 cache miss (job queued), 200 cache hit, result-endpoint status/404.
 - [X] T033 [US1] `tests/Unit/OpenStreetTspClientTest.php` (C1) — success mapping, query params, api_error/invalid_response/timeout paths.
 - [X] T034 [US1] `tests/Unit/TourCacheTest.php` (C2) — key namespacing, result round-trip, per-user isolation, status transitions.
-- [~] T016 [US1] *(superseded — expanded into fine-grained tasks T040–T045 in Phase 6: Front-End)*
+- [X] T016 [US1] *(closed — superseded; expanded into fine-grained tasks T040–T046 + T053 in Phase 6: Front-End)*
 
 ---
 
@@ -69,7 +69,7 @@
 
 **Goal**: Display ordered stops, total estimated distance, and route metadata.
 
-- [~] T020 [US3] *(superseded — expanded into fine-grained tasks T047–T048 in Phase 6: Front-End)*
+- [X] T020 [US3] *(closed — superseded; expanded into fine-grained tasks T047–T048 in Phase 6: Front-End)*
 - [X] T021 [US3] Broadcast verification covered by `TourOptimizationBroadcastTest` (success → `TourOptimized {job_uuid,data}`, failure → `TourOptimizationFailed {job_uuid,error}`).
 - [X] T022 [US3] Response schema fixed and consistent across client/job/events/cache: `{ ordered_stops, total_distance_m, total_duration_s }`. (Validation handled pre-dispatch in controller; no warnings in result payload.)
 
@@ -108,6 +108,14 @@
 - [ ] T047 [P] [US3] `resources/js/components/tour/result-summary.tsx` — replaces the Optimize button row on `done`; show total tour duration formatted from `total_duration_s` at top; leave freed list space empty (reserved future drivers list) (FR-014/FR-015). Depends on T039.
 - [ ] T048 [US3] Wire result into page: on `done`, draw optimized `ordered_stops` via `RouteLayer` and swap button row → `ResultSummary` without reload (FR-014, SC-007). Depends on T045, T047.
 
+### Phase 6 — Tests (logic only; Constitution Principle I / "new behavior MUST include tests")
+
+> Scope: test the bug-prone **logic**, not pixels/map. Visual layout + MapLibre rendering stay under manual smoke (T050).
+
+- [ ] T052 [P] Set up front-end test tooling: add `vitest`, `@testing-library/react`, `@testing-library/jest-dom`, `jsdom`; `vitest.config.ts` (jsdom env) + test setup file; `"test": "vitest"` script in `package.json`. Depends on T035.
+- [ ] T053 [US1] `resources/js/hooks/use-tour-optimization.test.ts` — cover the state machine: `idle→submitting`, 200⇒`done` (body), 202⇒`pending` (job_uuid), `.TourOptimized`⇒`done` (filtered by job_uuid), `.TourOptimizationFailed`⇒`failed` (+toast), status-poll fallback fires when WS silent, unsubscribe on terminal, reset to `idle` (FR-004/006/008). Mock Echo + fetch. Depends on T043, T052.
+- [ ] T054 [P] [US2] `resources/js/components/tour/stop-list.test.tsx` — Optimize disabled when `<2` stops (FR-011), list non-interactive while `pending` (FR-012), remove drops the row (FR-002/FR-010). Depends on T046, T051, T052.
+
 ### Phase 6 — Polish (front-end)
 
 - [ ] T049 [P] Cohesion audit: grep `resources/js/components/tour/` + `pages/tour/` for raw hex in className/style — expect none; only role utilities (`bg-primary`, `text-foreground`, `text-text-on-color`). (Constitution VI, quickstart §6.)
@@ -134,11 +142,12 @@
 - Within each User Story: tests → services → controllers → frontend → integration tests.
 - **Phase 6 (Front-End)** ordering: T035–T039 (deps/theme/env/echo/types) → components (T040–T042, T046, T047) → hook T043 + render route T044 → page T045 → result wiring T048 → US2 remove T051 → polish T049–T050.
 - **US1 is independently shippable**: it includes the stop-list *display* (T046). US2 (T051) only *adds* per-row remove on top — US1 does not depend on any US2 task.
+- **Front-end tests** (T052–T054): tooling T052 before test files; T053 (hook logic) is the priority coverage; T054 (StopList) after T051. Visual/map verification remains manual (T050).
 
 ## Parallel Opportunities
 
 - `T006`, `T007`, `T008`, `T009`, `T010` can be implemented in parallel by different engineers.
-- Frontend tasks (`T016`, `T020`) can be worked on in parallel with backend foundational tasks once the public API shape is agreed.
+- Front-end Phase 6 tasks marked `[P]` (`T035`, `T037`, `T039`, `T040`, `T042`, `T047`, `T052`, `T054`) touch distinct files and can run in parallel once their deps are met. Backend is already complete, so all of Phase 6 can proceed now.
 - Docs and CI tasks (`T023`, `T026`, `T030`) are parallelizable.
 - `T029` (performance test) requires Phase 1–3 complete before meaningful measurement.
 

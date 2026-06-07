@@ -4,7 +4,7 @@
 
 **Created**: 2026-06-02
 
-**Status**: Draft
+**Status**: Backend complete + verified; front-end specified/planned (updated 2026-06-07)
 
 **Input**: User description: "Build an application that use the open-street API to find the most optimised route for a series of adresses, in the optic of optimising delivery routes. The user must be able to select adresses and get the result of what route is best optimised."
 
@@ -46,7 +46,7 @@ A planner can see the best route result with total distance or travel estimate, 
 
 **Why this priority**: Clear results make the planner confident in the recommendation and support faster decision-making.
 
-**Independent Test**: After optimization, the system displays route details and a route summary that matches the selected addresses.
+**Independent Test**: After optimization, the system displays route details and a route summary that matches the selected stops.
 
 **Acceptance Scenarios**:
 
@@ -59,7 +59,7 @@ A planner can see the best route result with total distance or travel estimate, 
 ### Edge Cases
 
 - What happens when the planner submits only one coordinate pair? The system should explain that at least two coordinates are needed for route optimization.
-- How does the system handle duplicate or identical coordinates? The system should detect duplicates and warn the user or collapse them before optimization.
+- How does the system handle duplicate or identical coordinates? The backend `CoordinateNormalizer` rounds (5 decimals) and produces a canonical, de-duplicated list before optimization — identical stops collapse **silently** (no user-facing warning in this feature). A "duplicate ignored" hint to the user is a possible future enhancement, not in scope here.
 - What happens if the OpenStreet TSP API is unavailable or returns an error? The system should broadcast a failure event to the frontend with a friendly error message.
 - What if the queue worker crashes or the job never runs? The system must broadcast a failure event (via `OptimizeTourJob::failed()`) so the frontend is never stuck waiting indefinitely.
 - What if the TSP API returns an unreachable or invalid route? The system should broadcast the error payload so the frontend surfaces it clearly.
@@ -87,26 +87,26 @@ A planner can see the best route result with total distance or travel estimate, 
 - **FR-014**: When the optimization result arrives via WebSocket, the system MUST remove the loading bar, render the optimized route on the map, and replace the stop-list area's controls so the total tour duration is shown at the top (where the "Optimize" button was).
 - **FR-015**: The lower-area space previously occupied by the stop list MUST be left free of unnecessary content after a result (reserved for a future drivers list, out of scope here).
 - **FR-016**: The interface MUST be minimalist and legible — no distracting/decorative effects, and no unnecessary information beyond what the planner needs to act.
-- **FR-019**: The system MUST draw the optimized route as straight-line segments connecting the ordered stops. The route-line rendering MUST be isolated behind a single component/data boundary that takes a list of path coordinates, so swapping straight segments for road-accurate geometry later requires changing only that boundary (not the page or list logic).
 
 ### Visual Design Requirements
 
 - **FR-017**: The background MUST be pure white (`#FFFFFF`). The primary color MUST be orange `#FF9A3C` (e.g., the primary "Optimize"/"Submit" action). A pale orange secondary `#FFCF8C` MUST be used for lower-importance elements placed next to a primary element (e.g., a "Cancel" control).
-- **FR-018**: The yellow accent `#FFC802` MUST be used very sparingly — only to make a single element stand out on a primary-heavy area, and optionally in gradients (gradients themselves used sparingly). Text MUST be black even on colored (orange/yellow) backgrounds for legibility.
+- **FR-018**: The yellow accent `#FFC802` MUST be used very sparingly — only to make a single element stand out on a primary-heavy area, and optionally in gradients (gradients themselves used sparingly). Text MUST be black even on colored (orange/yellow) backgrounds for legibility. In dark mode, text on colored fills uses near-black `#11100F` (the `text-on-color` role).
+- **FR-019**: The system MUST draw the optimized route as straight-line segments connecting the ordered stops. The route-line rendering MUST be isolated behind a single component/data boundary that takes a list of path coordinates, so swapping straight segments for road-accurate geometry later requires changing only that boundary (not the page or list logic).
 
 ### Key Entities *(include if feature involves data)*
 
 - **Delivery Location**: A delivery stop represented as a coordinate pair `{ lat: float, lng: float }` submitted by the user for route optimization.
 - **Route Optimization Request**: The array of coordinate pairs submitted to the TSP API via a background job, identified by a `job_uuid`.
 - **Optimized Route**: The ordered result returned by the TSP API, broadcast to the frontend as `ordered_stops`, `total_distance_m`, and `total_duration_s`.
-- **Route Summary**: The compact payload stored in Redis and broadcast via WebSocket: `{ job_uuid, data: { ordered_stops, total_distance_m, total_duration_s } }`.
+- **Route Summary**: The compact payload stored in the cache (database store) and broadcast via WebSocket: `{ job_uuid, data: { ordered_stops, total_distance_m, total_duration_s } }`.
 
 ## Success Criteria *(mandatory)*
 
 ### Measurable Outcomes
 
-- **SC-001**: A user can select addresses and receive an optimized delivery route recommendation in a single flow.
-- **SC-002**: The system returns a route recommendation for valid address sets within 10 seconds for up to 10 selected locations.
+- **SC-001**: A user can select stops (map-picked coordinates) and receive an optimized delivery route recommendation in a single flow.
+- **SC-002**: The system returns a route recommendation for valid coordinate sets within 10 seconds for up to 10 selected stops.
 - **SC-003**: At least 90% of valid optimization requests return a route with a complete ordered stop list and summary metrics.
 - **SC-004** [DEFERRED]: The system identifies invalid or unresolvable addresses in the selected list and shows a corrective message in at least 95% of those cases.
 - **SC-005**: The route result is presented in a way that a planner can tell the visit order and total route estimate without extra explanation.
@@ -130,13 +130,16 @@ A planner can see the best route result with total distance or travel estimate, 
 
 ## Visual Design Tokens (reference)
 
-| Token | Hex | Usage |
-|-------|-----|-------|
-| Background | `#FFFFFF` | Page background (pure white) |
-| Primary | `#FF9A3C` | Primary actions/elements (e.g., "Optimize", "Submit") |
-| Secondary (pale orange) | `#FFCF8C` | Lower-importance element beside a primary one (e.g., "Cancel") |
-| Accent (yellow) | `#FFC802` | Very sparing standout / occasional gradient only |
-| Text | `#000000` | All text, including on colored backgrounds, for legibility |
+Implemented as role CSS variables in `resources/css/app.css` (light = `:root`, dark = `.dark`); see plan.md "Theming". No raw hex at point of use (Constitution VI).
+
+| Role | Light | Dark | Usage |
+|------|-------|------|-------|
+| Background | `#FFFFFF` | `#11100F` | Page background |
+| Text (foreground) | `#000000` | `#FFFFFF` | Default text on the page background |
+| Primary | `#FF9A3C` | `#F99435` | Primary actions/elements (e.g., "Optimize", "Submit") |
+| Secondary (pale orange) | `#FFCF8C` | `#FFCF8C` | Lower-importance element beside a primary one (e.g., "Cancel") |
+| Accent (yellow) | `#FFC802` | `#FFC802` | Very sparing standout / occasional gradient only |
+| Text-on-color | `#000000` | `#11100F` | Text placed on a colored (primary/secondary/accent) fill, for legibility |
 
 ## Deferred / Future Enhancements
 

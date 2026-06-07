@@ -2,21 +2,23 @@
 
 **Branch**: `001-delivery-route-optimization` | **Date**: 2026-06-02 | **Spec**: [spec.md](spec.md)
 
+> **STACK-REALITY NOTE (2026-06-07)**: The original Technical Context below was written before implementation. The backend was built + verified against the actual repo (Laravel 13 / PHP 8.3 / Inertia + React / Fortify). Where this section says **Redis**, the reality is the **database** cache/queue driver; where it says **`App.Models.User.{id}`**, the reality is **`App.Models.User.{id}`**; the rate limiter lives in **`AppServiceProvider`** (no `RouteServiceProvider` in L13). See the `tasks.md` "Implementation Status" banner and the "Front-End Implementation Plan" section below for the authoritative current stack. The lines below have been corrected to match.
+
 ## Summary
 
-Provide an asynchronous, cache-backed route-optimization flow using Laravel backend, React frontend, PostgreSQL, Redis (cache/queue), and WebSockets. The backend never blocks on external API calls: requests return 202 with a Job UUID when work is queued; results are stored in Redis for 24 hours and broadcast to the authenticated user's private channel `private-user.{id}`.
+Provide an asynchronous, cache-backed route-optimization flow using a Laravel backend, React (Inertia) frontend, and WebSockets. The backend never blocks on external API calls: requests return 202 with a Job UUID when work is queued; results are stored in the cache (database driver) for 24 hours and broadcast to the authenticated user's private channel `App.Models.User.{id}`.
 
 ## Technical Context
 
-**Language/Version**: PHP 8.2 (Laravel 10)
+**Language/Version**: PHP 8.3 (Laravel 13)
 
-**Frontend**: React (Vite or existing React Starter Kit)
+**Frontend**: React 19 + Inertia (Laravel React Starter Kit) on Vite + Tailwind v4 + shadcn/ui
 
-**Primary Dependencies**: Laravel queue (Redis), Laravel Echo + **Laravel Reverb** (self-hosted WebSocket server), Guzzle HTTP client, hashed cache keys (Laravel Redis cache), rate limiting middleware, PHPUnit, Pest (optional)
+**Primary Dependencies**: Laravel queue (database driver), Laravel Echo + **Laravel Reverb** (self-hosted WebSocket server), Guzzle HTTP client, hashed cache keys (database cache store), rate limiting middleware, PHPUnit
 
-**Storage**: PostgreSQL for app data; Redis for cache and queue; results cached with a 24-hour TTL
+**Storage**: Database (default connection) for app data, cache, and queue; results cached with a 24-hour TTL
 
-**Testing**: PHPUnit / Pest for backend tests; Jest/React Testing Library for frontend
+**Testing**: PHPUnit for backend tests; Vitest + React Testing Library for front-end logic (state machine/components — see tasks T052–T054)
 
 **Target Platform**: Linux or Docker-based development; Windows developer environments supported
 
@@ -78,14 +80,14 @@ This plan follows the project constitution: readable code, defensive error handl
 4. Service checks the cache; if hit, it returns a "ready" result and the controller responds 200 with the cached data.
 5. If miss, the service generates a Job UUID, dedups via the active-job lock (reusing a running job if any), `OptimizeTourJob::dispatch()`es with UUID/user ID/canonical payload, and marks status 'pending' (short TTL).
 6. Service returns a "pending" result; the controller responds HTTP 202 with `job_uuid` immediately.
-7. `OptimizeTourJob` calls `OpenStreetTspClient` using credentials from `.env`; on success store full result in Redis with 24-hour TTL and publish broadcast event on channel `private-user.{id}` with payload `{ job_uuid, data }`.
-8. On failure, job stores an error record and broadcasts a failure event `{ job_uuid, error }` to `private-user.{id}`.
-9. Frontend subscribes to `private-user.{id}` and filters events by `job_uuid`; also shows immediate 202 UI and optionally poll for cache result (long-poll or GET `/api/tour/status/{job_uuid}`) if WS unavailable.
+7. `OptimizeTourJob` calls `OpenStreetTspClient` using credentials from `.env`; on success store full result in the cache (database store) with 24-hour TTL and publish broadcast event on channel `App.Models.User.{id}` with payload `{ job_uuid, data }`.
+8. On failure, job stores an error record and broadcasts a failure event `{ job_uuid, error }` to `App.Models.User.{id}`.
+9. Frontend subscribes to `App.Models.User.{id}` and filters events by `job_uuid`; also shows immediate 202 UI and optionally poll for cache result (long-poll or GET `/api/tour/status/{job_uuid}`) if WS unavailable.
 
 ## Security & Rate Limiting
 
-- Use Laravel BroadcastAuth to ensure `private-user.{id}` channels require auth and match current user ID.
-- Rate limit POST `/api/tour/optimize` to 10/min per authenticated user via `ThrottleRequests` middleware and/or custom limiter in `RouteServiceProvider`.
+- Use Laravel BroadcastAuth to ensure `App.Models.User.{id}` channels require auth and match current user ID.
+- Rate limit POST `/api/tour/optimize` to 10/min per authenticated user via `throttle:tour-optimize`, a named limiter defined in `AppServiceProvider` (Laravel 13 has no `RouteServiceProvider`).
 - Validate inputs strictly (coordinate arrays, min 2 points, max N points — default N=10).
 
 ## Error Handling & Observability
@@ -96,14 +98,14 @@ This plan follows the project constitution: readable code, defensive error handl
 
 ## Environment & Configuration
 
-- `.env` entries: `OPENSTREET_API_URL=https://maps.open-street.com/api/tsp/`, `OPENSTREET_API_KEY`, `REDIS_URL`, `BROADCAST_DRIVER=reverb`, `QUEUE_CONNECTION=redis`, `REVERB_APP_ID`, `REVERB_APP_KEY`, `REVERB_APP_SECRET`, `REVERB_HOST`, `REVERB_PORT=8080`.
-- Redis key prefixes: `tour:{hash}` for results; `tour:status:{job_uuid}` for pending markers.
+- `.env` entries: `OPENSTREET_API_URL`, `OPENSTREET_API_KEY`, `OPENSTREET_API_TIMEOUT`, `OPENSTREET_API_RETRIES`, `BROADCAST_CONNECTION=reverb`, `CACHE_STORE=database`, `QUEUE_CONNECTION=database`, `DB_QUEUE_RETRY_AFTER=1320`, `REVERB_APP_ID`, `REVERB_APP_KEY`, `REVERB_APP_SECRET`, `REVERB_HOST`, `REVERB_PORT`, `REVERB_SCHEME`. (Front-end also needs `VITE_REVERB_*` — see quickstart.md.)
+- Cache key prefixes (database cache store): `tour:{hash}` for results; `tour:status:{job_uuid}` for pending markers.
 
 ## Tasks (high-level)
 
 - Implement API endpoint and validation
 - Implement `CoordinateNormalizer` and hashing
-- Add Redis cache checks and TTL
+- Add cache checks and TTL (database cache store)
 - Create `OptimizeTourJob` background worker
 - Implement `OpenStreetTspClient` with robust retries and timeouts
 - Integrate broadcasting on job success/failure
@@ -115,7 +117,7 @@ This plan follows the project constitution: readable code, defensive error handl
 
 - Cache hit returns result within 200ms
 - Cache miss returns HTTP 202 and job UUID immediately
-- Successful jobs result in Redis storage with 24h TTL and WS broadcast
+- Successful jobs result in cache storage (database store) with 24h TTL and WS broadcast
 - Failure jobs broadcast an error event so frontend stops waiting
 - Rate limiter enforces 10 per minute per user
 
