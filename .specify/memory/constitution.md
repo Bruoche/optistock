@@ -1,9 +1,13 @@
 <!--
-Version change: none → 1.0.0
-Modified principles: initial constitution created
-Added sections: Additional Constraints, Development Workflow
+Sync Impact Report
+Version change: 1.0.0 → 1.1.0
+Modified principles: none renamed
+Added sections: Principle VI — Consistent, Reusable Front-End Styling
 Removed sections: none
-Templates requiring updates: .specify/templates/plan-template.md ✅ reviewed, .specify/templates/spec-template.md ✅ reviewed, .specify/templates/tasks-template.md ✅ reviewed
+Templates requiring updates:
+  - .specify/templates/plan-template.md ✅ reviewed (generic Constitution Check; no change needed)
+  - .specify/templates/spec-template.md ✅ reviewed (no change needed)
+  - .specify/templates/tasks-template.md ✅ reviewed (no change needed)
 Follow-up TODOs: none
 -->
 
@@ -25,6 +29,15 @@ Robust code MUST validate inputs, handle failure modes explicitly, and preserve 
 
 ### V. Performance with Clarity
 Performance MUST be achieved without sacrificing readability or correctness. Optimizations MUST be measurable or justified; algorithmic efficiency, predictable resource use, and maintainable code paths are preferred over premature micro-optimization.
+
+### VI. Consistent, Reusable Front-End Styling
+Front-end styling MUST be reusable and centrally maintainable so a style change propagates from one place across the whole project.
+
+- Styles MUST be expressed as simple, reusable classes/utilities with clear yet minimal names. Duplicating the same visual rule in multiple places is prohibited; recurring styling MUST be factored into a shared, well-named class or component.
+- Colors MUST be referenced only through defined variables that name the color's ROLE — `primary`, `secondary`, `background`, `text`, and `accent` — never as raw or one-off hex/RGB literals at the point of use.
+- Introducing a color value outside the defined palette variables is prohibited; changing the palette MUST be possible by editing the variable definitions alone, with no risk of stray off-palette variations remaining.
+
+Rationale: role-named color variables and shared style classes make re-theming and visual edits a single-point change, eliminate drift, and keep the interface consistent and legible.
 
 ## Additional Constraints
 - Code MUST follow repository style and linting rules, and formatting MUST be consistent.
@@ -49,5 +62,5 @@ This constitution supersedes informal habits and local conventions for code qual
 - Every pull request touching architecture, testing, or shared quality practices MUST reference at least one principle and note compliance in the description.
 - Compliance reviews SHOULD occur whenever the project enters a new development phase or when a major feature lands.
 
-**Version**: 1.0.0 | **Ratified**: 2026-06-02 | **Last Amended**: 2026-06-02
+**Version**: 1.1.0 | **Ratified**: 2026-06-02 | **Last Amended**: 2026-06-07
 
