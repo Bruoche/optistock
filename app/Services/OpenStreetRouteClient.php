@@ -33,8 +33,6 @@ class OpenStreetRouteClient
     /**
      * Fetch the road geometry + metrics for a single origin → destination leg.
      *
-     * @param  array{lat: float, lng: float}  $origin
-     * @param  array{lat: float, lng: float}  $destination
      * @param  string|null  $mode  Travel mode override; defaults to the configured mode.
      * @return array{
      *     coordinates: array<int, array{0: float, 1: float}>,
@@ -44,14 +42,14 @@ class OpenStreetRouteClient
      *
      * @throws TourGeometryException
      */
-    public function traceLeg(array $origin, array $destination, ?string $mode = null): array
+    public function traceLeg(Coordinate $origin, Coordinate $destination, ?string $mode = null): array
     {
         try {
             $response = $this->http
                 ->timeout($this->timeout)
                 ->get($this->baseUrl, [
-                    'origin' => $origin['lat'].','.$origin['lng'],
-                    'destination' => $destination['lat'].','.$destination['lng'],
+                    'origin' => $origin->toQueryValue(),
+                    'destination' => $destination->toQueryValue(),
                     'mode' => $mode ?? $this->mode,
                     'key' => $this->apiKey,
                 ]);

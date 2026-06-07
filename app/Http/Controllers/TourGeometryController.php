@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\TourGeometryRequest;
+use App\Services\Coordinate;
 use App\Services\TourGeometryService;
 use Illuminate\Http\JsonResponse;
 
@@ -21,10 +22,7 @@ class TourGeometryController extends Controller
      */
     public function trace(TourGeometryRequest $request, TourGeometryService $geometry): JsonResponse
     {
-        $stops = array_map(
-            static fn (array $pair): array => ['lat' => (float) $pair[0], 'lng' => (float) $pair[1]],
-            $request->validated('stops'),
-        );
+        $stops = array_map(Coordinate::fromPair(...), $request->validated('stops'));
 
         // No user-facing mode selector yet: fall back to the configured default.
         $mode = $request->validated('mode') ?? config('services.openstreet.mode');

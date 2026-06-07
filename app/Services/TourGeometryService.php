@@ -19,7 +19,7 @@ class TourGeometryService
     public function __construct(private readonly OpenStreetRouteClient $client) {}
 
     /**
-     * @param  array<int, array{lat: float, lng: float}>  $orderedStops  visit order
+     * @param  array<int, Coordinate>  $orderedStops  visit order
      * @return array{
      *     legs: array<int, array{ok: bool, coordinates?: array<int, array{0: float, 1: float}>, distance_m?: int, duration_s?: int}>,
      *     total_distance_m: int|null,
@@ -53,8 +53,8 @@ class TourGeometryService
             } catch (TourGeometryException $e) {
                 Log::warning('Tour geometry leg failed', [
                     'leg_index' => $index,
-                    'origin' => $origin,
-                    'destination' => $destination,
+                    'origin' => $origin->toQueryValue(),
+                    'destination' => $destination->toQueryValue(),
                     'error' => ['code' => $e->errorCode, 'message' => $e->getMessage()],
                 ]);
                 $legs[] = ['ok' => false];

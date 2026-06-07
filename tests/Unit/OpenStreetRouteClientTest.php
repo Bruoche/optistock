@@ -3,6 +3,7 @@
 namespace Tests\Unit;
 
 use App\Exceptions\TourGeometryException;
+use App\Services\Coordinate;
 use App\Services\OpenStreetRouteClient;
 use App\Services\PolylineDecoder;
 use Illuminate\Http\Client\ConnectionException;
@@ -14,14 +15,14 @@ class OpenStreetRouteClientTest extends TestCase
 {
     private const URL = 'https://maps.open-street.com/api/route/';
 
-    private function origin(): array
+    private function origin(): Coordinate
     {
-        return ['lat' => 48.8566, 'lng' => 2.3522];
+        return new Coordinate(48.8566, 2.3522);
     }
 
-    private function destination(): array
+    private function destination(): Coordinate
     {
-        return ['lat' => 45.7640, 'lng' => 4.8357];
+        return new Coordinate(45.7640, 4.8357);
     }
 
     private function client(HttpFactory $http): OpenStreetRouteClient
