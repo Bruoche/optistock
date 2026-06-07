@@ -54,12 +54,8 @@ class OpenStreetRouteClient
                     'key' => $this->apiKey,
                 ]);
         } catch (ConnectionException $e) {
-            throw TourGeometryException::timeout(
-                "OpenStreet /route did not respond within {$this->timeout}s: {$e->getMessage()}",
-                $e,
-            );
+            throw TourGeometryException::timeout($this->timeout, $e);
         }
-
         if ($response->failed()) {
             throw TourGeometryException::apiError("OpenStreet /route returned HTTP {$response->status()}.");
         }
@@ -80,7 +76,6 @@ class OpenStreetRouteClient
             $status = is_array($body) ? ($body['status'] ?? 'missing') : 'non-object';
             throw TourGeometryException::invalidResponse("OpenStreet /route returned status [{$status}].");
         }
-
         if (! isset($body['polyline']) || ! is_string($body['polyline'])) {
             throw TourGeometryException::invalidResponse('OpenStreet /route response is missing the polyline.');
         }

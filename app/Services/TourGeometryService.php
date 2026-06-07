@@ -30,16 +30,13 @@ class TourGeometryService
     {
         $stops = array_values($orderedStops);
         $count = count($stops);
-
         $legs = [];
         $totalDistance = 0;
         $totalDuration = 0;
         $allOk = true;
-
         foreach ($stops as $index => $origin) {
             // Closed tour: the last leg returns to the first stop.
             $destination = $stops[($index + 1) % $count];
-
             try {
                 $leg = $this->client->traceLeg($origin, $destination, $mode);
                 $legs[] = [
@@ -55,7 +52,7 @@ class TourGeometryService
                     'leg_index' => $index,
                     'origin' => $origin->toQueryValue(),
                     'destination' => $destination->toQueryValue(),
-                    'error' => ['code' => $e->errorCode, 'message' => $e->getMessage()],
+                    'error' => $e->toPayload(),
                 ]);
                 $legs[] = ['ok' => false];
                 $allOk = false;

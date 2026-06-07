@@ -50,9 +50,9 @@ class OpenStreetTspClient
      */
     public function optimize(array $coordinates): array
     {
-        // A 2-point tour is trivially optimal + the API can't process it. 
-		// Return it as-is.
-		// Distance/duration require a routing call we don't make here, so they are left null until the OpenStreet /route/ endpoint is wired in
+        // A 2-point tour is trivially optimal + the API can't process it.
+        // Return it as-is.
+        // Distance/duration require a routing call we don't make here, so they are left null until the OpenStreet /route/ endpoint is wired in
         if (count($coordinates) < self::MIN_TSP_POINTS) {
             return $this->trivialTour($coordinates);
         }
@@ -121,10 +121,7 @@ class OpenStreetTspClient
                     'key' => $this->apiKey,
                 ]);
         } catch (ConnectionException $e) {
-            throw TourOptimizationException::timeout(
-                "OpenStreet API did not respond within {$this->timeout}s: {$e->getMessage()}",
-                $e,
-            );
+            throw TourOptimizationException::timeout($this->timeout, $e);
         }
     }
 
