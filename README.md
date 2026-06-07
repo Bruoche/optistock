@@ -6,20 +6,37 @@ time on the map. Laravel 13 + Inertia/React back end and front end in one codeba
 
 ## Run it locally
 
-First time on a new machine:
+1. **Install** (first time on a machine):
 
-```bash
-composer setup     # install deps, copy .env, app key, migrate (SQLite), build assets
-```
+   ```bash
+   composer setup     # install deps, copy .env, app key, migrate (SQLite), build assets
+   npm install        # front-end deps (composer setup also runs this; safe to repeat)
+   ```
 
-Then set your API key in `.env` (see "Configure .env" below), and start everything:
+2. **Add your OpenStreet API key** — REQUIRED, optimization fails without it. In `.env`:
 
-```bash
-composer dev               # app server + queue workers + Vite, all at once
-php artisan reverb:start    # separate terminal: WebSocket server for live results
-```
+   ```
+   OPENSTREET_API_KEY=your-key-here
+   ```
+   (`.env.example` ships it empty. Get a key from OpenStreet. See "Configure .env" for the rest.)
 
-Open **http://localhost:8000**, log in, go to **`/tour`**.
+3. **Start the app.** Easiest — one command runs the back-end server, queue workers, and the
+   **front-end (Vite) dev server** together:
+
+   ```bash
+   composer dev               # = php artisan serve + queue workers + `npm run dev` (Vite)
+   php artisan reverb:start    # separate terminal: WebSocket server for live results
+   ```
+
+   Prefer separate terminals? Run each yourself:
+   ```bash
+   php artisan serve                                          # back end  → :8000
+   npm run dev                                                # front end → Vite/HMR
+   php artisan queue:work --queue=default,broadcasts --timeout=1290   # job + broadcast workers
+   php artisan reverb:start                                   # WebSocket → :8080
+   ```
+
+Open **http://localhost:8000** (the app — not Vite's port), log in, go to **`/tour`**.
 (Without Reverb the app still works — it falls back to polling for results, just less instant.)
 
 ## Run the tests
@@ -32,12 +49,9 @@ composer ci:check   # everything CI runs: lint + format + types + tests
 
 ## Configure .env
 
-`composer setup` copies `.env.example` → `.env`. The only value you must set by hand:
-
-- `OPENSTREET_API_KEY=` — your OpenStreet API key (used by both the optimizer and route tracing).
-
-Sensible defaults are already set: DB is SQLite (`database/database.sqlite`), cache/queue use the
-database driver, mode is `trucking`. For live WebSocket updates also fill `REVERB_APP_*`
+`composer setup` copies `.env.example` → `.env`. Beyond `OPENSTREET_API_KEY` (step 2 above), the
+defaults work out of the box: DB is SQLite (`database/database.sqlite`), cache/queue use the database
+driver, travel mode is `trucking`. For live WebSocket updates also fill `REVERB_APP_*`
 (`php artisan reverb:install` generates them). On Windows you may need a CA bundle for HTTPS
 (`cURL error 60`) — see `specs/001-delivery-route-optimization/README.md` §1.2.
 
