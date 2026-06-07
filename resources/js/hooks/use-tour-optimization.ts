@@ -5,29 +5,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { getEcho } from '@/lib/echo';
+import { postJson } from '@/lib/http';
 import type { OptimizeState, Stop, TourError, TourResult } from '@/types/tour';
 
 const POLL_INTERVAL_MS = 3000;
-
-function readCookie(name: string): string | null {
-    const match = document.cookie.match(new RegExp('(^|;\\s*)' + name + '=([^;]*)'));
-
-    return match ? decodeURIComponent(match[2]) : null;
-}
-
-async function postJson(url: string, body: unknown): Promise<Response> {
-    return fetch(url, {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: {
-            'Content-Type': 'application/json',
-            Accept: 'application/json',
-            'X-Requested-With': 'XMLHttpRequest',
-            'X-XSRF-TOKEN': readCookie('XSRF-TOKEN') ?? '',
-        },
-        body: JSON.stringify(body),
-    });
-}
 
 export function useTourOptimization(userId: number) {
     const [stops, setStops] = useState<Stop[]>([]);

@@ -51,6 +51,13 @@ return [
         // short, and must stay below the queue connection's retry_after.
         // Default: (1 + 1) × 600 + 60 buffer = 1260.
         'job_timeout' => (int) env('OPENSTREET_API_JOB_TIMEOUT', 1260),
+        // /route endpoint (road geometry per leg — feature 002). Fast + synchronous.
+        'route_url' => env('OPENSTREET_ROUTE_URL', 'https://maps.open-street.com/api/route/'),
+        'route_timeout' => (int) env('OPENSTREET_ROUTE_TIMEOUT', 15),
+        // Google encoded-polyline precision the /route endpoint uses (verified live: 6).
+        'route_precision' => (int) env('OPENSTREET_ROUTE_PRECISION', 6),
+        // Travel mode — single source for the TSP optimization AND the route tracing.
+        'mode' => env('OPENSTREET_MODE', 'trucking'),
     ],
 
 ];

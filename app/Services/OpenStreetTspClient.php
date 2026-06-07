@@ -11,7 +11,8 @@ use Illuminate\Http\Client\Response;
  * Thin client for the OpenStreet TSP route-optimization API.
  *
  * Request shape (GET):
- *   {url}?pts=lat,lng|lat,lng|...&nb=N&mode=driving&unit=m&tour=closed&key=...
+ *   {url}?pts=lat,lng|lat,lng|...&nb=N&mode={mode}&unit=m&tour=closed&key=...
+ *   (mode comes from config `services.openstreet.mode`; default `trucking`)
  *
  * MUST only be called from a background job — the upstream API can take
  * several minutes for large point sets. We therefore use a generous *read*
@@ -35,6 +36,7 @@ class OpenStreetTspClient
         private readonly int $timeout = 600,
         private readonly int $retries = 1,
         private readonly int $connectTimeout = 15,
+        private readonly string $mode = 'trucking',
     ) {}
 
     /**
@@ -49,9 +51,9 @@ class OpenStreetTspClient
      */
     public function optimize(array $coordinates): array
     {
-        // A 2-point tour is trivially optimal + the API can't process it. 
-		// Return it as-is.
-		// Distance/duration require a routing call we don't make here, so they are left null until the OpenStreet /route/ endpoint is wired in
+        // A 2-point tour is trivially optimal + the API can't process it.
+        // Return it as-is.
+        // Distance/duration require a routing call we don't make here, so they are left null until the OpenStreet /route/ endpoint is wired in
         if (count($coordinates) < self::MIN_TSP_POINTS) {
             return $this->trivialTour($coordinates);
         }
@@ -114,16 +116,13 @@ class OpenStreetTspClient
                 ->get($this->baseUrl, [
                     'pts' => $points,
                     'nb' => $count,
-                    'mode' => 'driving',
+                    'mode' => $this->mode,
                     'unit' => 'm',
                     'tour' => 'closed',
                     'key' => $this->apiKey,
                 ]);
         } catch (ConnectionException $e) {
-            throw TourOptimizationException::timeout(
-                "OpenStreet API did not respond within {$this->timeout}s: {$e->getMessage()}",
-                $e,
-            );
+            throw TourOptimizationException::timeout($this->timeout, $e);
         }
     }
 

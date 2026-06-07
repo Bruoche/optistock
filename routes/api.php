@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\TourGeometryController;
 use App\Http\Controllers\TourOptimizationController;
 use Illuminate\Support\Facades\Route;
 
@@ -18,4 +19,10 @@ Route::middleware('auth')->group(function (): void {
 
     Route::get('tour/status/{job_uuid}', [TourOptimizationController::class, 'getJobStatus'])
         ->name('tour.status');
+
+    // Road-accurate route tracing (feature 002): synchronous; fetches /route geometry
+    // per leg. Dedicated limiter, separate from tour-optimize.
+    Route::post('tour/geometry', [TourGeometryController::class, 'trace'])
+        ->middleware('throttle:tour-geometry')
+        ->name('tour.geometry');
 });

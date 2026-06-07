@@ -6,6 +6,8 @@ import type { TourResult } from '@/types/tour';
 
 type ResultSummaryProps = {
     result: TourResult;
+    /** Road-accurate metrics (feature 002); when present and non-null they override the initial estimate. */
+    roadMetrics?: { distance_m: number | null; duration_s: number | null } | null;
     onReset: () => void;
 };
 
@@ -25,13 +27,16 @@ function formatDuration(totalSeconds: number | null): string {
     return `${minutes} min`;
 }
 
-export function ResultSummary({ result, onReset }: ResultSummaryProps) {
+export function ResultSummary({ result, roadMetrics, onReset }: ResultSummaryProps) {
+    // Prefer the road-accurate duration once available; otherwise the initial estimate.
+    const durationS = roadMetrics?.duration_s ?? result.total_duration_s;
+
     return (
         <div className="flex h-full flex-col gap-3">
             <div className="flex items-center justify-between rounded-md bg-primary px-4 py-3 text-text-on-color">
                 <div>
                     <p className="text-xs uppercase tracking-wide">Tour duration</p>
-                    <p className="text-lg font-semibold">{formatDuration(result.total_duration_s)}</p>
+                    <p className="text-lg font-semibold">{formatDuration(durationS)}</p>
                 </div>
                 <Button variant="secondary" onClick={onReset}>
                     New tour
