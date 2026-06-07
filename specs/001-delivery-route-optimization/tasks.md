@@ -55,11 +55,7 @@
 - [X] T015 [US1] `tests/Feature/TourOptimizationTest.php` — 401 unauth, 422 validation, 202 cache miss (job queued), 200 cache hit, result-endpoint status/404.
 - [X] T033 [US1] `tests/Unit/OpenStreetTspClientTest.php` (C1) — success mapping, query params, api_error/invalid_response/timeout paths.
 - [X] T034 [US1] `tests/Unit/TourCacheTest.php` (C2) — key namespacing, result round-trip, per-user isolation, status transitions.
-- [ ] T016 [US1] *(deferred to frontend run)* Add frontend component in `resources/js/pages/` (NOT `resources/js/routes/` — that dir is Wayfinder-generated). Use channel `App.Models.User.{id}`:
-  - On submit: POST `/api/tour/optimize` with `{ coordinates: [[lat, lng], ...] }`
-  - **200 response** (cache hit): render result immediately from response body (no WS needed)
-  - **202 response** (cache miss): show "pending" spinner; subscribe via `Echo.private('App.Models.User.' + userId).listen('.TourOptimized', (e) => { if (e.job_uuid === jobUuid) renderResult(e.data); }).listen('.TourOptimizationFailed', (e) => { if (e.job_uuid === jobUuid) showError(e.error); })`; also poll `GET /api/tour/status/{job_uuid}` as WS fallback
-  - On receive: unsubscribe from channel; render `ordered_stops`, `total_distance_m`, `total_duration_s`
+- [~] T016 [US1] *(superseded — expanded into fine-grained tasks T040–T045 in Phase 6: Front-End)*
 
 ---
 
@@ -73,9 +69,49 @@
 
 **Goal**: Display ordered stops, total estimated distance, and route metadata.
 
-- [ ] T020 [US3] *(deferred to frontend run)* Add frontend page in `resources/js/pages/` to display ordered stops, summary metrics, and link to map view
+- [~] T020 [US3] *(superseded — expanded into fine-grained tasks T047–T048 in Phase 6: Front-End)*
 - [X] T021 [US3] Broadcast verification covered by `TourOptimizationBroadcastTest` (success → `TourOptimized {job_uuid,data}`, failure → `TourOptimizationFailed {job_uuid,error}`).
 - [X] T022 [US3] Response schema fixed and consistent across client/job/events/cache: `{ ordered_stops, total_distance_m, total_duration_s }`. (Validation handled pre-dispatch in controller; no warnings in result payload.)
+
+---
+
+## Phase 6: Front-End (added 2026-06-07)
+
+**Stack**: reuse Laravel React Starter Kit + shadcn/ui on Tailwind v4. New deps only: `maplibre-gl`, `react-map-gl`, `laravel-echo`, `pusher-js`. See `plan.md` "Front-End Implementation Plan", `research.md`, `data-model.md`, `contracts/frontend-ui.md`, `quickstart.md`.
+
+**Independent Test**: Log in → click ≥2 map points (stops appear in list, Optimize enables) → press Optimize (list greys, bottom "Optimizing…" bar) → on `.TourOptimized` (or 200 cache hit) route line drawn + total duration shown where button was; forced failure → `sonner` toast + list re-enabled (never stuck).
+
+### Front-end Setup & Foundational
+
+- [ ] T035 [P] Install front-end deps `maplibre-gl`, `react-map-gl`, `laravel-echo`, `pusher-js` (update `package.json` + `package-lock.json` via `npm install`).
+- [ ] T036 Re-theme role CSS vars in `resources/css/app.css` — `:root` (background `#FFFFFF`, foreground `#000000`, primary `#FF9A3C`, secondary `#FFCF8C`, accent `#FFC802`, all `-foreground` `#000000`) and `.dark` (background `#11100F`, foreground `#FFFFFF`, primary `#F99435`, secondary `#FFCF8C`, accent `#FFC802`); add `--text-on-color` (`#000000` light / `#11100F` dark) and register `--color-text-on-color: var(--text-on-color);` in the `@theme` block. No parallel palette, no off-palette literals (FR-017/FR-018, Constitution VI).
+- [ ] T037 [P] Add `VITE_REVERB_APP_KEY`, `VITE_REVERB_HOST`, `VITE_REVERB_PORT`, `VITE_REVERB_SCHEME` to `.env` and `.env.example`.
+- [ ] T038 Create Echo singleton in `resources/js/lib/echo.ts` (`broadcaster: 'reverb'`, `Pusher` from `pusher-js`, config from `import.meta.env.VITE_REVERB_*`). Depends on T035, T037.
+- [ ] T039 [P] Define front-end types in `resources/js/types/tour.ts` (`Stop`, `OptimizedStop`, `TourResult`, `TourError`, `OptimizeState`) per `data-model.md`.
+
+### Phase 6 — User Story 1 (P1): pick coordinates, submit, loading state
+
+- [ ] T040 [P] [US1] `resources/js/components/tour/route-layer.tsx` — FR-019 isolation boundary. Props `{ path: {lat,lng}[] }`; render straight-line segments as a GeoJSON `LineString` (`<Source>`+`<Layer>`). No page/list logic inside; only consumes path. Depends on T035, T039.
+- [ ] T041 [US1] `resources/js/components/tour/tour-map.tsx` — wrap `react-map-gl` Map (OSM-compatible style); click adds a `Stop`; render numbered `<Marker>` per stop; emit add/select callbacks. Depends on T035, T039.
+- [ ] T042 [P] [US1] `resources/js/components/tour/optimizing-bar.tsx` — bottom horizontal bar, reuse `components/ui/spinner.tsx` + "Optimizing…" text (FR-013). Depends on T039.
+- [ ] T046 [US1] `resources/js/components/tour/stop-list.tsx` — **display** the placed stops as a list beneath the map; Optimize `<Button>` slot on top, disabled when `<2` stops; greyed + non-interactive (`opacity-50 pointer-events-none`, `aria-disabled`) while `pending` (FR-010 display, FR-011, FR-012). Per-row remove is added later in US2 (T051); ship a non-removable list first so US1 is independently shippable. Depends on T039.
+- [ ] T043 [US1] `resources/js/hooks/use-tour-optimization.ts` — `OptimizeState` machine; POST `/api/tour/optimize` `{coordinates:[[lat,lng]...]}`; 200⇒`done` from body, 202⇒`pending` subscribe `Echo.private('App.Models.User.'+userId)` filter by `job_uuid` on `.TourOptimized`/`.TourOptimizationFailed`; poll `GET /api/tour/status/{job_uuid}` as WS fallback; unsubscribe on terminal; failure ⇒ `sonner` toast (FR-004/006/008, contract). Depends on T038, T039.
+- [ ] T044 [US1] Inertia GET route + thin controller render for the page (`routes/web.php` → `Inertia::render('tour/optimize')`, behind `auth`); pass `userId` prop. Depends on none (backend-side render only).
+- [ ] T045 [US1] `resources/js/pages/tour/optimize.tsx` — screen layout: map top ~2/3 (`TourMap` + `RouteLayer`), lower third hosts `StopList` with Optimize `<Button>` on top; bottom-anchored `OptimizingBar` while `pending`; wire `use-tour-optimization` (FR-009). Depends on T040, T041, T042, T043, T044, T046.
+
+### Phase 6 — User Story 2 (P2): review & remove stops
+
+- [ ] T051 [US2] Add per-row **remove** to `resources/js/components/tour/stop-list.tsx` (`lucide-react` trash icon per row); removing a stop also removes its map marker via shared state and excludes it from the next request (FR-002, FR-010 remove). Builds on the US1 list (T046). Depends on T046.
+
+### Phase 6 — User Story 3 (P3): result & duration display
+
+- [ ] T047 [P] [US3] `resources/js/components/tour/result-summary.tsx` — replaces the Optimize button row on `done`; show total tour duration formatted from `total_duration_s` at top; leave freed list space empty (reserved future drivers list) (FR-014/FR-015). Depends on T039.
+- [ ] T048 [US3] Wire result into page: on `done`, draw optimized `ordered_stops` via `RouteLayer` and swap button row → `ResultSummary` without reload (FR-014, SC-007). Depends on T045, T047.
+
+### Phase 6 — Polish (front-end)
+
+- [ ] T049 [P] Cohesion audit: grep `resources/js/components/tour/` + `pages/tour/` for raw hex in className/style — expect none; only role utilities (`bg-primary`, `text-foreground`, `text-text-on-color`). (Constitution VI, quickstart §6.)
+- [ ] T050 Manual smoke test per `quickstart.md` §5 — US1 happy path (cache miss → WS), 200 cache-hit path, and forced-failure path (worker down / bad key) → toast + list re-enabled.
 
 ---
 
@@ -96,6 +132,8 @@
 - **Phase 2** (Foundational) must complete before any User Story phase.
 - **Phase 3 (US1)** is the MVP and should be implemented first among user stories.
 - Within each User Story: tests → services → controllers → frontend → integration tests.
+- **Phase 6 (Front-End)** ordering: T035–T039 (deps/theme/env/echo/types) → components (T040–T042, T046, T047) → hook T043 + render route T044 → page T045 → result wiring T048 → US2 remove T051 → polish T049–T050.
+- **US1 is independently shippable**: it includes the stop-list *display* (T046). US2 (T051) only *adds* per-row remove on top — US1 does not depend on any US2 task.
 
 ## Parallel Opportunities
 
