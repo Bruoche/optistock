@@ -32,7 +32,7 @@ export default function TourOptimize() {
         <>
             <Head title="Optimize tour" />
 
-            <div className="flex h-[calc(100vh-4rem)] flex-col">
+            <div className="flex min-h-0 flex-1 flex-col">
                 <div className="min-h-0 flex-[2] overflow-hidden">
                     <TourMap stops={stops} onAddStop={addStop} addable={!isPending && !isDone}>
                         {isDone && <RouteLayer path={routePath} />}
