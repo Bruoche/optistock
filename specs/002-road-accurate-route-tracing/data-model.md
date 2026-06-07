@@ -70,5 +70,6 @@ export type TourGeometry = {
 
 ## Stale guard (FR-010)
 
-- The geometry fetch is tied to the current tour/`job_uuid`; a response for a superseded tour (new
+- The geometry fetch is tied to the current result via a result-identity token (bumped on new
+  optimization / reset); a response for a superseded result (new
   optimization or reset) is discarded.

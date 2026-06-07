@@ -95,10 +95,10 @@ Backend:
 
 Front-end:
 - `resources/js/hooks/use-tour-geometry.ts` — **new, separate hook** (do NOT bloat 001's
-  `use-tour-optimization.ts`). Given the done tour (ordered stops + `job_uuid`), fetch geometry, hold
-  `geometry` + composed `RoutePath` + road metrics, and expose them. Owns its own stale-request token
-  so a superseded tour's late response is ignored (FR-010) — it does not reuse 001's `activeJob`
-  (which `use-tour-optimization` already clears on `done`). The page composes the two hooks.
+  `use-tour-optimization.ts`). Given the done result (ordered stops), fetch geometry, hold
+  `geometry` + composed `RoutePath` + road metrics, and expose them. Owns its own result-identity token
+  (bumped on each new optimization / reset) so a superseded result's late response is ignored (FR-010).
+  Does NOT key off a `job_uuid` — a 200 cache-hit result carries none. The page composes the two hooks.
 - `resources/js/components/tour/route-layer.tsx` — unchanged interface; receives road coordinates when
   available, else the straight path.
 - `resources/js/components/tour/result-summary.tsx` — show initial estimate, then road-accurate value

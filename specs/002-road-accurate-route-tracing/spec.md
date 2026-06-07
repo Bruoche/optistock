@@ -87,7 +87,7 @@ If the road geometry can't be retrieved (endpoint down, a leg fails), the planne
 
 - **Route Leg**: an ordered pair of consecutive stops (origin → destination) in the optimized tour, including the closing leg (last → first).
 - **Leg Geometry**: the road-following path for a single leg (an ordered list of coordinates) plus that leg's distance and duration.
-- **Tour Geometry**: the ordered collection of leg geometries for the whole tour, with aggregated distance and duration, attached to the same `job_uuid`/tour as the 001 result.
+- **Tour Geometry**: the ordered collection of leg geometries for the whole tour, with aggregated distance and duration, for the tour shown from the 001 result.
 
 ## Success Criteria *(mandatory)*
 

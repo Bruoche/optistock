@@ -39,7 +39,7 @@ boundary (001 FR-019), and `ResultSummary`.
 - [ ] T011 [US1] `POST /api/tour/geometry` in `routes/api.php` (auth + `throttle:tour-geometry` — the dedicated limiter from T008, NOT `tour-optimize`). Depends on T010, T008.
 - [ ] T012 [P] [US1] `tests/Feature/TourGeometryTest.php` — 200 with decoded legs + compounded totals (fake `Http`), 422 invalid stops/mode, 401 unauth.
 - [ ] T013 [P] [US1] Add `LegGeometry` + `TourGeometry` types to `resources/js/types/tour.ts` (per data-model.md).
-- [ ] T014 [US1] `resources/js/hooks/use-tour-geometry.ts` — **new, separate hook** (do NOT modify 001's `use-tour-optimization.ts`). Given the done tour's ordered stops + `job_uuid`, POST them (+ `mode`, default `trucking`) to `/api/tour/geometry`; store `geometry`; expose a composed `RoutePath` (road coords where `legs[i].ok`, straight segment otherwise — FR-006). Fetch runs only AFTER the result is shown, never blocking it (FR-007). Hold an own per-tour stale token; ignore responses for a superseded/reset tour (FR-010, M3). Depends on T013.
+- [ ] T014 [US1] `resources/js/hooks/use-tour-geometry.ts` — **new, separate hook** (do NOT modify 001's `use-tour-optimization.ts`). Given the done result's ordered stops, POST them (+ `mode`, default `trucking`) to `/api/tour/geometry`; store `geometry`; expose a composed `RoutePath` (road coords where `legs[i].ok`, straight segment otherwise — FR-006). Fetch runs only AFTER the result is shown, never blocking it (FR-007). Track the current result identity (a token bumped on each new optimization / reset) and ignore any response that arrives for a superseded result (FR-010, M3) — do **not** rely on a `job_uuid` (a 200 cache-hit result carries none). Depends on T013.
 - [ ] T015 [US1] `resources/js/pages/tour/optimize.tsx` — compose `use-tour-geometry` alongside the existing `use-tour-optimization` (the page wires the two; neither hook depends on the other). Feed the composed road path to `RouteLayer` when geometry is present (interface unchanged, 001 FR-019); straight lines remain until it arrives (FR-002). Depends on T014.
 - [ ] T016 [P] [US1] `resources/js/hooks/use-tour-geometry.test.ts` — geometry fetch success → composed path uses road coords; ordering preserved.
 
@@ -51,8 +51,8 @@ boundary (001 FR-019), and `ResultSummary`.
 
 **Independent Test**: ≥3-stop tour estimate updates to road value; 2-point starts "Unavailable" then resolves.
 
-- [ ] T017 [US2] `resources/js/components/tour/result-summary.tsx` + hook wiring — show the initial estimate first, then replace duration/distance with `TourGeometry.total_*` when non-null; resolve the 2-point `null` → road value (FR-003/FR-004). If totals are null (a leg failed), keep the initial estimate (FR-008).
-- [ ] T018 [P] [US2] `resources/js/hooks/use-tour-geometry.test.ts` — road totals replace the initial estimate; 2-point `null` initial → resolved from geometry; null totals keep the initial.
+- [ ] T017 [US2] `resources/js/components/tour/result-summary.tsx` + hook wiring — show the initial estimate first, then replace duration/distance with `TourGeometry.total_*` when non-null; resolve the 2-point `null` → road value (FR-003/FR-004). If totals are null (a leg failed), keep the initial estimate (FR-008). Depends on T014.
+- [ ] T018 [US2] `resources/js/hooks/use-tour-geometry.test.ts` (extend) — road totals replace the initial estimate; 2-point `null` initial → resolved from geometry; null totals keep the initial.
 
 ---
 
@@ -64,8 +64,8 @@ boundary (001 FR-019), and `ResultSummary`.
 no blank state; per-leg failure → only that leg falls back.
 
 - [ ] T019 [US3] `tests/Feature/TourGeometryTest.php` (extend) — per-leg failure (one upstream leg errors) → that leg `ok:false`, totals `null`; whole-tour failure path; assert a warning is logged.
-- [ ] T020 [US3] `resources/js/hooks/use-tour-geometry.ts` — if `/api/tour/geometry` returns non-200 or the request errors, keep the straight-line path + initial estimate (FR-005); ignore a geometry response for a superseded tour/`job_uuid` or after reset (FR-010, stale guard).
-- [ ] T021 [P] [US3] `resources/js/hooks/use-tour-geometry.test.ts` — fetch failure keeps straight + initial; a late response for a reset/superseded tour is ignored.
+- [ ] T020 [US3] `resources/js/hooks/use-tour-geometry.ts` — if `/api/tour/geometry` returns non-200 or the request errors, keep the straight-line path + initial estimate (FR-005); ignore a geometry response for a superseded result or after reset, using the result-identity token from T014 (FR-010, stale guard).
+- [ ] T021 [US3] `resources/js/hooks/use-tour-geometry.test.ts` (extend) — fetch failure keeps straight + initial; a late response for a reset/superseded result is ignored.
 
 ---
 
@@ -88,7 +88,8 @@ no blank state; per-leg failure → only that leg falls back.
 
 - `T001`, `T003`, `T004`, `T006` (distinct files) can run in parallel.
 - `T012`, `T013`, `T016` are `[P]` once their deps are met; front type task `T013` can start as soon as data-model is fixed.
-- Test tasks (`T004`, `T006`, `T012`, `T016`, `T018`, `T021`) parallelize with sibling code once their target exists.
+- Test tasks `T004`, `T006`, `T012` parallelize with sibling code once their target exists.
+- `T016`, `T018`, `T021` all extend the **same** `use-tour-geometry.test.ts` — run them **sequentially** (only T016 is `[P]` vs other files; T018/T021 append to it).
 
 ## Implementation Strategy
 
