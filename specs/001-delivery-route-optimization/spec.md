@@ -87,6 +87,7 @@ A planner can see the best route result with total distance or travel estimate, 
 - **FR-014**: When the optimization result arrives via WebSocket, the system MUST remove the loading bar, render the optimized route on the map, and replace the stop-list area's controls so the total tour duration is shown at the top (where the "Optimize" button was).
 - **FR-015**: The lower-area space previously occupied by the stop list MUST be left free of unnecessary content after a result (reserved for a future drivers list, out of scope here).
 - **FR-016**: The interface MUST be minimalist and legible — no distracting/decorative effects, and no unnecessary information beyond what the planner needs to act.
+- **FR-019**: The system MUST draw the optimized route as straight-line segments connecting the ordered stops. The route-line rendering MUST be isolated behind a single component/data boundary that takes a list of path coordinates, so swapping straight segments for road-accurate geometry later requires changing only that boundary (not the page or list logic).
 
 ### Visual Design Requirements
 
@@ -122,7 +123,7 @@ A planner can see the best route result with total distance or travel estimate, 
 - User authentication is a prerequisite dependency for this feature (required for per-user cache isolation and private WebSocket channels); implementing an auth system is outside the scope of this feature.
 - The frontend submits coordinates directly (`[lat, lng]` pairs); address geocoding / address-search input is out of scope for this feature.
 - Stops are created by picking points on an interactive map; the map displays standard street-level tiles for orientation.
-- The optimized route is rendered on the map as ordered stops (numbered markers and/or a connecting path) so the visit order is visible at a glance.
+- The optimized route is rendered on the map as ordered stops (numbered markers) connected by **straight-line segments** in visit order, so the visit order is visible at a glance. Road-accurate tracing is a deferred enhancement (see Deferred / Future Enhancements).
 - For this feature the result area surfaces only the total tour duration; the freed list space is reserved for a future drivers list (out of scope).
 - A driver/vehicle selection list will occupy the lower area in a future feature; it is explicitly out of scope here.
 - Routes are closed-tour by default (return to origin); `tour=closed` is submitted to the TSP API.
@@ -136,3 +137,12 @@ A planner can see the best route result with total distance or travel estimate, 
 | Secondary (pale orange) | `#FFCF8C` | Lower-importance element beside a primary one (e.g., "Cancel") |
 | Accent (yellow) | `#FFC802` | Very sparing standout / occasional gradient only |
 | Text | `#000000` | All text, including on colored backgrounds, for legibility |
+
+## Deferred / Future Enhancements
+
+- **Road-accurate route tracing**: Replace straight-line segments with road-following geometry from the OpenStreet route endpoint (`GET https://maps.open-street.com/api/route/?origin=lat,lng&destination=lat,lng&mode=...&key=...`). Decision (2026-06-07): deferred; ship straight lines first.
+  - **Design guard (in scope now)**: per FR-019, the route line is rendered from a single list-of-coordinates boundary so this swap is front-end-cheap. The page consumes a path; only the path's source changes.
+  - **Open question to verify before adopting**: the endpoint is point-to-point (origin/destination, no waypoints shown) — a closed N-stop tour needs N per-leg calls. Confirm the response shape (encoded polyline vs GeoJSON vs coord array) **against the live API** before building (the TSP schema was guessed wrong once — avoid repeat).
+  - **Suggested integration**: compute geometry server-side in `OptimizeTourJob` after TSP, cache it with the result, broadcast it alongside `ordered_stops` — not N browser fetches. Keeps the 202→WebSocket flow and per-user cache intact.
+- **Address geocoding / address-search input**: add stops by typing an address instead of map-picking (US2 input portion).
+- **Drivers list**: fill the freed lower-area space with selectable delivery drivers (replaces the result-area placeholder).
