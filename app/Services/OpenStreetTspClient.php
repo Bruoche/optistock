@@ -35,6 +35,7 @@ class OpenStreetTspClient
         private readonly int $timeout = 600,
         private readonly int $retries = 1,
         private readonly int $connectTimeout = 15,
+        private readonly string $mode = 'trucking',
     ) {}
 
     /**
@@ -114,7 +115,7 @@ class OpenStreetTspClient
                 ->get($this->baseUrl, [
                     'pts' => $points,
                     'nb' => $count,
-                    'mode' => 'driving',
+                    'mode' => $this->mode,
                     'unit' => 'm',
                     'tour' => 'closed',
                     'key' => $this->apiKey,

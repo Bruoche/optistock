@@ -40,3 +40,18 @@ export type OptimizeState =
 
 /** Ordered path fed to the RouteLayer boundary (FR-019). */
 export type RoutePath = Array<{ lat: number; lng: number }>;
+
+// --- Road-accurate route tracing (feature 002) ---
+
+/** Road geometry + metrics for a single leg, or a fallback marker when it failed.
+ *  `coordinates` are `[lat, lng]` pairs (the backend's decoded polyline). */
+export type LegGeometry =
+    | { ok: true; coordinates: Array<[number, number]>; distance_m: number; duration_s: number }
+    | { ok: false };
+
+/** Aggregated road geometry for the whole closed tour (response of /api/tour/geometry). */
+export type TourGeometry = {
+    legs: LegGeometry[];
+    total_distance_m: number | null;
+    total_duration_s: number | null;
+};

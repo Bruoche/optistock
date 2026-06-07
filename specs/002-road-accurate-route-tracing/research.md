@@ -8,9 +8,8 @@
   Google and taken up by several cartographic projects… an efficient way to compress a long list of
   coordinates into a shorter string"). Decode it to `[[lat,lng],…]` server-side
   (`PolylineDecoder`), no front-end decode lib (Decision D1).
-- **Soft assumption**: **precision = 5** (Google's default; the docs don't state precision). If decoded
-  points come out ~10× off / wrong scale on the first real leg, switch the decoder to **precision 6**.
-  This is the single thing to eyeball on the first live render.
+- **Precision = 6** — CONFIRMED live (2026-06-07). Decoding at 5 placed the route ~10× off (Paris → eastern
+  Poland). Configurable via `OPENSTREET_ROUTE_PRECISION` (default 6); the client passes it to the decoder.
 - **Test vector**: Google's canonical example `` _p~iF~ps|U_ulLnnqC_mqNvxq`@ `` (precision 5) decodes to
   `[[38.5,-120.2],[40.7,-120.95],[43.252,-126.453]]` — use it in `PolylineDecoderTest`.
 - **Alternatives considered**: front-end decode via `@mapbox/polyline` — rejected (adds a front dep;

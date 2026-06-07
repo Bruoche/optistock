@@ -2,7 +2,9 @@
 
 namespace App\Providers;
 
+use App\Services\OpenStreetRouteClient;
 use App\Services\OpenStreetTspClient;
+use App\Services\PolylineDecoder;
 use Carbon\CarbonImmutable;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Client\Factory as HttpFactory;
@@ -30,6 +32,21 @@ class AppServiceProvider extends ServiceProvider
                 timeout: (int) $config['timeout'],
                 retries: (int) $config['retries'],
                 connectTimeout: (int) $config['connect_timeout'],
+                mode: $config['mode'],
+            );
+        });
+
+        $this->app->singleton(OpenStreetRouteClient::class, function ($app): OpenStreetRouteClient {
+            $config = $app['config']->get('services.openstreet');
+
+            return new OpenStreetRouteClient(
+                http: $app->make(HttpFactory::class),
+                decoder: $app->make(PolylineDecoder::class),
+                baseUrl: $config['route_url'],
+                apiKey: $config['key'],
+                mode: $config['mode'],
+                timeout: (int) $config['route_timeout'],
+                precision: (int) $config['route_precision'],
             );
         });
     }
@@ -49,6 +66,11 @@ class AppServiceProvider extends ServiceProvider
     protected function configureRateLimiting(): void
     {
         RateLimiter::for('tour-optimize', static fn (Request $request): Limit => Limit::perMinute(10)
+            ->by((string) ($request->user()?->id ?: $request->ip())));
+
+        // Road-geometry tracing (feature 002): fast synchronous call, fired once per
+        // optimized tour — a separate, higher quota than the optimization limiter.
+        RateLimiter::for('tour-geometry', static fn (Request $request): Limit => Limit::perMinute(30)
             ->by((string) ($request->user()?->id ?: $request->ip())));
     }
 

@@ -10,20 +10,20 @@ boundary (001 FR-019), and `ResultSummary`.
 
 ## Phase 1: Setup
 
-- [ ] T001 [P] Add `OPENSTREET_ROUTE_URL` (default `https://maps.open-street.com/api/route/`), `OPENSTREET_ROUTE_TIMEOUT` (default `15`), and `OPENSTREET_MODE` (default `trucking`) to `.env` and `.env.example`. Reuse existing `OPENSTREET_API_KEY`.
-- [ ] T002 Add `route_url`, `route_timeout`, and `mode` (default `trucking`) under `services.openstreet` in `config/services.php` (read from the T001 env keys). `mode` is the single source for BOTH the TSP call (001) and the geometry call (002).
+- [X] T001 [P] Add `OPENSTREET_ROUTE_URL` (default `https://maps.open-street.com/api/route/`), `OPENSTREET_ROUTE_TIMEOUT` (default `15`), and `OPENSTREET_MODE` (default `trucking`) to `.env` and `.env.example`. Reuse existing `OPENSTREET_API_KEY`.
+- [X] T002 Add `route_url`, `route_timeout`, and `mode` (default `trucking`) under `services.openstreet` in `config/services.php` (read from the T001 env keys). `mode` is the single source for BOTH the TSP call (001) and the geometry call (002).
 
 ---
 
 ## Phase 2: Foundational (blocking prerequisites)
 
-- [ ] T003 [P] `app/Services/PolylineDecoder.php` — decode a Google encoded polyline (precision 5) into `array<int, array{0: float, 1: float}>` (`[[lat,lng],…]`). Pure function, no deps. (research.md R1.)
-- [ ] T004 [P] `tests/Unit/PolylineDecoderTest.php` — decode Google's canonical vector `` _p~iF~ps|U_ulLnnqC_mqNvxq`@ `` → `[[38.5,-120.2],[40.7,-120.95],[43.252,-126.453]]`; empty string → `[]`.
-- [ ] T005 `app/Services/OpenStreetRouteClient.php` — GET `services.openstreet.route_url` with `origin`, `destination`, `mode`, `key`; short timeout (`route_timeout`); map `{polyline,total_distance,total_time,status}` → `{coordinates[], distance_m, duration_s}` via `PolylineDecoder`; success iff `status` is `0`/`"OK"`, else throw typed failure carrying the status code (`SYNTAX_ERROR`/`LIMIT_REACHED`/`WRONG_KEY`/`REQUEST_DENIED`); HTTP-fail/timeout → typed failure. Depends on T002, T003.
-- [ ] T006 [P] `tests/Unit/OpenStreetRouteClientTest.php` — success mapping (polyline decoded, metres/seconds), query params (origin/destination/mode/key), `status` failure codes, HTTP non-2xx, timeout.
-- [ ] T007 `app/Services/TourGeometryService.php` — `trace(orderedStops, mode)`: build consecutive legs incl. the closing leg (last→first); call `OpenStreetRouteClient` per leg; per-leg `try/catch` → on failure `Log::warning` (leg index + coords + status) and mark `ok:false` (FR-006/FR-009); compound `total_distance_m`/`total_duration_s`; totals are `null` if **any** leg failed (FR-008). Depends on T005.
-- [ ] T008 In `app/Providers/AppServiceProvider.php`: (a) register `OpenStreetRouteClient` (inject `route_url`, `key`, `route_timeout`, `mode` from config) mirroring the `OpenStreetTspClient` binding; (b) define a **dedicated** `tour-geometry` rate limiter (e.g. 30/min/user), separate from `tour-optimize`.
-- [ ] T024 Centralise the mode (default `trucking`): update `app/Services/OpenStreetTspClient.php` to take a `mode` constructor arg and use it instead of the hard-coded `driving`; pass `services.openstreet.mode` in the TSP binding (T008 file); update `tests/Unit/OpenStreetTspClientTest.php` query-param assertion `mode === 'driving'` → `'trucking'`. (Keeps 001's optimization mode congruent with 002's geometry mode.)
+- [X] T003 [P] `app/Services/PolylineDecoder.php` — decode a Google encoded polyline (precision 5) into `array<int, array{0: float, 1: float}>` (`[[lat,lng],…]`). Pure function, no deps. (research.md R1.)
+- [X] T004 [P] `tests/Unit/PolylineDecoderTest.php` — decode Google's canonical vector `` _p~iF~ps|U_ulLnnqC_mqNvxq`@ `` → `[[38.5,-120.2],[40.7,-120.95],[43.252,-126.453]]`; empty string → `[]`.
+- [X] T005 `app/Services/OpenStreetRouteClient.php` — GET `services.openstreet.route_url` with `origin`, `destination`, `mode`, `key`; short timeout (`route_timeout`); map `{polyline,total_distance,total_time,status}` → `{coordinates[], distance_m, duration_s}` via `PolylineDecoder`; success iff `status` is `0`/`"OK"`, else throw typed failure carrying the status code (`SYNTAX_ERROR`/`LIMIT_REACHED`/`WRONG_KEY`/`REQUEST_DENIED`); HTTP-fail/timeout → typed failure. Depends on T002, T003.
+- [X] T006 [P] `tests/Unit/OpenStreetRouteClientTest.php` — success mapping (polyline decoded, metres/seconds), query params (origin/destination/mode/key), `status` failure codes, HTTP non-2xx, timeout.
+- [X] T007 `app/Services/TourGeometryService.php` — `trace(orderedStops, mode)`: build consecutive legs incl. the closing leg (last→first); call `OpenStreetRouteClient` per leg; per-leg `try/catch` → on failure `Log::warning` (leg index + coords + status) and mark `ok:false` (FR-006/FR-009); compound `total_distance_m`/`total_duration_s`; totals are `null` if **any** leg failed (FR-008). Depends on T005.
+- [X] T008 In `app/Providers/AppServiceProvider.php`: (a) register `OpenStreetRouteClient` (inject `route_url`, `key`, `route_timeout`, `mode` from config) mirroring the `OpenStreetTspClient` binding; (b) define a **dedicated** `tour-geometry` rate limiter (e.g. 30/min/user), separate from `tour-optimize`.
+- [X] T024 Centralise the mode (default `trucking`): update `app/Services/OpenStreetTspClient.php` to take a `mode` constructor arg and use it instead of the hard-coded `driving`; pass `services.openstreet.mode` in the TSP binding (T008 file); update `tests/Unit/OpenStreetTspClientTest.php` query-param assertion `mode === 'driving'` → `'trucking'`. (Keeps 001's optimization mode congruent with 002's geometry mode.)
 
 ---
 
@@ -34,14 +34,14 @@ boundary (001 FR-019), and `ResultSummary`.
 **Independent Test**: Optimize ≥3 stops → straight lines first, then a road path covering every leg
 (incl. return) in visit order.
 
-- [ ] T009 [US1] `app/Http/Requests/TourGeometryRequest.php` — validate `stops` (2–10, `[lat,lng]`, ranges) and `mode` (`driving|walking|trucking`, default `trucking`). No mode selector exists yet (M1) — `mode` defaults to the config value.
-- [ ] T010 [US1] `app/Http/Controllers/TourGeometryController.php` (thin) — delegate to `TourGeometryService::trace`, return the aggregated payload (per `contracts/tour-geometry.md`). Depends on T007, T009.
-- [ ] T011 [US1] `POST /api/tour/geometry` in `routes/api.php` (auth + `throttle:tour-geometry` — the dedicated limiter from T008, NOT `tour-optimize`). Depends on T010, T008.
-- [ ] T012 [P] [US1] `tests/Feature/TourGeometryTest.php` — 200 with decoded legs + compounded totals (fake `Http`), 422 invalid stops/mode, 401 unauth.
-- [ ] T013 [P] [US1] Add `LegGeometry` + `TourGeometry` types to `resources/js/types/tour.ts` (per data-model.md).
-- [ ] T014 [US1] `resources/js/hooks/use-tour-geometry.ts` — **new, separate hook** (do NOT modify 001's `use-tour-optimization.ts`). Given the done result's ordered stops, POST them (+ `mode`, default `trucking`) to `/api/tour/geometry`; store `geometry`; expose a composed `RoutePath` (road coords where `legs[i].ok`, straight segment otherwise — FR-006). Fetch runs only AFTER the result is shown, never blocking it (FR-007). Track the current result identity (a token bumped on each new optimization / reset) and ignore any response that arrives for a superseded result (FR-010, M3) — do **not** rely on a `job_uuid` (a 200 cache-hit result carries none). Depends on T013.
-- [ ] T015 [US1] `resources/js/pages/tour/optimize.tsx` — compose `use-tour-geometry` alongside the existing `use-tour-optimization` (the page wires the two; neither hook depends on the other). Feed the composed road path to `RouteLayer` when geometry is present (interface unchanged, 001 FR-019); straight lines remain until it arrives (FR-002). Depends on T014.
-- [ ] T016 [P] [US1] `resources/js/hooks/use-tour-geometry.test.ts` — geometry fetch success → composed path uses road coords; ordering preserved.
+- [X] T009 [US1] `app/Http/Requests/TourGeometryRequest.php` — validate `stops` (2–10, `[lat,lng]`, ranges) and `mode` (`driving|walking|trucking`, default `trucking`). No mode selector exists yet (M1) — `mode` defaults to the config value.
+- [X] T010 [US1] `app/Http/Controllers/TourGeometryController.php` (thin) — delegate to `TourGeometryService::trace`, return the aggregated payload (per `contracts/tour-geometry.md`). Depends on T007, T009.
+- [X] T011 [US1] `POST /api/tour/geometry` in `routes/api.php` (auth + `throttle:tour-geometry` — the dedicated limiter from T008, NOT `tour-optimize`). Depends on T010, T008.
+- [X] T012 [P] [US1] `tests/Feature/TourGeometryTest.php` — 200 with decoded legs + compounded totals (fake `Http`), 422 invalid stops/mode, 401 unauth.
+- [X] T013 [P] [US1] Add `LegGeometry` + `TourGeometry` types to `resources/js/types/tour.ts` (per data-model.md).
+- [X] T014 [US1] `resources/js/hooks/use-tour-geometry.ts` — **new, separate hook** (do NOT modify 001's `use-tour-optimization.ts`). Given the done result's ordered stops, POST them (+ `mode`, default `trucking`) to `/api/tour/geometry`; store `geometry`; expose a composed `RoutePath` (road coords where `legs[i].ok`, straight segment otherwise — FR-006). Fetch runs only AFTER the result is shown, never blocking it (FR-007). Track the current result identity (a token bumped on each new optimization / reset) and ignore any response that arrives for a superseded result (FR-010, M3) — do **not** rely on a `job_uuid` (a 200 cache-hit result carries none). Depends on T013.
+- [X] T015 [US1] `resources/js/pages/tour/optimize.tsx` — compose `use-tour-geometry` alongside the existing `use-tour-optimization` (the page wires the two; neither hook depends on the other). Feed the composed road path to `RouteLayer` when geometry is present (interface unchanged, 001 FR-019); straight lines remain until it arrives (FR-002). Depends on T014.
+- [X] T016 [P] [US1] `resources/js/hooks/use-tour-geometry.test.ts` — geometry fetch success → composed path uses road coords; ordering preserved.
 
 ---
 
@@ -51,8 +51,8 @@ boundary (001 FR-019), and `ResultSummary`.
 
 **Independent Test**: ≥3-stop tour estimate updates to road value; 2-point starts "Unavailable" then resolves.
 
-- [ ] T017 [US2] `resources/js/components/tour/result-summary.tsx` + hook wiring — show the initial estimate first, then replace duration/distance with `TourGeometry.total_*` when non-null; resolve the 2-point `null` → road value (FR-003/FR-004). If totals are null (a leg failed), keep the initial estimate (FR-008). Depends on T014.
-- [ ] T018 [US2] `resources/js/hooks/use-tour-geometry.test.ts` (extend) — road totals replace the initial estimate; 2-point `null` initial → resolved from geometry; null totals keep the initial.
+- [X] T017 [US2] `resources/js/components/tour/result-summary.tsx` + hook wiring — show the initial estimate first, then replace duration/distance with `TourGeometry.total_*` when non-null; resolve the 2-point `null` → road value (FR-003/FR-004). If totals are null (a leg failed), keep the initial estimate (FR-008). Depends on T014.
+- [X] T018 [US2] `resources/js/hooks/use-tour-geometry.test.ts` (extend) — road totals replace the initial estimate; 2-point `null` initial → resolved from geometry; null totals keep the initial.
 
 ---
 
@@ -63,15 +63,15 @@ boundary (001 FR-019), and `ResultSummary`.
 **Independent Test**: Force `/route` failure → straight lines + initial estimate remain, warning logged,
 no blank state; per-leg failure → only that leg falls back.
 
-- [ ] T019 [US3] `tests/Feature/TourGeometryTest.php` (extend) — per-leg failure (one upstream leg errors) → that leg `ok:false`, totals `null`; whole-tour failure path; assert a warning is logged.
-- [ ] T020 [US3] `resources/js/hooks/use-tour-geometry.ts` — if `/api/tour/geometry` returns non-200 or the request errors, keep the straight-line path + initial estimate (FR-005); ignore a geometry response for a superseded result or after reset, using the result-identity token from T014 (FR-010, stale guard).
-- [ ] T021 [US3] `resources/js/hooks/use-tour-geometry.test.ts` (extend) — fetch failure keeps straight + initial; a late response for a reset/superseded result is ignored.
+- [X] T019 [US3] `tests/Feature/TourGeometryTest.php` (extend) — per-leg failure (one upstream leg errors) → that leg `ok:false`, totals `null`; whole-tour failure path; assert a warning is logged.
+- [X] T020 [US3] `resources/js/hooks/use-tour-geometry.ts` — if `/api/tour/geometry` returns non-200 or the request errors, keep the straight-line path + initial estimate (FR-005); ignore a geometry response for a superseded result or after reset, using the result-identity token from T014 (FR-010, stale guard).
+- [X] T021 [US3] `resources/js/hooks/use-tour-geometry.test.ts` (extend) — fetch failure keeps straight + initial; a late response for a reset/superseded result is ignored.
 
 ---
 
 ## Phase 6: Polish & Cross-Cutting
 
-- [ ] T022 [P] Cohesion audit: no raw hex in `resources/js/components/tour/` + `pages/tour/` JSX (route color reads `--primary` var; Constitution VI).
+- [X] T022 [P] Cohesion audit: no raw hex in `resources/js/components/tour/` + `pages/tour/` JSX (route color reads `--primary` var; Constitution VI).
 - [ ] T023 Manual smoke per `quickstart.md` §4–5: confirm polyline **precision 5** renders on real roads (else switch decoder to 6) and `total_time` magnitude is seconds (else ms); verify ≥3-stop, 2-point, and forced-failure paths.
 
 ---

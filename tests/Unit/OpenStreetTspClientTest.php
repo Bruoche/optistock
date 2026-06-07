@@ -89,7 +89,7 @@ class OpenStreetTspClientTest extends TestCase
         $http->assertSent(function (Request $request): bool {
             parse_str((string) parse_url($request->url(), PHP_URL_QUERY), $query);
 
-            return $query['mode'] === 'driving'
+            return $query['mode'] === 'trucking'
                 && $query['unit'] === 'm'
                 && $query['tour'] === 'closed'
                 && $query['nb'] === '3'
