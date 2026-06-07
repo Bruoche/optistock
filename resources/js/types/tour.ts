@@ -16,11 +16,12 @@ export type OptimizedStop = {
     order: number;
 };
 
-/** Success payload `data`. */
+/** Success payload `data`. Metrics are null for a 2-point tour (no routing call
+ *  yet — pending the /route/ endpoint). */
 export type TourResult = {
     ordered_stops: OptimizedStop[];
-    total_distance_m: number;
-    total_duration_s: number;
+    total_distance_m: number | null;
+    total_duration_s: number | null;
 };
 
 /** Failure payload `error`. */

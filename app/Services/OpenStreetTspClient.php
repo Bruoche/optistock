@@ -21,6 +21,13 @@ use Illuminate\Http\Client\Response;
  */
 class OpenStreetTspClient
 {
+    /**
+     * The TSP API rejects fewer than 3 points with `{"status":"NB_IS_INCONSISTENT"}`.
+     * A 2-point closed tour is already optimal (A→B→A cannot be reordered), so we
+     * short-circuit it instead of calling the API.
+     */
+    private const MIN_TSP_POINTS = 3;
+
     public function __construct(
         private readonly HttpFactory $http,
         private readonly string $baseUrl,
@@ -34,14 +41,21 @@ class OpenStreetTspClient
      * @param  array<int, array{lat: float, lng: float}>  $coordinates
      * @return array{
      *     ordered_stops: array<int, array{lat: float, lng: float, order: int}>,
-     *     total_distance_m: int,
-     *     total_duration_s: int
+     *     total_distance_m: int|null,
+     *     total_duration_s: int|null
      * }
      *
      * @throws TourOptimizationException
      */
     public function optimize(array $coordinates): array
     {
+        // A 2-point tour is trivially optimal + the API can't process it. 
+		// Return it as-is.
+		// Distance/duration require a routing call we don't make here, so they are left null until the OpenStreet /route/ endpoint is wired in
+        if (count($coordinates) < self::MIN_TSP_POINTS) {
+            return $this->trivialTour($coordinates);
+        }
+
         $points = implode('|', array_map(
             static fn (array $c): string => $c['lat'].','.$c['lng'],
             $coordinates,
@@ -54,6 +68,35 @@ class OpenStreetTspClient
         }
 
         return $this->mapToTour($response->json(), $coordinates);
+    }
+
+    /**
+     * Build an already-optimal tour for fewer than {@see MIN_TSP_POINTS} stops,
+     * preserving the caller's order. Metrics are null (no routing call made).
+     *
+     * @param  array<int, array{lat: float, lng: float}>  $coordinates
+     * @return array{
+     *     ordered_stops: array<int, array{lat: float, lng: float, order: int}>,
+     *     total_distance_m: null,
+     *     total_duration_s: null
+     * }
+     */
+    private function trivialTour(array $coordinates): array
+    {
+        $orderedStops = [];
+        foreach (array_values($coordinates) as $order => $c) {
+            $orderedStops[] = [
+                'lat' => (float) $c['lat'],
+                'lng' => (float) $c['lng'],
+                'order' => $order,
+            ];
+        }
+
+        return [
+            'ordered_stops' => $orderedStops,
+            'total_distance_m' => null,
+            'total_duration_s' => null,
+        ];
     }
 
     private function send(string $points, int $count): Response

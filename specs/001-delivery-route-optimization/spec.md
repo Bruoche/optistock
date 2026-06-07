@@ -59,6 +59,7 @@ A planner can see the best route result with total distance or travel estimate, 
 ### Edge Cases
 
 - What happens when the planner submits only one coordinate pair? The system should explain that at least two coordinates are needed for route optimization.
+- What happens with exactly two coordinate pairs? A 2-point closed tour is already optimal (A→B→A cannot be reordered) and the OpenStreet TSP API rejects it (`NB_IS_INCONSISTENT`, needs ≥3). The backend therefore **short-circuits**: it returns the two stops in the submitted order without calling the API. Distance/duration come back `null` ("unavailable") until the `/route/` endpoint is integrated.
 - How does the system handle duplicate or identical coordinates? The backend `CoordinateNormalizer` rounds (5 decimals) and produces a canonical, de-duplicated list before optimization — identical stops collapse **silently** (no user-facing warning in this feature). A "duplicate ignored" hint to the user is a possible future enhancement, not in scope here.
 - What happens if the OpenStreet TSP API is unavailable or returns an error? The system should broadcast a failure event to the frontend with a friendly error message.
 - What if the queue worker crashes or the job never runs? The system must broadcast a failure event (via `OptimizeTourJob::failed()`) so the frontend is never stuck waiting indefinitely.
@@ -72,7 +73,7 @@ A planner can see the best route result with total distance or travel estimate, 
 - **FR-002**: The system MUST allow the user to review and remove selected stops (shown as a list beneath the map) and confirm the final set before optimization. (Adding stops is done by picking points on the map; typing/searching addresses remains deferred.)
 - **FR-003**: The system MUST submit the selected coordinate pairs to the OpenStreet TSP API and request the most optimized route order via an asynchronous background job.
 - **FR-004**: The system MUST notify the frontend via WebSocket with the optimized route result as an ordered list of stops once the background job completes.
-- **FR-005**: The system MUST include summary metrics in the WebSocket result payload (total distance in metres, total duration in seconds).
+- **FR-005**: The system MUST include summary metrics in the WebSocket result payload (total distance in metres, total duration in seconds). For a **2-point** tour these metrics are `null` ("unavailable") — the TSP API rejects 2 points and we do not call a routing service yet; real 2-point metrics are deferred to the `/route/` integration (see Deferred / Future Enhancements).
 - **FR-006**: The system MUST return a validation error for invalid coordinates (malformed, out-of-range, or fewer than 2 points) and prevent dispatching a route job until corrected.
 - **FR-007**: The system MUST preserve the selected stop list until the user clears it or submits a new optimization request.
 - **FR-008**: The system MUST allow the user to submit a new optimization request after the previous result is received or cleared.
@@ -143,7 +144,7 @@ Implemented as role CSS variables in `resources/css/app.css` (light = `:root`, d
 
 ## Deferred / Future Enhancements
 
-- **Road-accurate route tracing**: Replace straight-line segments with road-following geometry from the OpenStreet route endpoint (`GET https://maps.open-street.com/api/route/?origin=lat,lng&destination=lat,lng&mode=...&key=...`). Decision (2026-06-07): deferred; ship straight lines first.
+- **Road-accurate route tracing + 2-point metrics**: Use the OpenStreet route endpoint (`GET https://maps.open-street.com/api/route/?origin=lat,lng&destination=lat,lng&mode=...&key=...`) for two things, both deferred: (a) replace straight-line segments with road-following geometry, and (b) compute **distance/duration for 2-point tours** (which the TSP API can't process), replacing the current `null` "unavailable" metrics. Decision (2026-06-07): deferred; ship straight lines + null 2-point metrics first.
   - **Design guard (in scope now)**: per FR-019, the route line is rendered from a single list-of-coordinates boundary so this swap is front-end-cheap. The page consumes a path; only the path's source changes.
   - **Open question to verify before adopting**: the endpoint is point-to-point (origin/destination, no waypoints shown) — a closed N-stop tour needs N per-leg calls. Confirm the response shape (encoded polyline vs GeoJSON vs coord array) **against the live API** before building (the TSP schema was guessed wrong once — avoid repeat).
   - **Suggested integration**: compute geometry server-side in `OptimizeTourJob` after TSP, cache it with the result, broadcast it alongside `ordered_stops` — not N browser fetches. Keeps the 202→WebSocket flow and per-user cache intact.

@@ -25,6 +25,7 @@ class TourOptimizationBroadcastTest extends TestCase
         return [
             ['lat' => 49.89988, 'lng' => 2.30028],
             ['lat' => 48.78300, 'lng' => 2.33316],
+            ['lat' => 43.29650, 'lng' => 5.36980],
         ];
     }
 
@@ -59,6 +60,31 @@ class TourOptimizationBroadcastTest extends TestCase
         $status = app(TourCache::class)->getJobStatus('job-1');
         $this->assertSame('done', $status['status']);
         $this->assertSame(['lat' => 49.89988, 'lng' => 2.30028, 'order' => 0], $status['data']['ordered_stops'][0]);
+    }
+
+    public function test_two_point_job_short_circuits_with_null_metrics_and_no_api_call(): void
+    {
+        Event::fake([TourOptimized::class, TourOptimizationFailed::class]);
+        Http::fake();
+
+        $twoPoints = [
+            ['lat' => 49.89988, 'lng' => 2.30028],
+            ['lat' => 48.78300, 'lng' => 2.33316],
+        ];
+        (new OptimizeTourJob('job-2pt', 42, 'hash-2pt', $twoPoints))
+            ->handle(app(OpenStreetTspClient::class), app(TourCache::class));
+
+        Http::assertNothingSent();
+        Event::assertDispatched(TourOptimized::class, function (TourOptimized $event): bool {
+            return $event->jobUuid === 'job-2pt'
+                && $event->data['total_distance_m'] === null
+                && $event->data['total_duration_s'] === null
+                && count($event->data['ordered_stops']) === 2;
+        });
+
+        $status = app(TourCache::class)->getJobStatus('job-2pt');
+        $this->assertSame('done', $status['status']);
+        $this->assertNull($status['data']['total_duration_s']);
     }
 
     public function test_successful_job_caches_tour_for_reuse(): void

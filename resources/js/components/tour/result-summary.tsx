@@ -9,7 +9,12 @@ type ResultSummaryProps = {
     onReset: () => void;
 };
 
-function formatDuration(totalSeconds: number): string {
+function formatDuration(totalSeconds: number | null): string {
+    // 2-point tours have no metrics yet (pending the /route/ endpoint).
+    if (totalSeconds === null) {
+        return 'Unavailable';
+    }
+
     const hours = Math.floor(totalSeconds / 3600);
     const minutes = Math.round((totalSeconds % 3600) / 60);
 

@@ -14,6 +14,9 @@ class OpenStreetTspClientTest extends TestCase
     private const URL = 'https://maps.open-street.com/api/tsp/';
 
     /**
+     * Three points — the API minimum. Two points are short-circuited and never
+     * reach the API (see test_it_short_circuits_a_two_point_tour...).
+     *
      * @return array<int, array{lat: float, lng: float}>
      */
     private function coordinates(): array
@@ -21,19 +24,20 @@ class OpenStreetTspClientTest extends TestCase
         return [
             ['lat' => 49.89988, 'lng' => 2.30028],
             ['lat' => 48.78300, 'lng' => 2.33316],
+            ['lat' => 43.29650, 'lng' => 5.36980],
         ];
     }
 
     public function test_it_maps_a_successful_response(): void
     {
         $http = new HttpFactory;
-        // API echoes only the visit order as input indices (here: visit point 1
-        // first, then point 0) plus aggregate totals — never coordinates.
+        // API echoes only the visit order as input indices (here: visit point 2
+        // first, then 0, then 1) plus aggregate totals — never coordinates.
         $http->fake([
             '*' => $http->response([
-                'DIMENSION' => 2,
+                'DIMENSION' => 3,
                 'TOUR' => 'closed',
-                'OPTIMIZATION' => [1, 0],
+                'OPTIMIZATION' => [2, 0, 1],
                 'STEPS_DISTANCES' => ['TOTAL' => 450000, '0' => 250000, '1' => 200000],
                 'STEPS_DURATIONS' => ['TOTAL' => 18000, '0' => 10000, '1' => 8000],
             ]),
@@ -44,10 +48,32 @@ class OpenStreetTspClientTest extends TestCase
 
         $this->assertSame(450000, $result['total_distance_m']);
         $this->assertSame(18000, $result['total_duration_s']);
-        $this->assertCount(2, $result['ordered_stops']);
-        // Index 1 resolved to the second input coordinate, placed first (order 0).
-        $this->assertSame(['lat' => 48.78300, 'lng' => 2.33316, 'order' => 0], $result['ordered_stops'][0]);
+        $this->assertCount(3, $result['ordered_stops']);
+        // Index 2 resolved to the third input coordinate, placed first (order 0).
+        $this->assertSame(['lat' => 43.29650, 'lng' => 5.36980, 'order' => 0], $result['ordered_stops'][0]);
         $this->assertSame(['lat' => 49.89988, 'lng' => 2.30028, 'order' => 1], $result['ordered_stops'][1]);
+        $this->assertSame(['lat' => 48.78300, 'lng' => 2.33316, 'order' => 2], $result['ordered_stops'][2]);
+    }
+
+    public function test_it_short_circuits_a_two_point_tour_without_calling_the_api(): void
+    {
+        $http = new HttpFactory;
+        $http->fake();
+
+        $client = new OpenStreetTspClient($http, self::URL, 'secret-key', 8, 0);
+        $result = $client->optimize([
+            ['lat' => 49.89988, 'lng' => 2.30028],
+            ['lat' => 48.78300, 'lng' => 2.33316],
+        ]);
+
+        // Returned in input order; metrics null (no routing call made).
+        $this->assertNull($result['total_distance_m']);
+        $this->assertNull($result['total_duration_s']);
+        $this->assertSame([
+            ['lat' => 49.89988, 'lng' => 2.30028, 'order' => 0],
+            ['lat' => 48.78300, 'lng' => 2.33316, 'order' => 1],
+        ], $result['ordered_stops']);
+        $http->assertNothingSent();
     }
 
     public function test_it_sends_the_expected_query_parameters(): void
@@ -66,9 +92,9 @@ class OpenStreetTspClientTest extends TestCase
             return $query['mode'] === 'driving'
                 && $query['unit'] === 'm'
                 && $query['tour'] === 'closed'
-                && $query['nb'] === '2'
+                && $query['nb'] === '3'
                 && $query['key'] === 'secret-key'
-                && $query['pts'] === '49.89988,2.30028|48.783,2.33316';
+                && $query['pts'] === '49.89988,2.30028|48.783,2.33316|43.2965,5.3698';
         });
     }
 
@@ -106,7 +132,7 @@ class OpenStreetTspClientTest extends TestCase
     public function test_it_throws_invalid_response_on_unknown_point_index(): void
     {
         $http = new HttpFactory;
-        // Index 5 has no matching input coordinate (only 2 sent) — must not be
+        // Index 5 has no matching input coordinate (only 3 sent) — must not be
         // silently dropped or fatal; the client maps it to invalid_response.
         $http->fake(['*' => $http->response([
             'OPTIMIZATION' => [0, 5],

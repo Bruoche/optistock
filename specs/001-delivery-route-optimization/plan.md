@@ -47,6 +47,7 @@ Success detection: presence of an `OPTIMIZATION` array. No `status` field exists
 
 **Broadcast Payload Schema**:
 - Success event (`TourOptimized`): `{ "job_uuid": "...", "data": { "ordered_stops": [{"lat": 0.0, "lng": 0.0, "order": 0}], "total_distance_m": 450000, "total_duration_s": 18000 } }`
+  - **2-point tours**: `total_distance_m` and `total_duration_s` are `null` (the TSP API rejects <3 points, so `OpenStreetTspClient` short-circuits and returns the pair in order without a routing call). The front-end shows "Unavailable". Real metrics are deferred to the `/route/` integration.
 - Failure event (`TourOptimizationFailed`): `{ "job_uuid": "...", "error": { "code": "api_error|timeout|invalid_response|job_failed", "message": "..." } }`
 
 **Constraints**: External OpenStreet TSP API can be slow (minutes for large point sets) or unreliable — must be called only from background jobs. `OpenStreetTspClient` uses a split timeout: connect=15s (fail fast on dead host), read=600s (tolerate slow compute), retries=1 (exponential backoff). Timeout layers must stay ordered `read < job $timeout < worker --timeout < retry_after` (see README). API credentials stored in `.env`, never returned to clients.
