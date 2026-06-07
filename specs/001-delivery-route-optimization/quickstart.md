@@ -30,11 +30,16 @@ Edit role vars in `resources/css/app.css` only (`:root` + `.dark`) per plan.md "
 ## 4. Run (four processes)
 
 ```bash
-php artisan serve                        # HTTP app server → http://localhost:8000
-php artisan reverb:start                 # WebSocket server → :8080
-php artisan queue:work --timeout=1290    # job worker (timeout per README §4)
-npm run dev                              # Vite asset/HMR server → :5173
+php artisan serve                                          # HTTP app server → http://localhost:8000
+php artisan reverb:start                                   # WebSocket server → :8080
+php artisan queue:work --queue=default,broadcasts --timeout=1290   # job worker (timeout per README §4)
+npm run dev                                                # Vite asset/HMR server → :5173
 ```
+
+**The worker MUST include the `broadcasts` queue.** `OptimizeTourJob` runs on `default`, but the
+`TourOptimized` / `TourOptimizationFailed` events declare `broadcastQueue() = 'broadcasts'`. A plain
+`queue:work` (default only) processes the job but leaves the broadcast events stuck — the WebSocket
+push never fires and the UI updates only via the slower status-poll fallback.
 
 Open **http://localhost:8000** (the app), not the Vite port. `npm run dev` only serves
 assets — without `php artisan serve` (or Herd/Valet) nothing listens on :8000 and the
