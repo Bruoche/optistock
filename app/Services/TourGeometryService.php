@@ -41,7 +41,7 @@ class TourGeometryService
             $destination = $stops[($index + 1) % $count];
 
             try {
-                $leg = $this->client->route($origin, $destination, $mode);
+                $leg = $this->client->traceLeg($origin, $destination, $mode);
                 $legs[] = [
                     'ok' => true,
                     'coordinates' => $leg['coordinates'],

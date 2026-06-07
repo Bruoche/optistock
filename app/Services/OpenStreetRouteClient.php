@@ -44,7 +44,7 @@ class OpenStreetRouteClient
      *
      * @throws TourGeometryException
      */
-    public function route(array $origin, array $destination, ?string $mode = null): array
+    public function traceLeg(array $origin, array $destination, ?string $mode = null): array
     {
         try {
             $response = $this->http

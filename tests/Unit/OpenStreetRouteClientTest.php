@@ -43,7 +43,7 @@ class OpenStreetRouteClientTest extends TestCase
             ]),
         ]);
 
-        $leg = $this->client($http)->route($this->origin(), $this->destination());
+        $leg = $this->client($http)->traceLeg($this->origin(), $this->destination());
 
         $this->assertSame(465000, $leg['distance_m']);
         $this->assertSame(16800, $leg['duration_s']);
@@ -59,7 +59,7 @@ class OpenStreetRouteClientTest extends TestCase
         $http = new HttpFactory;
         $http->fake(['*' => $http->response(['polyline' => '', 'total_distance' => 0, 'total_time' => 0, 'status' => 'OK'])]);
 
-        $this->client($http)->route($this->origin(), $this->destination());
+        $this->client($http)->traceLeg($this->origin(), $this->destination());
 
         $http->assertSent(function (Request $request): bool {
             parse_str((string) parse_url($request->url(), PHP_URL_QUERY), $query);
@@ -76,7 +76,7 @@ class OpenStreetRouteClientTest extends TestCase
         $http = new HttpFactory;
         $http->fake(['*' => $http->response(['polyline' => '_p~iF~ps|U', 'total_distance' => 1, 'total_time' => 1, 'status' => 'OK'])]);
 
-        $leg = $this->client($http)->route($this->origin(), $this->destination());
+        $leg = $this->client($http)->traceLeg($this->origin(), $this->destination());
 
         $this->assertSame([[38.5, -120.2]], $leg['coordinates']);
     }
@@ -86,7 +86,7 @@ class OpenStreetRouteClientTest extends TestCase
         $http = new HttpFactory;
         $http->fake(['*' => $http->response(['status' => 'WRONG_KEY'])]);
 
-        $this->assertErrorCode('invalid_response', fn () => $this->client($http)->route($this->origin(), $this->destination()));
+        $this->assertErrorCode('invalid_response', fn () => $this->client($http)->traceLeg($this->origin(), $this->destination()));
     }
 
     public function test_it_throws_invalid_response_when_polyline_missing(): void
@@ -94,7 +94,7 @@ class OpenStreetRouteClientTest extends TestCase
         $http = new HttpFactory;
         $http->fake(['*' => $http->response(['status' => 0, 'total_distance' => 1, 'total_time' => 1])]);
 
-        $this->assertErrorCode('invalid_response', fn () => $this->client($http)->route($this->origin(), $this->destination()));
+        $this->assertErrorCode('invalid_response', fn () => $this->client($http)->traceLeg($this->origin(), $this->destination()));
     }
 
     public function test_it_throws_api_error_on_http_failure(): void
@@ -102,7 +102,7 @@ class OpenStreetRouteClientTest extends TestCase
         $http = new HttpFactory;
         $http->fake(['*' => $http->response('', 500)]);
 
-        $this->assertErrorCode('api_error', fn () => $this->client($http)->route($this->origin(), $this->destination()));
+        $this->assertErrorCode('api_error', fn () => $this->client($http)->traceLeg($this->origin(), $this->destination()));
     }
 
     public function test_it_throws_timeout_on_connection_failure(): void
@@ -112,7 +112,7 @@ class OpenStreetRouteClientTest extends TestCase
             throw new ConnectionException('Connection timed out');
         });
 
-        $this->assertErrorCode('timeout', fn () => $this->client($http)->route($this->origin(), $this->destination()));
+        $this->assertErrorCode('timeout', fn () => $this->client($http)->traceLeg($this->origin(), $this->destination()));
     }
 
     private function assertErrorCode(string $expectedCode, callable $callback): void

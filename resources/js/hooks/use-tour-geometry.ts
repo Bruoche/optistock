@@ -6,6 +6,7 @@
 // estimate). Owns a result-identity token so a superseded tour's late response is
 // ignored. Deliberately separate from use-tour-optimization (no job concepts here).
 import { useEffect, useRef, useState } from 'react';
+import { postJson } from '@/lib/http';
 import type { RoutePath, TourGeometry, TourResult } from '@/types/tour';
 
 type ComposedGeometry = {
@@ -17,19 +18,13 @@ type ComposedGeometry = {
     metrics: { distance_m: number | null; duration_s: number | null } | null;
 };
 
-function readCookie(name: string): string | null {
-    const match = document.cookie.match(new RegExp('(^|;\\s*)' + name + '=([^;]*)'));
-
-    return match ? decodeURIComponent(match[2]) : null;
-}
-
 function orderedStops(result: TourResult): RoutePath {
     return [...result.ordered_stops]
         .sort((a, b) => a.order - b.order)
         .map(({ lat, lng }) => ({ lat, lng }));
 }
 
-function compose(result: TourResult | null, geometry: TourGeometry | null): ComposedGeometry {
+function composeGeometry(result: TourResult | null, geometry: TourGeometry | null): ComposedGeometry {
     if (!result) {
         return { routePath: [], closed: true, metrics: null };
     }
@@ -76,17 +71,7 @@ export function useTourGeometry(result: TourResult | null): ComposedGeometry {
 
         (async () => {
             try {
-                const response = await fetch('/api/tour/geometry', {
-                    method: 'POST',
-                    credentials: 'same-origin',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        Accept: 'application/json',
-                        'X-Requested-With': 'XMLHttpRequest',
-                        'X-XSRF-TOKEN': readCookie('XSRF-TOKEN') ?? '',
-                    },
-                    body: JSON.stringify({ stops }),
-                });
+                const response = await postJson('/api/tour/geometry', { stops });
 
                 if (!response.ok) {
                     return; // keep straight fallback (FR-005)
@@ -107,5 +92,5 @@ export function useTourGeometry(result: TourResult | null): ComposedGeometry {
     // Only use geometry that belongs to the current result.
     const geometry = entry && entry.result === result ? entry.geometry : null;
 
-    return compose(result, geometry);
+    return composeGeometry(result, geometry);
 }

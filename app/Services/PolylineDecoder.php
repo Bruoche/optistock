@@ -26,8 +26,8 @@ class PolylineDecoder
         $factor = 10 ** $precision;
 
         while ($index < $length) {
-            $lat += $this->nextValue($encoded, $index, $length);
-            $lng += $this->nextValue($encoded, $index, $length);
+            $lat += $this->readDelta($encoded, $index, $length);
+            $lng += $this->readDelta($encoded, $index, $length);
 
             $points[] = [$lat / $factor, $lng / $factor];
         }
@@ -38,7 +38,7 @@ class PolylineDecoder
     /**
      * Read one zig-zag-encoded varint delta from the string, advancing $index.
      */
-    private function nextValue(string $encoded, int &$index, int $length): int
+    private function readDelta(string $encoded, int &$index, int $length): int
     {
         $shift = 0;
         $result = 0;
