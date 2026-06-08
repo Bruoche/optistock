@@ -65,7 +65,7 @@ returned; a bad `loop` value → 422; omitted `loop` → closed default.
 - [ ] T009 [US1] Add a readonly `bool $loop` ctor arg; **translate it to the OpenStreet string in the job** (`$tour = $this->loop ? 'closed' : 'open'`) and pass that to `OpenStreetTspClient::optimize($coordinates, $this->mode, $tour)`; pass the **boolean** `$this->loop` to the shape-keyed `TourCache` calls in `handle()` + `failed()`; include `loop` in the log context, in app/Jobs/OptimizeTourJob.php. **Update every existing `OptimizeTourJob` construction + `TourCache` call in tests/Feature/TourOptimizationBroadcastTest.php** (the `makeJob` helper, the inline 2-point job, `getTour`/`claimActiveJob`/`getActiveJob`) to pass the new `loop` (depends on T007, T008)
 - [ ] T010 [US1] Change the signature to `optimize(int $userId, array $coordinates, string $mode, bool $loop)`; pass `loop` to every `TourCache` call and the dispatched `OptimizeTourJob`, in app/Services/TourOptimizationService.php (depends on T007, T009)
 - [ ] T011 [US1] Read `$request->validated('loop') ?? true` and pass it to the service in app/Http/Controllers/TourOptimizationController.php (depends on T010)
-- [ ] T012 [US1] Change `optimize` to take `(mode, loop)`, send `loop` in the optimize POST body, and thread it through the `submitting`/`pending`/`done` states (snapshot into `done`) in resources/js/hooks/use-tour-optimization.ts (depends on T002)
+- [ ] T012 [US1] Change `optimize` to take `(mode, loop)`, send `loop` in the optimize POST body, and thread it through the `submitting`/`pending`/`done` states in resources/js/hooks/use-tour-optimization.ts (depends on T002). **Add a `loopRef` mirroring the existing `optimizedMode` ref** so the async settle path (`settleDone`, reached from the Reverb broadcast / status poll) injects the snapshotted `loop` into the `done` state — not just the inline 200 path
 - [ ] T013 [US1] Hold `loop` state (default `true`) on the page and pass it to `optimize(mode, loop)` (toggle UI lands in US3) in resources/js/pages/tour/optimize.tsx (depends on T012). The loop lives in page state and is **retained across reset** — `reset()` must not clear it (default is first-load only)
 
 **Checkpoint**: optimization is loop-aware end-to-end + per-shape cached. MVP demoable via API/hook.
@@ -110,7 +110,7 @@ shows the off state; it is disabled while optimizing.
 
 ### Implementation for User Story 3
 
-- [ ] T022 [P] [US3] Create `LoopToggle` (reuses shadcn `components/ui/toggle.tsx`, pressed/unpressed; props `{ value, onChange, disabled }`; clear on/off label; role-color classes only) in resources/js/components/tour/loop-toggle.tsx
+- [ ] T022 [P] [US3] Create `LoopToggle` (reuses shadcn `components/ui/toggle.tsx`; `pressed={value}` + `onPressedChange={onChange}`; props `{ value, onChange, disabled }`; label "Loop" when on / "One-way" when off, plus `aria-label="Return to origin"` so its state is testable; role-color classes only) in resources/js/components/tour/loop-toggle.tsx
 - [ ] T023 [US3] Add `LoopToggle` to the right of `ModeSelect`, with new `loop` + `onLoopChange` props, in resources/js/components/tour/tour-control-bar.tsx (depends on T022)
 - [ ] T024 [US3] Bind the toggle to the page `loop` state via the control bar and disable it while optimizing, in resources/js/pages/tour/optimize.tsx (depends on T023, T013)
 
