@@ -17,9 +17,10 @@ export function useTourOptimization(userId: number) {
     const channelName = `App.Models.User.${userId}`;
     const pollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
     const activeJob = useRef<string | null>(null);
-    // The mode the current optimization was started with, so a result arriving
-    // later (broadcast / poll) is settled with the mode it was optimized for.
+    // Snapshot of the shape a pending optimization was started with, so a result
+    // arriving via broadcast/poll is settled with the values it was optimized for (FR-007).
     const optimizedMode = useRef<DeliveryMode>('trucking');
+    const closeLoop = useRef<boolean>(true);
 
     const cleanup = useCallback(() => {
         if (pollTimer.current) {
@@ -34,7 +35,7 @@ export function useTourOptimization(userId: number) {
     const settleDone = useCallback(
         (result: TourResult) => {
             cleanup();
-            setState({ status: 'done', result, mode: optimizedMode.current });
+            setState({ status: 'done', result, mode: optimizedMode.current, loop: closeLoop.current });
         },
         [cleanup],
     );
@@ -106,30 +107,32 @@ export function useTourOptimization(userId: number) {
         [channelName, settleDone, settleFailed],
     );
 
-    const optimize = useCallback(async (mode: DeliveryMode) => {
+    const optimize = useCallback(async (mode: DeliveryMode, loop: boolean) => {
         if (stops.length < 2) {
             return;
         }
 
         optimizedMode.current = mode;
-        setState({ status: 'submitting', mode });
+        closeLoop.current = loop;
+        setState({ status: 'submitting', mode, loop });
 
         try {
             const response = await postJson('/api/tour/optimize', {
                 coordinates: stops.map((stop) => [stop.lat, stop.lng]),
                 mode,
+                loop,
             });
 
             if (response.status === 200) {
                 const payload = await response.json();
-                setState({ status: 'done', result: payload.data as TourResult, mode });
+                setState({ status: 'done', result: payload.data as TourResult, mode, loop });
 
                 return;
             }
 
             if (response.status === 202) {
                 const payload = await response.json();
-                setState({ status: 'pending', jobUuid: payload.job_uuid, mode });
+                setState({ status: 'pending', jobUuid: payload.job_uuid, mode, loop });
                 subscribe(payload.job_uuid);
 
                 return;

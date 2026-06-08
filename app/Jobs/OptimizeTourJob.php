@@ -52,29 +52,32 @@ class OptimizeTourJob implements ShouldQueue
         public readonly string $coordinatesHash,
         public readonly array $coordinates,
         public readonly string $mode,
+        public readonly bool $loop,
     ) {
         $this->timeout = (int) config('services.openstreet.job_timeout', 1260);
     }
 
     public function handle(OpenStreetTspClient $client, TourCache $cache): void
     {
+        $tourShape = $this->loop ? 'closed' : 'open';
         try {
-            $tour = $client->optimize($this->coordinates, $this->mode);
+            $tour = $client->optimize($this->coordinates, $this->mode, $tourShape);
         } catch (TourOptimizationException $e) {
             Log::warning('Tour optimization failed', [
                 'job_uuid' => $this->jobUuid,
                 'user_id' => $this->userId,
                 'coordinates_hash' => $this->coordinatesHash,
                 'mode' => $this->mode,
+                'loop' => $this->loop,
                 'error' => $e->toPayload(),
             ]);
-            $cache->releaseActiveJob($this->userId, $this->mode, $this->coordinatesHash);
+            $cache->releaseActiveJob($this->userId, $this->mode, $this->loop, $this->coordinatesHash);
             $cache->markFailed($this->jobUuid, $e->toPayload());
             TourOptimizationFailed::dispatch($this->userId, $this->jobUuid, $e->toPayload());
             return;
         }
-        $cache->releaseActiveJob($this->userId, $this->mode, $this->coordinatesHash);
-        $cache->putTour($this->mode, $this->coordinatesHash, $tour);
+        $cache->releaseActiveJob($this->userId, $this->mode, $this->loop, $this->coordinatesHash);
+        $cache->putTour($this->mode, $this->loop, $this->coordinatesHash, $tour);
         $cache->markDone($this->jobUuid, $tour);
         TourOptimized::dispatch($this->userId, $this->jobUuid, $tour);
     }
@@ -91,10 +94,11 @@ class OptimizeTourJob implements ShouldQueue
             'user_id' => $this->userId,
             'coordinates_hash' => $this->coordinatesHash,
             'mode' => $this->mode,
+            'loop' => $this->loop,
             'exception' => $e,
         ]);
         $cache = app(TourCache::class);
-        $cache->releaseActiveJob($this->userId, $this->mode, $this->coordinatesHash);
+        $cache->releaseActiveJob($this->userId, $this->mode, $this->loop, $this->coordinatesHash);
         $cache->markFailed($this->jobUuid, $error);
         TourOptimizationFailed::dispatch($this->userId, $this->jobUuid, $error);
     }

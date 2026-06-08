@@ -1,10 +1,7 @@
-// Feature 002 — road-accurate route tracing.
-// Given the done optimization result, fetches the road geometry once (synchronous
-// backend call) and exposes the best-available path: straight-line fallback first,
-// then the road-following path once it arrives. Pure enhancement — a failed fetch
-// leaves the straight fallback + null road metrics (the caller keeps the initial
-// estimate). Owns a result-identity token so a superseded tour's late response is
-// ignored. Deliberately separate from use-tour-optimization (no job concepts here).
+// Feature 002 — road-accurate route tracing. Given the done optimization result,
+// fetches the road geometry once and exposes the best-available path: straight-line
+// fallback first, then the road-following path. A result-identity token guards
+// against a superseded tour's late response winning (FR-010).
 import { useEffect, useRef, useState } from 'react';
 import { postJson } from '@/lib/http';
 import type { DeliveryMode, RoutePath, TourGeometry, TourResult } from '@/types/tour';
@@ -24,19 +21,18 @@ function orderedStops(result: TourResult): RoutePath {
         .map(({ lat, lng }) => ({ lat, lng }));
 }
 
-function composeGeometry(result: TourResult | null, geometry: TourGeometry | null): ComposedGeometry {
+function composeGeometry(result: TourResult | null, geometry: TourGeometry | null, loop: boolean): ComposedGeometry {
     if (!result) {
         return { routePath: [], closed: true, metrics: null };
     }
 
     const stops = orderedStops(result);
 
-    // No geometry yet (or fetch failed) → straight fallback; RouteLayer closes the loop.
+    // No geometry yet (or fetch failed) → straight fallback; closed only for a looped tour.
     if (!geometry) {
-        return { routePath: stops, closed: true, metrics: null };
+        return { routePath: stops, closed: loop, metrics: null };
     }
 
-    // Road path: per leg, use road coords where the leg succeeded, else a straight segment.
     const routePath: RoutePath = [];
     geometry.legs.forEach((leg, index) => {
         if (leg.ok) {
@@ -48,15 +44,13 @@ function composeGeometry(result: TourResult | null, geometry: TourGeometry | nul
 
     return {
         routePath,
-        closed: false, // legs already include the return leg
+        closed: false,
         metrics: { distance_m: geometry.total_distance_m, duration_s: geometry.total_duration_s },
     };
 }
 
-export function useTourGeometry(result: TourResult | null, mode: DeliveryMode): ComposedGeometry {
-    // Store the geometry together with the result it was fetched for, so a stale
-    // entry (from a previous tour) is simply ignored by identity comparison — no
-    // need to reset state synchronously inside the effect.
+export function useTourGeometry(result: TourResult | null, mode: DeliveryMode, loop: boolean): ComposedGeometry {
+    // Geometry stored with the result it was fetched for, so a stale entry is ignored by identity.
     const [entry, setEntry] = useState<{ result: TourResult; geometry: TourGeometry } | null>(null);
     const token = useRef(0);
 
@@ -71,11 +65,11 @@ export function useTourGeometry(result: TourResult | null, mode: DeliveryMode): 
 
         (async () => {
             try {
-                // Trace for the same mode the tour was optimized with (FR-007).
-                const response = await postJson('/api/tour/geometry', { stops, mode });
+                // Same mode + loop the tour was optimized with, so the drawn route matches (FR-007).
+                const response = await postJson('/api/tour/geometry', { stops, mode, loop });
 
                 if (!response.ok) {
-                    return; // keep straight fallback (FR-005)
+                    return;
                 }
 
                 const data = (await response.json()) as TourGeometry;
@@ -85,13 +79,12 @@ export function useTourGeometry(result: TourResult | null, mode: DeliveryMode): 
                     setEntry({ result, geometry: data });
                 }
             } catch {
-                // network error — keep straight fallback
+                // Swallow: a failed trace keeps the straight fallback (FR-005).
             }
         })();
-    }, [result, mode]);
+    }, [result, mode, loop]);
 
-    // Only use geometry that belongs to the current result.
     const geometry = entry && entry.result === result ? entry.geometry : null;
 
-    return composeGeometry(result, geometry);
+    return composeGeometry(result, geometry, loop);
 }

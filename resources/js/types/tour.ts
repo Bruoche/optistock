@@ -40,13 +40,14 @@ export type TourError = {
     message: string;
 };
 
-/** Optimization flow state machine. The chosen `mode` is carried from submit
- *  through to the result so the geometry trace stays congruent (003 FR-007). */
+/** Optimization flow state machine. The chosen `mode` (003) and `loop` (004) are
+ *  carried from submit through to the result so the geometry trace stays congruent
+ *  (FR-007). `loop` true = closed tour returning to origin; false = open one-way. */
 export type OptimizeState =
     | { status: 'idle' }
-    | { status: 'submitting'; mode: DeliveryMode }
-    | { status: 'pending'; jobUuid: string; mode: DeliveryMode }
-    | { status: 'done'; result: TourResult; mode: DeliveryMode }
+    | { status: 'submitting'; mode: DeliveryMode; loop: boolean }
+    | { status: 'pending'; jobUuid: string; mode: DeliveryMode; loop: boolean }
+    | { status: 'done'; result: TourResult; mode: DeliveryMode; loop: boolean }
     | { status: 'failed'; error: TourError };
 
 /** Ordered path fed to the RouteLayer boundary (FR-019). */

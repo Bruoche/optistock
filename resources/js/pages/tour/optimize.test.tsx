@@ -39,23 +39,26 @@ beforeEach(() => {
 });
 
 describe('TourOptimize control bar visibility (003)', () => {
-    it('shows the mode dropdown + Optimize button while editing', () => {
+    it('shows the mode dropdown + loop toggle + Optimize button while editing', () => {
         mocks.state = { status: 'idle' };
         render(<TourOptimize />);
 
         expect(screen.getByRole('combobox', { name: /delivery mode/i })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /return to origin/i })).toBeInTheDocument();
         expect(screen.getByRole('button', { name: /optimize route/i })).toBeInTheDocument();
     });
 
-    it('hides the mode dropdown once a result is displayed (editing-only, FR-004)', () => {
+    it('hides the editing controls once a result is displayed (editing-only, FR-004)', () => {
         mocks.state = {
             status: 'done',
             result: { ordered_stops: [], total_distance_m: 100, total_duration_s: 600 },
             mode: 'trucking',
+            loop: true,
         };
         render(<TourOptimize />);
 
         expect(screen.queryByRole('combobox', { name: /delivery mode/i })).not.toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: /return to origin/i })).not.toBeInTheDocument();
         expect(screen.queryByRole('button', { name: /optimize route/i })).not.toBeInTheDocument();
     });
 });

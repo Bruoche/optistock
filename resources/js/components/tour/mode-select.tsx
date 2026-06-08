@@ -1,7 +1,4 @@
-// Feature 003: delivery-mode dropdown. Lets the planner pick the travel mode
-// (trucking by default) that drives both the tour optimization and the road
-// path. Lives in the editing-view control bar, to the left of the Optimize
-// button; disabled while a tour is optimizing.
+// Feature 003: delivery-mode dropdown for the editing-view control bar.
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DELIVERY_MODES, type DeliveryMode } from '@/types/tour';
 

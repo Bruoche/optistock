@@ -21,43 +21,28 @@ class TourOptimizationService
     /**
      * @param  array<int, array{0: int|float|string, 1: int|float|string}>  $coordinates
      * @param  string  $mode  Travel mode driving both the optimization and (later) the geometry trace.
+     * @param  bool  $loop  Tour shape: true = closed loop (return to origin), false = open one-way (004).
      */
-    public function optimize(int $userId, array $coordinates, string $mode): TourOptimizationResult
+    public function optimize(int $userId, array $coordinates, string $mode, bool $loop): TourOptimizationResult
     {
         $normalizedCoordinates = $this->normalizer->normalize($coordinates);
-        // sha256 of the canonical coordinates → order-independent cache key. The
-        // mode is a separate cache dimension (a walking tour differs from a
-        // trucking one), so it is carried alongside the hash, never folded into it.
         $coordinatesHash = hash('sha256', (string) json_encode($normalizedCoordinates));
-
-        $cachedTour = $this->cache->getTour($mode, $coordinatesHash);
-
+        $cachedTour = $this->cache->getTour($mode, $loop, $coordinatesHash);
         if ($cachedTour !== null) {
             return TourOptimizationResult::ready($cachedTour);
         }
-
         $jobUuid = (string) Str::uuid();
-
-        // Dedup concurrent identical requests. claimActiveJob atomically reserves
-        // the slot: true = we won it and must dispatch, false = an identical
-        // optimization (same user, mode, coordinates) is already running.
-        $wonClaim = $this->cache->claimActiveJob($userId, $mode, $coordinatesHash, $jobUuid);
-
+        $wonClaim = $this->cache->claimActiveJob($userId, $mode, $loop, $coordinatesHash, $jobUuid);
         if (! $wonClaim) {
-            $runningJobUuid = $this->cache->getActiveJob($userId, $mode, $coordinatesHash);
-
+            $runningJobUuid = $this->cache->getActiveJob($userId, $mode, $loop, $coordinatesHash);
             // Reuse the running job so we never fire a second multi-minute upstream call.
             if ($runningJobUuid !== null) {
                 return TourOptimizationResult::pending($runningJobUuid);
             }
-
-            // Rare race: that job released its slot between our failed claim and
-            // this read. Fall through and dispatch a fresh job.
+            // Rare race: the job released its slot between our failed claim and this read.
         }
-
         $this->cache->markPending($jobUuid);
-        OptimizeTourJob::dispatch($jobUuid, $userId, $coordinatesHash, $normalizedCoordinates, $mode);
-
+        OptimizeTourJob::dispatch($jobUuid, $userId, $coordinatesHash, $normalizedCoordinates, $mode, $loop);
         return TourOptimizationResult::pending($jobUuid);
     }
 

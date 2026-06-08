@@ -51,6 +51,14 @@ class TourGeometryTest extends TestCase
             ->assertJsonValidationErrors('mode');
     }
 
+    public function test_it_rejects_a_non_boolean_loop(): void
+    {
+        $this->actingAs(User::factory()->create())
+            ->postJson(route('api.tour.geometry'), ['stops' => $this->stops(), 'loop' => 'maybe'])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('loop');
+    }
+
     public function test_it_traces_every_leg_and_compounds_totals(): void
     {
         Http::fake(['*' => Http::response($this->okLeg(1000, 120))]);
@@ -66,6 +74,20 @@ class TourGeometryTest extends TestCase
         $response->assertJsonPath('total_duration_s', 360);
         // Decoded coordinates present (exact values are precision-specific — covered in the unit test).
         $this->assertNotEmpty($response->json('legs.0.coordinates'));
+    }
+
+    public function test_open_tour_omits_the_closing_leg_and_excludes_the_return_from_totals(): void
+    {
+        Http::fake(['*' => Http::response($this->okLeg(1000, 120))]);
+
+        $response = $this->actingAs(User::factory()->create())
+            ->postJson(route('api.tour.geometry'), ['stops' => $this->stops(), 'loop' => false]);
+
+        $response->assertOk();
+        // Open tour of 3 stops → 2 legs (no return); totals exclude the closing leg (004).
+        $response->assertJsonCount(2, 'legs');
+        $response->assertJsonPath('total_distance_m', 2000);
+        $response->assertJsonPath('total_duration_s', 240);
     }
 
     public function test_a_failed_leg_falls_back_and_nulls_totals_and_is_logged(): void

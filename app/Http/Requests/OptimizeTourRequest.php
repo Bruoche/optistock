@@ -30,6 +30,7 @@ class OptimizeTourRequest extends FormRequest
             'coordinates.*.0' => ['required', 'numeric', 'between:-90,90'],
             'coordinates.*.1' => ['required', 'numeric', 'between:-180,180'],
             'mode' => ['sometimes', Rule::enum(DeliveryMode::class)],
+            'loop' => ['sometimes', 'boolean'],
         ];
     }
 

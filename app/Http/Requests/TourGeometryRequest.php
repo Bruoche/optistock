@@ -29,6 +29,7 @@ class TourGeometryRequest extends FormRequest
             'stops.*.0' => ['required', 'numeric', 'between:-90,90'],
             'stops.*.1' => ['required', 'numeric', 'between:-180,180'],
             'mode' => ['sometimes', Rule::enum(DeliveryMode::class)],
+            'loop' => ['sometimes', 'boolean'],
         ];
     }
 

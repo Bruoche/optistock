@@ -1,9 +1,6 @@
-// Tour optimization screen (FR-009): interactive map across the top ~2/3, the
-// stop list / result in the lower third, and a bottom loading bar while a tour is
-// being optimized. A control bar beneath the map (feature 003) holds the delivery
-// mode dropdown + the Optimize button while editing. Once a result is shown, road
-// geometry (feature 002) is fetched for the tour's mode and replaces the straight
-// lines + refines the estimate.
+// Tour optimization screen: map on top, the stop list / result below, and a
+// control bar (mode dropdown + loop toggle + Optimize) shown while editing. Once a
+// result is shown, road geometry (002) replaces the straight lines.
 import { Head, usePage } from '@inertiajs/react';
 import { useState } from 'react';
 import { OptimizingBar } from '@/components/tour/optimizing-bar';
@@ -22,18 +19,21 @@ export default function TourOptimize() {
     const userId = usePage().props.auth.user.id;
     const { stops, addStop, removeStop, optimize, reset, state } = useTourOptimization(userId);
 
-    // Selected delivery mode (feature 003). Trucking is the first-load default;
-    // the selection is retained across a reset within the session.
+    // Defaults apply on first load and are retained across a reset (reset clears the tour, not these).
     const [mode, setMode] = useState<DeliveryMode>('trucking');
+    const [loop, setLoop] = useState<boolean>(true);
 
     const isPending = state.status === 'submitting' || state.status === 'pending';
     const isDone = state.status === 'done';
     const canOptimize = stops.length >= MIN_STOPS && !isPending;
 
-    // Feature 002/003: fetch road geometry for the done tour, using the mode it
-    // was optimized with (straight-line fallback first).
+    // Geometry uses the mode + loop the shown tour was optimized with, not the live controls (FR-007).
     const doneResult = state.status === 'done' ? state.result : null;
-    const geometry = useTourGeometry(doneResult, state.status === 'done' ? state.mode : mode);
+    const geometry = useTourGeometry(
+        doneResult,
+        state.status === 'done' ? state.mode : mode,
+        state.status === 'done' ? state.loop : loop,
+    );
 
     return (
         <>
@@ -54,7 +54,9 @@ export default function TourOptimize() {
                             <TourControlBar
                                 mode={mode}
                                 onModeChange={setMode}
-                                onOptimize={() => optimize(mode)}
+                                loop={loop}
+                                onLoopChange={setLoop}
+                                onOptimize={() => optimize(mode, loop)}
                                 canOptimize={canOptimize}
                                 optimizing={isPending}
                             />
