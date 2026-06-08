@@ -19,11 +19,11 @@ Session-cookie `/api`; async optimization job + Reverb (001); synchronous `/rout
 selector + mode-keyed cache + control bar (003).
 
 **API contract (resolved by the user — no live re-probe needed)**: the OpenStreet TSP endpoint takes a
-`tour` field with value **`closed`** or **`open`**. Map the boolean `loop` → `closed`/`open` at the
-client boundary.
+`tour` field with value **`closed`** or **`open`**. The boolean `loop` is mapped to that string in the
+**job** (see D1); the client just forwards it.
 
 **Current state (what exists vs. what's missing)**:
-- `OpenStreetTspClient::send()` hard-codes `'tour' => 'closed'` — must become `$loop ? 'closed' : 'open'`.
+- `OpenStreetTspClient::send()` hard-codes `'tour' => 'closed'` — must accept a forwarded `tour` string (the job supplies `closed`/`open`).
 - `OptimizeTourRequest` / `OptimizeTourJob` / `TourOptimizationService` / `TourCache` carry no loop.
 - `TourGeometryService::trace()` always appends the closing leg (`$stops[($index + 1) % $count]`).
 - `TourGeometryRequest` validates `stops` + `mode` only.
