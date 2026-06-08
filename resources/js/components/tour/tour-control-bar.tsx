@@ -1,7 +1,7 @@
 // Feature 003/004: editing-view control bar — mode dropdown + loop toggle + the Optimize button.
+import { ActionButton } from '@/components/action-button';
 import { LoopToggle } from '@/components/tour/loop-toggle';
 import { ModeSelect } from '@/components/tour/mode-select';
-import { Button } from '@/components/ui/button';
 import type { DeliveryMode } from '@/types/tour';
 
 type TourControlBarProps = {
@@ -35,14 +35,9 @@ export function TourControlBar({
 					<LoopToggle value={loop} onChange={onLoopChange} disabled={optimizing} />
 	            </div>
 			</div>
-			<Button
-				variant="secondary"
-				className="hover:bg-accent hover:text-accent-foreground"
-				onClick={onOptimize}
-				disabled={!canOptimize}
-			>
+			<ActionButton onClick={onOptimize} disabled={!canOptimize}>
 				Optimize route
-			</Button>
+			</ActionButton>
         </div>
     );
 }

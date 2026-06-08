@@ -1,7 +1,7 @@
 // FR-014/FR-015: after a result arrives, this replaces the Optimize button row.
 // Shows the total tour duration at the top; the space the stop list occupied is
 // left empty (reserved for a future drivers list — out of scope here).
-import { Button } from '@/components/ui/button';
+import { ActionButton } from '@/components/action-button';
 import type { TourResult } from '@/types/tour';
 
 type ResultSummaryProps = {
@@ -38,13 +38,7 @@ export function ResultSummary({ result, roadMetrics, onReset }: ResultSummaryPro
                     <p className="text-xs uppercase tracking-wide">Tour duration</p>
                     <p className="text-lg font-semibold">{formatDuration(durationS)}</p>
                 </div>
-                <Button
-                    variant="secondary"
-                    className="hover:bg-accent hover:text-accent-foreground"
-                    onClick={onReset}
-                >
-                    New tour
-                </Button>
+                <ActionButton onClick={onReset}>New tour</ActionButton>
             </div>
 
             {/* Reserved for the future drivers list (out of scope). */}
