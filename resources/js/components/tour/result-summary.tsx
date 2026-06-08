@@ -40,7 +40,7 @@ export function ResultSummary({ result, roadMetrics, onReset }: ResultSummaryPro
                 </div>
                 <Button
                     variant="secondary"
-                    className="bg-accent text-accent-foreground hover:bg-accent/90"
+                    className="hover:bg-accent hover:text-accent-foreground"
                     onClick={onReset}
                 >
                     New tour
