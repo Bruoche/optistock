@@ -1,6 +1,16 @@
 // Front-end view models for Delivery Route Optimization (feature 001).
 // Mirrors the backend HTTP/WS payloads — see specs/.../contracts/frontend-ui.md.
 
+/** Travel mode for a tour (feature 003). Mirrors the backend `DeliveryMode` enum. */
+export type DeliveryMode = 'trucking' | 'driving' | 'walking';
+
+/** The selectable modes in display order; trucking first (the default). */
+export const DELIVERY_MODES: ReadonlyArray<{ value: DeliveryMode; label: string }> = [
+    { value: 'trucking', label: 'Trucking' },
+    { value: 'driving', label: 'Driving' },
+    { value: 'walking', label: 'Walking' },
+];
+
 /** A coordinate the planner placed on the map (client-side only). */
 export type Stop = {
     /** Client-generated id for list keys + removal. */
@@ -30,12 +40,13 @@ export type TourError = {
     message: string;
 };
 
-/** Optimization flow state machine. */
+/** Optimization flow state machine. The chosen `mode` is carried from submit
+ *  through to the result so the geometry trace stays congruent (003 FR-007). */
 export type OptimizeState =
     | { status: 'idle' }
-    | { status: 'submitting' }
-    | { status: 'pending'; jobUuid: string }
-    | { status: 'done'; result: TourResult }
+    | { status: 'submitting'; mode: DeliveryMode }
+    | { status: 'pending'; jobUuid: string; mode: DeliveryMode }
+    | { status: 'done'; result: TourResult; mode: DeliveryMode }
     | { status: 'failed'; error: TourError };
 
 /** Ordered path fed to the RouteLayer boundary (FR-019). */

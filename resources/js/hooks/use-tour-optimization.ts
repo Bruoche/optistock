@@ -6,7 +6,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { getEcho } from '@/lib/echo';
 import { postJson } from '@/lib/http';
-import type { OptimizeState, Stop, TourError, TourResult } from '@/types/tour';
+import type { DeliveryMode, OptimizeState, Stop, TourError, TourResult } from '@/types/tour';
 
 const POLL_INTERVAL_MS = 3000;
 
@@ -17,6 +17,9 @@ export function useTourOptimization(userId: number) {
     const channelName = `App.Models.User.${userId}`;
     const pollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
     const activeJob = useRef<string | null>(null);
+    // The mode the current optimization was started with, so a result arriving
+    // later (broadcast / poll) is settled with the mode it was optimized for.
+    const optimizedMode = useRef<DeliveryMode>('trucking');
 
     const cleanup = useCallback(() => {
         if (pollTimer.current) {
@@ -31,7 +34,7 @@ export function useTourOptimization(userId: number) {
     const settleDone = useCallback(
         (result: TourResult) => {
             cleanup();
-            setState({ status: 'done', result });
+            setState({ status: 'done', result, mode: optimizedMode.current });
         },
         [cleanup],
     );
@@ -103,28 +106,30 @@ export function useTourOptimization(userId: number) {
         [channelName, settleDone, settleFailed],
     );
 
-    const optimize = useCallback(async () => {
+    const optimize = useCallback(async (mode: DeliveryMode) => {
         if (stops.length < 2) {
             return;
         }
 
-        setState({ status: 'submitting' });
+        optimizedMode.current = mode;
+        setState({ status: 'submitting', mode });
 
         try {
             const response = await postJson('/api/tour/optimize', {
                 coordinates: stops.map((stop) => [stop.lat, stop.lng]),
+                mode,
             });
 
             if (response.status === 200) {
                 const payload = await response.json();
-                setState({ status: 'done', result: payload.data as TourResult });
+                setState({ status: 'done', result: payload.data as TourResult, mode });
 
                 return;
             }
 
             if (response.status === 202) {
                 const payload = await response.json();
-                setState({ status: 'pending', jobUuid: payload.job_uuid });
+                setState({ status: 'pending', jobUuid: payload.job_uuid, mode });
                 subscribe(payload.job_uuid);
 
                 return;

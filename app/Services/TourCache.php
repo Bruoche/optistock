@@ -8,16 +8,18 @@ use Illuminate\Contracts\Cache\Repository as CacheRepository;
  * Owns all cache reads/writes for tour optimization.
  *
  * Three distinct entries:
- *  - Tour cache    `tour:{hash}`                   — the optimized tour, kept for
+ *  - Tour cache    `tour:{mode}:{hash}`             — the optimized tour, kept for
  *    24h so identical coordinate sets are served instantly (HTTP 200 cache hit).
- *    NOT user-scoped: the tour is a pure function of the coordinate set, so any
- *    user submitting the same stops reuses it (the hash can only be reproduced by
- *    someone who already holds those coordinates — nothing is leaked).
+ *    Keyed by mode too: a tour optimized for one mode (e.g. walking) is a
+ *    different result from another (e.g. trucking), so they must not collide.
+ *    NOT user-scoped: the tour is a pure function of the coordinate set + mode, so
+ *    any user submitting the same stops/mode reuses it (the hash can only be
+ *    reproduced by someone who already holds those coordinates — nothing leaked).
  *  - Job status    `tour:status:{jobUuid}`         — tracks a single async request
  *    so the status endpoint (WebSocket fallback) can report pending/done/failed.
  *    Kept for 1h: long enough to outlive processing, short enough to self-clean.
- *  - Active-job lock `tour:active:{userId}:{hash}` — maps a coordinate set
- *    already being optimized to its jobUuid, so concurrent identical requests
+ *  - Active-job lock `tour:active:{userId}:{mode}:{hash}` — maps a coordinate set +
+ *    mode already being optimized to its jobUuid, so concurrent identical requests
  *    reuse the running job instead of firing a second (multi-minute) upstream
  *    call. User-scoped on purpose: the job broadcasts to one user's private
  *    channel, so dedup must only merge requests that share that channel. TTL
@@ -34,9 +36,9 @@ class TourCache
 
     public function __construct(private readonly CacheRepository $cache) {}
 
-    public function tourKey(string $coordinatesHash): string
+    public function tourKey(string $mode, string $coordinatesHash): string
     {
-        return "tour:{$coordinatesHash}";
+        return "tour:{$mode}:{$coordinatesHash}";
     }
 
     public function jobStatusKey(string $jobUuid): string
@@ -44,9 +46,9 @@ class TourCache
         return "tour:status:{$jobUuid}";
     }
 
-    public function activeJobKey(int $userId, string $coordinatesHash): string
+    public function activeJobKey(int $userId, string $mode, string $coordinatesHash): string
     {
-        return "tour:active:{$userId}:{$coordinatesHash}";
+        return "tour:active:{$userId}:{$mode}:{$coordinatesHash}";
     }
 
     /**
@@ -56,17 +58,17 @@ class TourCache
      *     total_duration_s: int
      * }|null
      */
-    public function getTour(string $coordinatesHash): ?array
+    public function getTour(string $mode, string $coordinatesHash): ?array
     {
-        return $this->cache->get($this->tourKey($coordinatesHash));
+        return $this->cache->get($this->tourKey($mode, $coordinatesHash));
     }
 
     /**
      * @param  array<string, mixed>  $tour
      */
-    public function putTour(string $coordinatesHash, array $tour): void
+    public function putTour(string $mode, string $coordinatesHash, array $tour): void
     {
-        $this->cache->put($this->tourKey($coordinatesHash), $tour, self::TOUR_TTL_SECONDS);
+        $this->cache->put($this->tourKey($mode, $coordinatesHash), $tour, self::TOUR_TTL_SECONDS);
     }
 
     public function markPending(string $jobUuid): void
@@ -115,22 +117,22 @@ class TourCache
      * this caller won the slot (and should dispatch the job), false if another
      * request already owns it (the caller should reuse {@see getActiveJob}).
      */
-    public function claimActiveJob(int $userId, string $coordinatesHash, string $jobUuid): bool
+    public function claimActiveJob(int $userId, string $mode, string $coordinatesHash, string $jobUuid): bool
     {
         return $this->cache->add(
-            $this->activeJobKey($userId, $coordinatesHash),
+            $this->activeJobKey($userId, $mode, $coordinatesHash),
             $jobUuid,
             self::ACTIVE_JOB_TTL_SECONDS,
         );
     }
 
-    public function getActiveJob(int $userId, string $coordinatesHash): ?string
+    public function getActiveJob(int $userId, string $mode, string $coordinatesHash): ?string
     {
-        return $this->cache->get($this->activeJobKey($userId, $coordinatesHash));
+        return $this->cache->get($this->activeJobKey($userId, $mode, $coordinatesHash));
     }
 
-    public function releaseActiveJob(int $userId, string $coordinatesHash): void
+    public function releaseActiveJob(int $userId, string $mode, string $coordinatesHash): void
     {
-        $this->cache->forget($this->activeJobKey($userId, $coordinatesHash));
+        $this->cache->forget($this->activeJobKey($userId, $mode, $coordinatesHash));
     }
 }
