@@ -53,7 +53,7 @@ describe('useTourOptimization', () => {
         act(() => result.current.addStop(48.1, 2.1));
 
         await act(async () => {
-            await result.current.optimize('trucking');
+            await result.current.optimize('trucking', true);
         });
 
         expect(result.current.state.status).toBe('idle');
@@ -68,10 +68,10 @@ describe('useTourOptimization', () => {
         await addTwoStops(result);
 
         await act(async () => {
-            await result.current.optimize('trucking');
+            await result.current.optimize('trucking', true);
         });
 
-        expect(result.current.state).toEqual({ status: 'done', result: RESULT, mode: 'trucking' });
+        expect(result.current.state).toEqual({ status: 'done', result: RESULT, mode: 'trucking', loop: true });
     });
 
     it('202 cache miss goes pending, then done on the TourOptimized event (filtered by job_uuid)', async () => {
@@ -82,7 +82,7 @@ describe('useTourOptimization', () => {
         await addTwoStops(result);
 
         await act(async () => {
-            await result.current.optimize('trucking');
+            await result.current.optimize('trucking', true);
         });
         expect(result.current.state.status).toBe('pending');
 
@@ -92,7 +92,7 @@ describe('useTourOptimization', () => {
 
         // matching job resolves
         act(() => mocks.handlers['.TourOptimized']({ job_uuid: 'abc', data: RESULT }));
-        expect(result.current.state).toEqual({ status: 'done', result: RESULT, mode: 'trucking' });
+        expect(result.current.state).toEqual({ status: 'done', result: RESULT, mode: 'trucking', loop: true });
         expect(mocks.echo.leave).toHaveBeenCalledWith('App.Models.User.7');
     });
 
@@ -103,7 +103,7 @@ describe('useTourOptimization', () => {
         const { result } = renderHook(() => useTourOptimization(7));
         await addTwoStops(result);
         await act(async () => {
-            await result.current.optimize('trucking');
+            await result.current.optimize('trucking', true);
         });
 
         const error = { code: 'job_failed', message: 'boom' };
@@ -119,7 +119,7 @@ describe('useTourOptimization', () => {
         await addTwoStops(result);
 
         await act(async () => {
-            await result.current.optimize('trucking');
+            await result.current.optimize('trucking', true);
         });
 
         expect(result.current.state.status).toBe('failed');
@@ -133,7 +133,7 @@ describe('useTourOptimization', () => {
         const { result } = renderHook(() => useTourOptimization(7));
         await addTwoStops(result);
         await act(async () => {
-            await result.current.optimize('trucking');
+            await result.current.optimize('trucking', true);
         });
 
         // next fetch = status poll → done
@@ -142,7 +142,7 @@ describe('useTourOptimization', () => {
             await vi.advanceTimersByTimeAsync(3000);
         });
 
-        expect(result.current.state).toEqual({ status: 'done', result: RESULT, mode: 'trucking' });
+        expect(result.current.state).toEqual({ status: 'done', result: RESULT, mode: 'trucking', loop: true });
     });
 
     it('reset clears stops and returns to idle', async () => {
@@ -163,11 +163,27 @@ describe('useTourOptimization', () => {
         await addTwoStops(result);
 
         await act(async () => {
-            await result.current.optimize('walking');
+            await result.current.optimize('walking', true);
         });
 
         const [, options] = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
         expect(JSON.parse((options as RequestInit).body as string).mode).toBe('walking');
-        expect(result.current.state).toEqual({ status: 'done', result: RESULT, mode: 'walking' });
+        expect(result.current.state).toEqual({ status: 'done', result: RESULT, mode: 'walking', loop: true });
+    });
+
+    it('sends the loop flag in the request body and carries it into the done state (004)', async () => {
+        (fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
+            jsonResponse(200, { status: 'done', data: RESULT }),
+        );
+        const { result } = renderHook(() => useTourOptimization(7));
+        await addTwoStops(result);
+
+        await act(async () => {
+            await result.current.optimize('trucking', false);
+        });
+
+        const [, options] = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+        expect(JSON.parse((options as RequestInit).body as string).loop).toBe(false);
+        expect(result.current.state).toEqual({ status: 'done', result: RESULT, mode: 'trucking', loop: false });
     });
 });

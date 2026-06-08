@@ -23,8 +23,9 @@ class TourGeometryController extends Controller
     public function trace(TourGeometryRequest $request, TourGeometryService $geometry): JsonResponse
     {
         $stops = array_map(Coordinate::fromPair(...), $request->validated('stops'));
-        // No user-facing mode selector yet: fall back to the configured default.
         $mode = $request->validated('mode') ?? config('services.openstreet.mode');
-        return response()->json($geometry->trace($stops, $mode));
+        // No loop in the request → default to a closed tour (trace the return leg).
+        $loop = $request->boolean('loop', true);
+        return response()->json($geometry->trace($stops, $mode, $loop));
     }
 }

@@ -29,6 +29,8 @@ class TourGeometryRequest extends FormRequest
             'stops.*.0' => ['required', 'numeric', 'between:-90,90'],
             'stops.*.1' => ['required', 'numeric', 'between:-180,180'],
             'mode' => ['sometimes', Rule::enum(DeliveryMode::class)],
+            // 004: trace the closing leg (closed tour) when true; omit it (open) when false. Default true.
+            'loop' => ['sometimes', 'boolean'],
         ];
     }
 

@@ -11,10 +11,11 @@ use Illuminate\Http\Client\Response;
  * Thin client for the OpenStreet TSP route-optimization API.
  *
  * Request shape (GET):
- *   {url}?pts=lat,lng|lat,lng|...&nb=N&mode={mode}&unit=m&tour=closed&key=...
+ *   {url}?pts=lat,lng|lat,lng|...&nb=N&mode={mode}&unit=m&tour={tour}&key=...
  *   (mode is the per-call override passed by the caller — the user-selected
  *   delivery mode (003) — falling back to config `services.openstreet.mode`,
- *   default `trucking`, when none is given)
+ *   default `trucking`, when none is given; tour is `closed`|`open` (004),
+ *   forwarded from the caller — the job maps the loop boolean — default `closed`)
  *
  * MUST only be called from a background job — the upstream API can take
  * several minutes for large point sets. We therefore use a generous *read*
@@ -44,6 +45,8 @@ class OpenStreetTspClient
     /**
      * @param  array<int, array{lat: float, lng: float}>  $coordinates
      * @param  string|null  $mode  Travel mode override; defaults to the configured mode.
+     * @param  string|null  $tour  Tour shape forwarded to the API: `closed` (default) or `open` (004).
+     *                             The boolean→string mapping is done by the caller (the job).
      * @return array{
      *     ordered_stops: array<int, array{lat: float, lng: float, order: int}>,
      *     total_distance_m: int|null,
@@ -52,7 +55,7 @@ class OpenStreetTspClient
      *
      * @throws TourOptimizationException
      */
-    public function optimize(array $coordinates, ?string $mode = null): array
+    public function optimize(array $coordinates, ?string $mode = null, ?string $tour = null): array
     {
         // A 2-point tour is trivially optimal + the API can't process it.
         // Return it as-is.
@@ -66,7 +69,7 @@ class OpenStreetTspClient
             $coordinates,
         ));
 
-        $response = $this->send($points, count($coordinates), $mode ?? $this->mode);
+        $response = $this->send($points, count($coordinates), $mode ?? $this->mode, $tour ?? 'closed');
 
         if ($response->failed()) {
             throw TourOptimizationException::apiError("OpenStreet API returned HTTP {$response->status()}.");
@@ -104,7 +107,7 @@ class OpenStreetTspClient
         ];
     }
 
-    private function send(string $points, int $count, string $mode): Response
+    private function send(string $points, int $count, string $mode, string $tour): Response
     {
         try {
             return $this->http
@@ -121,7 +124,7 @@ class OpenStreetTspClient
                     'nb' => $count,
                     'mode' => $mode,
                     'unit' => 'm',
-                    'tour' => 'closed',
+                    'tour' => $tour,
                     'key' => $this->apiKey,
                 ]);
         } catch (ConnectionException $e) {
