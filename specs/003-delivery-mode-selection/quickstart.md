@@ -39,5 +39,5 @@ npm run dev
 
 ```bash
 php artisan test --filter "TourOptimization|TourCache|DeliveryMode|TourGeometry"
-npm run test -- use-tour-optimization use-tour-geometry mode-select
+npm run test -- use-tour-optimization use-tour-geometry mode-select stop-list optimize
 ```

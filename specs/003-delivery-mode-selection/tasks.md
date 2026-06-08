@@ -58,7 +58,7 @@ cached) tour; a bad mode returns 422; an omitted mode uses the config default.
 
 ### Tests for User Story 1 ⚠️ (write first, ensure they fail)
 
-- [ ] T005 [P] [US1] Extend tests/Unit/TourCacheTest.php: identical coordinates + different mode ⇒ distinct `tour:{mode}:{hash}` and `tour:active:{userId}:{mode}:{hash}` keys; a put under one mode is not returned for another (no cross-mode hit)
+- [ ] T005 [P] [US1] Extend tests/Unit/TourCacheTest.php: identical coordinates + different mode ⇒ distinct `tour:{mode}:{hash}` and `tour:active:{userId}:{mode}:{hash}` keys; a put under one mode is not returned for another (no cross-mode hit). **Also update the existing arity-bound assertions/calls for the new `mode` parameter** (`test_keys_are_namespaced` expected keys, and the `getTour`/`putTour`/`claimActiveJob`/`getActiveJob`/`releaseActiveJob` calls in the round-trip and active-job tests) so the existing suite stays green
 - [ ] T006 [P] [US1] Extend tests/Feature/TourOptimizationTest.php: 422 on out-of-set mode; omitted mode falls back to config default; the chosen mode reaches the TSP query (faked HTTP) and the dispatched `OptimizeTourJob`; a `walking` request does not return a cached `trucking` tour
 - [ ] T007 [P] [US1] Extend resources/js/hooks/use-tour-optimization.test.ts: `optimize(mode)` sends `mode` in the POST body; the `done` state carries the snapshotted `mode`
 
@@ -67,11 +67,11 @@ cached) tour; a bad mode returns 422; an omitted mode uses the config default.
 - [ ] T008 [P] [US1] Add `mode` rule (`sometimes`, `Rule::enum(DeliveryMode::class)`) + a `mode` message to app/Http/Requests/OptimizeTourRequest.php
 - [ ] T009 [P] [US1] Thread `string $mode` into the key builders and operations (`tourKey`, `activeJobKey`, `getTour`, `putTour`, `claimActiveJob`, `getActiveJob`, `releaseActiveJob`) so keys become `tour:{mode}:{hash}` / `tour:active:{userId}:{mode}:{hash}` in app/Services/TourCache.php
 - [ ] T010 [P] [US1] Add a `?string $mode = null` override to `optimize()` using `$mode ?? $this->mode` in the TSP query (mirror `OpenStreetRouteClient`) in app/Services/OpenStreetTspClient.php
-- [ ] T011 [US1] Add a readonly `string $mode` ctor arg; pass it to `OpenStreetTspClient::optimize($coordinates, $this->mode)`, to the mode-keyed `TourCache` calls in both `handle()` and `failed()`, and into the log context, in app/Jobs/OptimizeTourJob.php (depends on T009, T010)
+- [ ] T011 [US1] Add a readonly `string $mode` ctor arg; pass it to `OpenStreetTspClient::optimize($coordinates, $this->mode)`, to the mode-keyed `TourCache` calls in both `handle()` and `failed()`, and into the log context, in app/Jobs/OptimizeTourJob.php (depends on T009, T010). **Update every existing `OptimizeTourJob` construction and mode-keyed `TourCache` call in tests/Feature/TourOptimizationBroadcastTest.php** (the `makeJob` helper, the inline 2-point job, and `getTour`/`claimActiveJob`/`getActiveJob`) to pass the new `mode` so the existing broadcast suite stays green
 - [ ] T012 [US1] Change signature to `optimize(int $userId, array $coordinates, string $mode)`; pass `mode` to every `TourCache` call and to the dispatched `OptimizeTourJob`, in app/Services/TourOptimizationService.php (depends on T009, T011)
 - [ ] T013 [US1] Read `$request->validated('mode') ?? config('services.openstreet.mode')` and pass it to the service in app/Http/Controllers/TourOptimizationController.php (depends on T012)
 - [ ] T014 [US1] Change `optimize` to take a `mode` arg, send it in the optimize POST body, and thread it through the `submitting`/`pending`/`done` states in resources/js/hooks/use-tour-optimization.ts (depends on T004)
-- [ ] T015 [US1] Hold `mode` state (default `'trucking'`) on the page and pass it to `optimize(mode)` (dropdown UI lands in US3) in resources/js/pages/tour/optimize.tsx (depends on T014)
+- [ ] T015 [US1] Hold `mode` state (default `'trucking'`) on the page and pass it to `optimize(mode)` (dropdown UI lands in US3) in resources/js/pages/tour/optimize.tsx (depends on T014). The mode lives in page state and is **retained across reset** — `reset()` must not clear it (trucking is only the first-load default, per FR-003)
 
 **Checkpoint**: Optimization is mode-aware end-to-end and per-mode cached. MVP demoable via API/hook.
 

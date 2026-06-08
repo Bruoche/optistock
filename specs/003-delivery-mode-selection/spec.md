@@ -59,7 +59,7 @@ When the planner opens the application, the mode dropdown shows trucking selecte
 
 1. **Given** a freshly loaded application (the editing view, before any tour is optimized), **when** the planner looks at the control bar beneath the map, **then** the dropdown sits to the left of the validation button and shows "trucking".
 2. **Given** the planner selects "driving", **when** they look at the dropdown, **then** it clearly shows "driving" as the active choice.
-3. **Given** a tour has been optimized and the result is displayed, **when** the planner views it, **then** the editing controls (dropdown + validation button) are replaced by the result view; the planner returns to editing (where the dropdown reappears, defaulted to trucking) by resetting.
+3. **Given** a tour has been optimized and the result is displayed, **when** the planner views it, **then** the editing controls (dropdown + validation button) are replaced by the result view; resetting returns to editing, where the dropdown reappears showing the **last-selected** mode (the selection is retained across a reset within the session; trucking is only the first-load default per FR-003).
 
 ---
 
@@ -103,6 +103,6 @@ When the planner opens the application, the mode dropdown shows trucking selecte
 
 - Both the optimization service (001) and the road-tracing `/route` endpoint (002) already accept a `mode` parameter and support the values `trucking`, `driving`, and `walking`; this feature wires that parameter to a UI control rather than introducing new routing capability. The three mode identifiers MUST be confirmed against the live API before implementation (per 002's lesson on unverified API contracts).
 - The validation ("Optimize") action already exists (currently the full-width button atop the stop list in the editing view). This feature introduces a control bar beneath the map holding the mode dropdown to the **left** of that button, reusing existing styling per the constitution (shared classes, role-named colors). The dropdown belongs to the editing view and is not shown once a result is displayed.
-- The selected mode is **not persisted across sessions**; each new session starts at the trucking default. (No requirement was stated for persistence.)
+- The selected mode is **not persisted across sessions**; each new session starts at the trucking default. Within a session the selection **is retained across a reset** (resetting clears the stops/result, not the chosen mode), so the planner does not have to re-pick their mode for each tour. (No requirement was stated for cross-session persistence.)
 - The mode unit/semantics (metres/seconds, server-side key handling) follow 002 unchanged; only the mode value becomes user-driven.
 - This feature does not change how stops are picked, added, or removed, nor when validation is permitted — only which mode drives optimization and tracing.
