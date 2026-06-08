@@ -29,7 +29,7 @@ Web app (Laravel + React/Inertia): backend under `app/`, `config/`, `tests/`; fr
 
 **Purpose**: Confirm the shared baseline before threading mode through.
 
-- [ ] T001 Confirm `services.openstreet.mode` stays `trucking` as the omitted-mode fallback (no change) in config/services.php — this is the basis for FR-010 (config becomes fallback, not sole source).
+- [x] T001 Confirm `services.openstreet.mode` stays `trucking` as the omitted-mode fallback (no change) in config/services.php — this is the basis for FR-010 (config becomes fallback, not sole source).
 
 ---
 
@@ -39,9 +39,9 @@ Web app (Laravel + React/Inertia): backend under `app/`, `config/`, `tests/`; fr
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete.
 
-- [ ] T002 [P] Create string-backed enum `App\Enums\DeliveryMode` (`Trucking='trucking'`, `Driving='driving'`, `Walking='walking'`) with a `default(): self` helper returning `Trucking`, in app/Enums/DeliveryMode.php
-- [ ] T003 Unit-test enum cases, backing values, and `default()` in tests/Unit/DeliveryModeTest.php (depends on T002)
-- [ ] T004 [P] Add `DeliveryMode` TS union + ordered `DELIVERY_MODES` (`{value,label}[]`) list in resources/js/types/tour.ts
+- [x] T002 [P] Create string-backed enum `App\Enums\DeliveryMode` (`Trucking='trucking'`, `Driving='driving'`, `Walking='walking'`) with a `default(): self` helper returning `Trucking`, in app/Enums/DeliveryMode.php
+- [x] T003 Unit-test enum cases, backing values, and `default()` in tests/Unit/DeliveryModeTest.php (depends on T002)
+- [x] T004 [P] Add `DeliveryMode` TS union + ordered `DELIVERY_MODES` (`{value,label}[]`) list in resources/js/types/tour.ts
 
 **Checkpoint**: Mode vocabulary exists on both sides — stories can begin.
 
@@ -58,20 +58,20 @@ cached) tour; a bad mode returns 422; an omitted mode uses the config default.
 
 ### Tests for User Story 1 ⚠️ (write first, ensure they fail)
 
-- [ ] T005 [P] [US1] Extend tests/Unit/TourCacheTest.php: identical coordinates + different mode ⇒ distinct `tour:{mode}:{hash}` and `tour:active:{userId}:{mode}:{hash}` keys; a put under one mode is not returned for another (no cross-mode hit). **Also update the existing arity-bound assertions/calls for the new `mode` parameter** (`test_keys_are_namespaced` expected keys, and the `getTour`/`putTour`/`claimActiveJob`/`getActiveJob`/`releaseActiveJob` calls in the round-trip and active-job tests) so the existing suite stays green
-- [ ] T006 [P] [US1] Extend tests/Feature/TourOptimizationTest.php: 422 on out-of-set mode; omitted mode falls back to config default; the chosen mode reaches the TSP query (faked HTTP) and the dispatched `OptimizeTourJob`; a `walking` request does not return a cached `trucking` tour
-- [ ] T007 [P] [US1] Extend resources/js/hooks/use-tour-optimization.test.ts: `optimize(mode)` sends `mode` in the POST body; the `done` state carries the snapshotted `mode`
+- [x] T005 [P] [US1] Extend tests/Unit/TourCacheTest.php: identical coordinates + different mode ⇒ distinct `tour:{mode}:{hash}` and `tour:active:{userId}:{mode}:{hash}` keys; a put under one mode is not returned for another (no cross-mode hit). **Also update the existing arity-bound assertions/calls for the new `mode` parameter** (`test_keys_are_namespaced` expected keys, and the `getTour`/`putTour`/`claimActiveJob`/`getActiveJob`/`releaseActiveJob` calls in the round-trip and active-job tests) so the existing suite stays green
+- [x] T006 [P] [US1] Extend tests/Feature/TourOptimizationTest.php: 422 on out-of-set mode; omitted mode falls back to config default; the chosen mode reaches the TSP query (faked HTTP) and the dispatched `OptimizeTourJob`; a `walking` request does not return a cached `trucking` tour
+- [x] T007 [P] [US1] Extend resources/js/hooks/use-tour-optimization.test.ts: `optimize(mode)` sends `mode` in the POST body; the `done` state carries the snapshotted `mode`
 
 ### Implementation for User Story 1
 
-- [ ] T008 [P] [US1] Add `mode` rule (`sometimes`, `Rule::enum(DeliveryMode::class)`) + a `mode` message to app/Http/Requests/OptimizeTourRequest.php
-- [ ] T009 [P] [US1] Thread `string $mode` into the key builders and operations (`tourKey`, `activeJobKey`, `getTour`, `putTour`, `claimActiveJob`, `getActiveJob`, `releaseActiveJob`) so keys become `tour:{mode}:{hash}` / `tour:active:{userId}:{mode}:{hash}` in app/Services/TourCache.php
-- [ ] T010 [P] [US1] Add a `?string $mode = null` override to `optimize()` using `$mode ?? $this->mode` in the TSP query (mirror `OpenStreetRouteClient`) in app/Services/OpenStreetTspClient.php
-- [ ] T011 [US1] Add a readonly `string $mode` ctor arg; pass it to `OpenStreetTspClient::optimize($coordinates, $this->mode)`, to the mode-keyed `TourCache` calls in both `handle()` and `failed()`, and into the log context, in app/Jobs/OptimizeTourJob.php (depends on T009, T010). **Update every existing `OptimizeTourJob` construction and mode-keyed `TourCache` call in tests/Feature/TourOptimizationBroadcastTest.php** (the `makeJob` helper, the inline 2-point job, and `getTour`/`claimActiveJob`/`getActiveJob`) to pass the new `mode` so the existing broadcast suite stays green
-- [ ] T012 [US1] Change signature to `optimize(int $userId, array $coordinates, string $mode)`; pass `mode` to every `TourCache` call and to the dispatched `OptimizeTourJob`, in app/Services/TourOptimizationService.php (depends on T009, T011)
-- [ ] T013 [US1] Read `$request->validated('mode') ?? config('services.openstreet.mode')` and pass it to the service in app/Http/Controllers/TourOptimizationController.php (depends on T012)
-- [ ] T014 [US1] Change `optimize` to take a `mode` arg, send it in the optimize POST body, and thread it through the `submitting`/`pending`/`done` states in resources/js/hooks/use-tour-optimization.ts (depends on T004)
-- [ ] T015 [US1] Hold `mode` state (default `'trucking'`) on the page and pass it to `optimize(mode)` (dropdown UI lands in US3) in resources/js/pages/tour/optimize.tsx (depends on T014). The mode lives in page state and is **retained across reset** — `reset()` must not clear it (trucking is only the first-load default, per FR-003)
+- [x] T008 [P] [US1] Add `mode` rule (`sometimes`, `Rule::enum(DeliveryMode::class)`) + a `mode` message to app/Http/Requests/OptimizeTourRequest.php
+- [x] T009 [P] [US1] Thread `string $mode` into the key builders and operations (`tourKey`, `activeJobKey`, `getTour`, `putTour`, `claimActiveJob`, `getActiveJob`, `releaseActiveJob`) so keys become `tour:{mode}:{hash}` / `tour:active:{userId}:{mode}:{hash}` in app/Services/TourCache.php
+- [x] T010 [P] [US1] Add a `?string $mode = null` override to `optimize()` using `$mode ?? $this->mode` in the TSP query (mirror `OpenStreetRouteClient`) in app/Services/OpenStreetTspClient.php
+- [x] T011 [US1] Add a readonly `string $mode` ctor arg; pass it to `OpenStreetTspClient::optimize($coordinates, $this->mode)`, to the mode-keyed `TourCache` calls in both `handle()` and `failed()`, and into the log context, in app/Jobs/OptimizeTourJob.php (depends on T009, T010). **Update every existing `OptimizeTourJob` construction and mode-keyed `TourCache` call in tests/Feature/TourOptimizationBroadcastTest.php** (the `makeJob` helper, the inline 2-point job, and `getTour`/`claimActiveJob`/`getActiveJob`) to pass the new `mode` so the existing broadcast suite stays green
+- [x] T012 [US1] Change signature to `optimize(int $userId, array $coordinates, string $mode)`; pass `mode` to every `TourCache` call and to the dispatched `OptimizeTourJob`, in app/Services/TourOptimizationService.php (depends on T009, T011)
+- [x] T013 [US1] Read `$request->validated('mode') ?? config('services.openstreet.mode')` and pass it to the service in app/Http/Controllers/TourOptimizationController.php (depends on T012)
+- [x] T014 [US1] Change `optimize` to take a `mode` arg, send it in the optimize POST body, and thread it through the `submitting`/`pending`/`done` states in resources/js/hooks/use-tour-optimization.ts (depends on T004)
+- [x] T015 [US1] Hold `mode` state (default `'trucking'`) on the page and pass it to `optimize(mode)` (dropdown UI lands in US3) in resources/js/pages/tour/optimize.tsx (depends on T014). The mode lives in page state and is **retained across reset** — `reset()` must not clear it (trucking is only the first-load default, per FR-003)
 
 **Checkpoint**: Optimization is mode-aware end-to-end and per-mode cached. MVP demoable via API/hook.
 
@@ -88,13 +88,13 @@ not re-trace the shown tour.
 
 ### Tests for User Story 2 ⚠️
 
-- [ ] T016 [P] [US2] Extend resources/js/hooks/use-tour-geometry.test.ts: the geometry POST body includes `mode`, equal to the result's snapshotted mode
+- [x] T016 [P] [US2] Extend resources/js/hooks/use-tour-geometry.test.ts: the geometry POST body includes `mode`, equal to the result's snapshotted mode
 
 ### Implementation for User Story 2
 
-- [ ] T017 [P] [US2] Swap the literal `in:driving,walking,trucking` rule for `Rule::enum(DeliveryMode::class)` (keep `sometimes`) in app/Http/Requests/TourGeometryRequest.php; ensure tests/Feature/TourGeometryTest.php still passes (depends on T002)
-- [ ] T018 [US2] Accept a `mode` parameter and send `{ stops, mode }` in the geometry POST in resources/js/hooks/use-tour-geometry.ts (depends on T004)
-- [ ] T019 [US2] Pass the `done` state's snapshotted `mode` into `useTourGeometry(doneResult, mode)` in resources/js/pages/tour/optimize.tsx (depends on T015, T018)
+- [x] T017 [P] [US2] Swap the literal `in:driving,walking,trucking` rule for `Rule::enum(DeliveryMode::class)` (keep `sometimes`) in app/Http/Requests/TourGeometryRequest.php; ensure tests/Feature/TourGeometryTest.php still passes (depends on T002)
+- [x] T018 [US2] Accept a `mode` parameter and send `{ stops, mode }` in the geometry POST in resources/js/hooks/use-tour-geometry.ts (depends on T004)
+- [x] T019 [US2] Pass the `done` state's snapshotted `mode` into `useTourGeometry(doneResult, mode)` in resources/js/pages/tour/optimize.tsx (depends on T015, T018)
 
 **Checkpoint**: Polyline mode always matches optimization mode; US1+US2 work together.
 
@@ -110,14 +110,14 @@ selecting Driving shows Driving; the dropdown is disabled while a tour is optimi
 
 ### Tests for User Story 3 ⚠️
 
-- [ ] T020 [P] [US3] Test `ModeSelect`: defaults to Trucking, renders the three `DELIVERY_MODES` options, fires `onChange` with the chosen value, honors `disabled`, in resources/js/components/tour/mode-select.test.tsx
+- [x] T020 [P] [US3] Test `ModeSelect`: defaults to Trucking, renders the three `DELIVERY_MODES` options, fires `onChange` with the chosen value, honors `disabled`, in resources/js/components/tour/mode-select.test.tsx
 
 ### Implementation for User Story 3
 
-- [ ] T021 [P] [US3] Create `ModeSelect` (reuses shadcn `components/ui/select.tsx`; props `{ value, onChange, disabled }`; trucking default; options from `DELIVERY_MODES`; role-color classes only) in resources/js/components/tour/mode-select.tsx (depends on T004)
-- [ ] T022 [US3] Create the control bar (flex row: `ModeSelect` left + the Optimize button right) in resources/js/components/tour/tour-control-bar.tsx (depends on T021)
-- [ ] T023 [US3] Remove the Optimize button from `StopList` (now in the control bar), keeping the list, and update resources/js/components/tour/stop-list.test.tsx accordingly — file: resources/js/components/tour/stop-list.tsx
-- [ ] T024 [US3] Render the control bar **only in the editing view** (not once a result is displayed — `ResultSummary` takes over), bind the dropdown to the page `mode` state, and disable it while optimizing, in resources/js/pages/tour/optimize.tsx (depends on T022, T023, T015)
+- [x] T021 [P] [US3] Create `ModeSelect` (reuses shadcn `components/ui/select.tsx`; props `{ value, onChange, disabled }`; trucking default; options from `DELIVERY_MODES`; role-color classes only) in resources/js/components/tour/mode-select.tsx (depends on T004)
+- [x] T022 [US3] Create the control bar (flex row: `ModeSelect` left + the Optimize button right) in resources/js/components/tour/tour-control-bar.tsx (depends on T021)
+- [x] T023 [US3] Remove the Optimize button from `StopList` (now in the control bar), keeping the list, and update resources/js/components/tour/stop-list.test.tsx accordingly — file: resources/js/components/tour/stop-list.tsx
+- [x] T024 [US3] Render the control bar **only in the editing view** (not once a result is displayed — `ResultSummary` takes over), bind the dropdown to the page `mode` state, and disable it while optimizing, in resources/js/pages/tour/optimize.tsx (depends on T022, T023, T015)
 
 **Checkpoint**: Full feature — user-selectable mode driving both optimization and tracing.
 
@@ -125,10 +125,10 @@ selecting Driving shows Driving; the dropdown is disabled while a tour is optimi
 
 ## Phase 6: Polish & Cross-Cutting Concerns
 
-- [ ] T025 [P] Run `php artisan test --filter "TourOptimization|TourCache|DeliveryMode|TourGeometry"`; confirm the 002 trace suite still passes after the enum swap (T017)
-- [ ] T026 [P] Run `npm run test -- use-tour-optimization use-tour-geometry mode-select stop-list`
+- [x] T025 [P] Run `php artisan test --filter "TourOptimization|TourCache|DeliveryMode|TourGeometry"`; confirm the 002 trace suite still passes after the enum swap (T017)
+- [x] T026 [P] Run `npm run test -- use-tour-optimization use-tour-geometry mode-select stop-list`
 - [ ] T027 Run quickstart.md manual verification: all three modes optimize+trace, FR-007 congruence, FR-008 (dropdown change does not alter shown tour), 422 on bad mode, unreachable-host fallback
-- [ ] T028 Add a test asserting the control bar / mode dropdown is **absent** once a result is shown (editing-only, per the resolved FR-004) in resources/js/pages/tour/optimize.test.tsx (or extend mode-select/optimize coverage)
+- [x] T028 Add a test asserting the control bar / mode dropdown is **absent** once a result is shown (editing-only, per the resolved FR-004) in resources/js/pages/tour/optimize.test.tsx (or extend mode-select/optimize coverage)
 
 ---
 

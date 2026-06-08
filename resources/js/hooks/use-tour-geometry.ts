@@ -7,7 +7,7 @@
 // ignored. Deliberately separate from use-tour-optimization (no job concepts here).
 import { useEffect, useRef, useState } from 'react';
 import { postJson } from '@/lib/http';
-import type { RoutePath, TourGeometry, TourResult } from '@/types/tour';
+import type { DeliveryMode, RoutePath, TourGeometry, TourResult } from '@/types/tour';
 
 type ComposedGeometry = {
     /** Best-available path for RouteLayer. */
@@ -53,7 +53,7 @@ function composeGeometry(result: TourResult | null, geometry: TourGeometry | nul
     };
 }
 
-export function useTourGeometry(result: TourResult | null): ComposedGeometry {
+export function useTourGeometry(result: TourResult | null, mode: DeliveryMode): ComposedGeometry {
     // Store the geometry together with the result it was fetched for, so a stale
     // entry (from a previous tour) is simply ignored by identity comparison — no
     // need to reset state synchronously inside the effect.
@@ -71,7 +71,8 @@ export function useTourGeometry(result: TourResult | null): ComposedGeometry {
 
         (async () => {
             try {
-                const response = await postJson('/api/tour/geometry', { stops });
+                // Trace for the same mode the tour was optimized with (FR-007).
+                const response = await postJson('/api/tour/geometry', { stops, mode });
 
                 if (!response.ok) {
                     return; // keep straight fallback (FR-005)
@@ -87,7 +88,7 @@ export function useTourGeometry(result: TourResult | null): ComposedGeometry {
                 // network error — keep straight fallback
             }
         })();
-    }, [result]);
+    }, [result, mode]);
 
     // Only use geometry that belongs to the current result.
     const geometry = entry && entry.result === result ? entry.geometry : null;

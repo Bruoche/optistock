@@ -105,8 +105,58 @@ class TourOptimizationTest extends TestCase
             return $job->userId === $user->id
                 && $job->jobUuid !== ''
                 && $job->coordinatesHash !== ''
-                && count($job->coordinates) === 3;
+                && count($job->coordinates) === 3
+                // No mode in the request → defaults to trucking.
+                && $job->mode === 'trucking';
         });
+    }
+
+    public function test_it_rejects_an_unsupported_mode(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->postJson(route('api.tour.optimize'), [
+                'coordinates' => $this->validCoordinates(),
+                'mode' => 'flying',
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('mode');
+    }
+
+    public function test_selected_mode_is_passed_to_the_job(): void
+    {
+        Queue::fake();
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->postJson(route('api.tour.optimize'), [
+                'coordinates' => $this->validCoordinates(),
+                'mode' => 'walking',
+            ])
+            ->assertStatus(202);
+
+        Queue::assertPushed(OptimizeTourJob::class, fn (OptimizeTourJob $job): bool => $job->mode === 'walking');
+    }
+
+    public function test_a_different_mode_does_not_hit_another_modes_cached_tour(): void
+    {
+        Queue::fake();
+        $user = User::factory()->create();
+        $coordinates = $this->validCoordinates();
+
+        // A tour cached for trucking…
+        $normalized = app(CoordinateNormalizer::class)->normalize($coordinates);
+        $coordinatesHash = hash('sha256', (string) json_encode($normalized));
+        $tour = ['ordered_stops' => [], 'total_distance_m' => 4200, 'total_duration_s' => 360];
+        app(TourCache::class)->putTour('trucking', $coordinatesHash, $tour);
+
+        // …must NOT be served to a walking request: it queues a fresh job instead.
+        $this->actingAs($user)
+            ->postJson(route('api.tour.optimize'), ['coordinates' => $coordinates, 'mode' => 'walking'])
+            ->assertStatus(202);
+
+        Queue::assertPushed(OptimizeTourJob::class, fn (OptimizeTourJob $job): bool => $job->mode === 'walking');
     }
 
     public function test_concurrent_identical_requests_reuse_one_job(): void
@@ -134,7 +184,7 @@ class TourOptimizationTest extends TestCase
         $normalized = app(CoordinateNormalizer::class)->normalize($coordinates);
         $coordinatesHash = hash('sha256', (string) json_encode($normalized));
         $tour = ['ordered_stops' => [], 'total_distance_m' => 4200, 'total_duration_s' => 360];
-        app(TourCache::class)->putTour($coordinatesHash, $tour);
+        app(TourCache::class)->putTour('trucking', $coordinatesHash, $tour);
 
         $this->actingAs($user)
             ->postJson(route('api.tour.optimize'), ['coordinates' => $coordinates])
@@ -151,7 +201,7 @@ class TourOptimizationTest extends TestCase
         $normalized = app(CoordinateNormalizer::class)->normalize($coordinates);
         $coordinatesHash = hash('sha256', (string) json_encode($normalized));
         $tour = ['ordered_stops' => [], 'total_distance_m' => 4200, 'total_duration_s' => 360];
-        app(TourCache::class)->putTour($coordinatesHash, $tour);
+        app(TourCache::class)->putTour('trucking', $coordinatesHash, $tour);
 
         // Same stops, reversed input order, must resolve to the same cache entry.
         $this->actingAs($user)

@@ -38,7 +38,7 @@ afterEach(() => {
 describe('useTourGeometry', () => {
     it('shows a straight closed fallback before geometry arrives', () => {
         (fetch as ReturnType<typeof vi.fn>).mockResolvedValue(jsonOk(GEO));
-        const { result } = renderHook(() => useTourGeometry(RESULT));
+        const { result } = renderHook(() => useTourGeometry(RESULT, 'trucking'));
 
         // Synchronous first render = fallback.
         expect(result.current.closed).toBe(true);
@@ -46,9 +46,20 @@ describe('useTourGeometry', () => {
         expect(result.current.routePath).toHaveLength(3);
     });
 
+    it('sends the tour mode in the geometry request body (003 FR-006)', async () => {
+        const fetchMock = fetch as ReturnType<typeof vi.fn>;
+        fetchMock.mockResolvedValue(jsonOk(GEO));
+        renderHook(() => useTourGeometry(RESULT, 'walking'));
+
+        await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+
+        const [, options] = fetchMock.mock.calls[0];
+        expect(JSON.parse((options as RequestInit).body as string).mode).toBe('walking');
+    });
+
     it('replaces the fallback with the road path + road metrics on success (FR-002/FR-003)', async () => {
         (fetch as ReturnType<typeof vi.fn>).mockResolvedValue(jsonOk(GEO));
-        const { result } = renderHook(() => useTourGeometry(RESULT));
+        const { result } = renderHook(() => useTourGeometry(RESULT, 'trucking'));
 
         await waitFor(() => expect(result.current.metrics).not.toBeNull());
 
@@ -60,7 +71,7 @@ describe('useTourGeometry', () => {
 
     it('keeps the straight fallback when the fetch fails (FR-005)', async () => {
         (fetch as ReturnType<typeof vi.fn>).mockResolvedValue({ ok: false, status: 500 } as Response);
-        const { result } = renderHook(() => useTourGeometry(RESULT));
+        const { result } = renderHook(() => useTourGeometry(RESULT, 'trucking'));
 
         await act(async () => {
             await Promise.resolve();
@@ -82,7 +93,7 @@ describe('useTourGeometry', () => {
             total_duration_s: null,
         };
         (fetch as ReturnType<typeof vi.fn>).mockResolvedValue(jsonOk(partial));
-        const { result } = renderHook(() => useTourGeometry(RESULT));
+        const { result } = renderHook(() => useTourGeometry(RESULT, 'trucking'));
 
         await waitFor(() => expect(result.current.closed).toBe(false));
 
@@ -112,7 +123,7 @@ describe('useTourGeometry', () => {
         fetchMock.mockResolvedValueOnce(jsonOk(GEO)); // for RESULT (A)
         fetchMock.mockResolvedValueOnce(jsonOk(geoB)); // for resultB
 
-        const { result, rerender } = renderHook(({ r }) => useTourGeometry(r), {
+        const { result, rerender } = renderHook(({ r }) => useTourGeometry(r, 'trucking'), {
             initialProps: { r: RESULT as TourResult | null },
         });
         rerender({ r: resultB });

@@ -31,7 +31,7 @@ class TourOptimizationBroadcastTest extends TestCase
 
     private function makeJob(string $uuid = 'job-1', int $userId = 42): OptimizeTourJob
     {
-        return new OptimizeTourJob($uuid, $userId, 'hash-1', $this->coordinates());
+        return new OptimizeTourJob($uuid, $userId, 'hash-1', $this->coordinates(), 'trucking');
     }
 
     public function test_successful_job_broadcasts_tour_optimized(): void
@@ -71,7 +71,7 @@ class TourOptimizationBroadcastTest extends TestCase
             ['lat' => 49.89988, 'lng' => 2.30028],
             ['lat' => 48.78300, 'lng' => 2.33316],
         ];
-        (new OptimizeTourJob('job-2pt', 42, 'hash-2pt', $twoPoints))
+        (new OptimizeTourJob('job-2pt', 42, 'hash-2pt', $twoPoints, 'trucking'))
             ->handle(app(OpenStreetTspClient::class), app(TourCache::class));
 
         Http::assertNothingSent();
@@ -96,7 +96,7 @@ class TourOptimizationBroadcastTest extends TestCase
 
         $this->makeJob()->handle(app(OpenStreetTspClient::class), app(TourCache::class));
 
-        $cachedTour = app(TourCache::class)->getTour('hash-1');
+        $cachedTour = app(TourCache::class)->getTour('trucking', 'hash-1');
         $this->assertSame(1000, $cachedTour['total_distance_m']);
     }
 
@@ -146,12 +146,12 @@ class TourOptimizationBroadcastTest extends TestCase
         Http::fake(['*' => Http::response(['OPTIMIZATION' => [0, 1], 'STEPS_DISTANCES' => ['TOTAL' => 1], 'STEPS_DURATIONS' => ['TOTAL' => 1]])]);
 
         $cache = app(TourCache::class);
-        $cache->claimActiveJob(42, 'hash-1', 'job-1');
+        $cache->claimActiveJob(42, 'trucking', 'hash-1', 'job-1');
 
         $this->makeJob()->handle(app(OpenStreetTspClient::class), $cache);
 
         // Lock cleared so a later identical request is served from cache / re-dispatches.
-        $this->assertNull($cache->getActiveJob(42, 'hash-1'));
+        $this->assertNull($cache->getActiveJob(42, 'trucking', 'hash-1'));
     }
 
     public function test_job_releases_active_job_lock_on_failure(): void
@@ -160,11 +160,11 @@ class TourOptimizationBroadcastTest extends TestCase
         Http::fake(['*' => Http::response('', 500)]);
 
         $cache = app(TourCache::class);
-        $cache->claimActiveJob(42, 'hash-1', 'job-1');
+        $cache->claimActiveJob(42, 'trucking', 'hash-1', 'job-1');
 
         $this->makeJob()->handle(app(OpenStreetTspClient::class), $cache);
 
-        $this->assertNull($cache->getActiveJob(42, 'hash-1'));
+        $this->assertNull($cache->getActiveJob(42, 'trucking', 'hash-1'));
     }
 
     public function test_crash_callback_releases_active_job_lock(): void
@@ -172,10 +172,10 @@ class TourOptimizationBroadcastTest extends TestCase
         Event::fake();
 
         $cache = app(TourCache::class);
-        $cache->claimActiveJob(42, 'hash-1', 'job-1');
+        $cache->claimActiveJob(42, 'trucking', 'hash-1', 'job-1');
 
         $this->makeJob()->failed(new RuntimeException('worker crashed'));
 
-        $this->assertNull($cache->getActiveJob(42, 'hash-1'));
+        $this->assertNull($cache->getActiveJob(42, 'trucking', 'hash-1'));
     }
 }

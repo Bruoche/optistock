@@ -24,8 +24,10 @@ class TourOptimizationController extends Controller
     public function optimizeTour(OptimizeTourRequest $request, TourOptimizationService $tours): JsonResponse
     {
         $userId = (int) $request->user()->id;
+        // No mode in the request → fall back to the configured default (trucking).
+        $mode = $request->validated('mode') ?? config('services.openstreet.mode');
 
-        $result = $tours->optimize($userId, $request->validated('coordinates'));
+        $result = $tours->optimize($userId, $request->validated('coordinates'), $mode);
 
         if ($result->isReady) {
             return response()->json(['status' => 'done', 'data' => $result->tour()]);

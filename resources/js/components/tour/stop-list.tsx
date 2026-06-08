@@ -1,6 +1,6 @@
 // FR-010/011/012 (display) + FR-002 (remove): the editable list of stops beneath
-// the map, with the Optimize action on top. Greyed + non-interactive while a tour
-// is optimizing.
+// the map. The Optimize action now lives in the control bar above (feature 003).
+// Greyed + non-interactive while a tour is optimizing.
 import { Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -9,22 +9,13 @@ import type { Stop } from '@/types/tour';
 type StopListProps = {
     stops: Stop[];
     onRemove: (id: string) => void;
-    onOptimize: () => void;
     /** True while optimizing — list is shown but locked. */
     locked?: boolean;
 };
 
-const MIN_STOPS = 2;
-
-export function StopList({ stops, onRemove, onOptimize, locked = false }: StopListProps) {
-    const canOptimize = stops.length >= MIN_STOPS && !locked;
-
+export function StopList({ stops, onRemove, locked = false }: StopListProps) {
     return (
         <div className="flex h-full flex-col gap-3">
-            <Button onClick={onOptimize} disabled={!canOptimize} className="w-full">
-                Optimize route
-            </Button>
-
             <ul
                 aria-disabled={locked}
                 className={cn(

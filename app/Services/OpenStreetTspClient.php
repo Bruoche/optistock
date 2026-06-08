@@ -41,6 +41,7 @@ class OpenStreetTspClient
 
     /**
      * @param  array<int, array{lat: float, lng: float}>  $coordinates
+     * @param  string|null  $mode  Travel mode override; defaults to the configured mode.
      * @return array{
      *     ordered_stops: array<int, array{lat: float, lng: float, order: int}>,
      *     total_distance_m: int|null,
@@ -49,7 +50,7 @@ class OpenStreetTspClient
      *
      * @throws TourOptimizationException
      */
-    public function optimize(array $coordinates): array
+    public function optimize(array $coordinates, ?string $mode = null): array
     {
         // A 2-point tour is trivially optimal + the API can't process it.
         // Return it as-is.
@@ -63,7 +64,7 @@ class OpenStreetTspClient
             $coordinates,
         ));
 
-        $response = $this->send($points, count($coordinates));
+        $response = $this->send($points, count($coordinates), $mode ?? $this->mode);
 
         if ($response->failed()) {
             throw TourOptimizationException::apiError("OpenStreet API returned HTTP {$response->status()}.");
@@ -101,7 +102,7 @@ class OpenStreetTspClient
         ];
     }
 
-    private function send(string $points, int $count): Response
+    private function send(string $points, int $count, string $mode): Response
     {
         try {
             return $this->http
@@ -116,7 +117,7 @@ class OpenStreetTspClient
                 ->get($this->baseUrl, [
                     'pts' => $points,
                     'nb' => $count,
-                    'mode' => $this->mode,
+                    'mode' => $mode,
                     'unit' => 'm',
                     'tour' => 'closed',
                     'key' => $this->apiKey,
