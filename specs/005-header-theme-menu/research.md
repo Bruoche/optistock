@@ -30,13 +30,11 @@ settings page; a focused sidebar selector keeps that page untouched.
 
 ## R3 — Removing the starter-kit sidebar content
 
-**Decision**: Remove `TeamSwitcher`, `NavMain`, `NavFooter`, and `NavUser` from `app-sidebar.tsx`,
-keeping the `Sidebar` skeleton + brand row.
+**Decision**: Remove `TeamSwitcher`, `NavMain`, and `NavFooter` from `app-sidebar.tsx`, keeping the
+`Sidebar` skeleton + brand row **and the `NavUser` account/auth menu**.
 
-**Rationale**: The spec wants the menu stripped to the Optistock title + the theme control, with the
-structure preserved for future options. These are presentational starter-kit pieces; the Fortify auth
-backend is untouched (no contract rename), so the starter-kit safety rule is respected.
-
-**Consequence**: this removes the only logout/profile entry point in the sidebar layout. The spec placed
-relocating auth actions out of scope; a later feature can add an Optistock user menu. Flagged for a
-conscious go-ahead before implementation.
+**Rationale**: The spec wants the menu stripped of the useless starter-kit chrome (nav, external links,
+team switcher) while preserving the structure for future options. The account/auth user menu (`NavUser`
+→ profile, logout) is **kept** because it is functional and removing it would only force rebuilding it
+later (user decision). These are presentational changes; the Fortify auth backend is untouched (no
+contract rename), so the starter-kit safety rule is respected.

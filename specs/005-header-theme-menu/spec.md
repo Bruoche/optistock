@@ -52,7 +52,8 @@ From the menu, a user picks the appearance â€” light, dark, or browser-default â
 - **No prior choice**: first load defaults to browser/OS appearance.
 - **OS theme changes while "browser" is selected**: the app updates live to match.
 - **Switching between options repeatedly**: each switch takes effect with no reload needed and the last choice wins.
-- **Collapsed / mobile menu**: the title + theme selector remain reachable and usable.
+- **Collapsed menu (icon mode)**: the theme control reduces to a single icon (the current mode's icon), no label; it stays reachable and usable.
+- **Mobile menu**: the title + theme control remain reachable and usable.
 
 ## Requirements *(mandatory)*
 
@@ -60,13 +61,14 @@ From the menu, a user picks the appearance â€” light, dark, or browser-default â
 
 - **FR-001**: The side menu MUST display "Optistock" as its title in place of "Laravel Starter Kit".
 - **FR-002**: The menu MUST keep its existing structure, styling, and responsive behaviour; only its content changes. The current logo MAY remain as a placeholder.
-- **FR-003**: All other starter-kit content beneath the title in that menu MUST be removed.
-- **FR-004**: The menu MUST present a theme selector offering exactly three options: **light**, **dark**, and **browser** (follow the operating system).
+- **FR-003**: The starter-kit navigation, external links, and team switcher beneath the title MUST be removed. The functional account/authentication user menu (profile/logout) MAY be retained so that capability is not lost and need not be rebuilt later.
+- **FR-004**: The menu MUST provide a theme control that can reach exactly three states: **light**, **dark**, and **browser** (follow the operating system). It MAY be a single toggle that cycles through the three states.
 - **FR-005**: When the user has made no choice, the theme MUST default to **browser**.
-- **FR-006**: Selecting an option MUST apply the corresponding appearance immediately, without a reload.
+- **FR-006**: Changing the theme MUST apply the corresponding appearance immediately, without a reload.
 - **FR-007**: The selected option MUST persist across reloads and return visits.
 - **FR-008**: While **browser** is selected, the app MUST follow the OS appearance and update live if the OS setting changes.
-- **FR-009**: The theme selector MUST clearly indicate which option is currently active.
+- **FR-009**: The theme control MUST clearly indicate the currently active mode â€” a mode-specific icon, plus a corresponding text label when the menu is expanded.
+- **FR-010**: When the menu is collapsed, the theme control MUST reduce to a single icon (its label hidden), preserving the collapsed layout.
 
 ### Key Entities *(include if feature involves data)*
 
@@ -88,4 +90,4 @@ From the menu, a user picks the appearance â€” light, dark, or browser-default â
 - "Browser" maps to the application's existing **system** appearance (follow OS), which is already the default â€” so no new theming engine is introduced; the feature surfaces the existing light/dark/system mechanism in the menu.
 - The theme preference continues to be stored on the user's device as it is today (no backend/account storage added).
 - The Laravel logo is kept as a **placeholder**; designing/replacing it is out of scope for this feature.
-- Removing the starter-kit links (e.g. repository/documentation/team/user items) from this menu does not remove functionality the product depends on; any still-needed action is out of scope here and not part of this menu.
+- The starter-kit navigation, external repository/documentation links, and team switcher are removed (not needed for Optistock now). The account/authentication user menu (profile, logout) is **kept** because it is functional and removing it would only force re-adding it later.

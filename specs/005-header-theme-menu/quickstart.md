@@ -10,7 +10,8 @@ npm run dev
 ## Manual verification
 
 1. Open any page. **Confirm** the sidebar shows the logo placeholder + **"Optistock"** (not "Laravel
-   Starter Kit"), and no team switcher / Dashboard / Repository / Documentation / user menu remain.
+   Starter Kit"); the account/user menu is still present; and no team switcher / Dashboard / Repository /
+   Documentation entries remain.
 2. Confirm the sidebar shows the **theme selector** (Light / Dark / Browser) with the active option
    marked.
 3. With no prior choice (clear `localStorage`), confirm **Browser** is active and the app matches the OS

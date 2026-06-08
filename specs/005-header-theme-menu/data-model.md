@@ -5,7 +5,8 @@ No backend entities. One client-side preference, already implemented by `useAppe
 ## Theme Preference
 
 - Values: `light` · `dark` · `system` (default `system`).
-- UI labels: **Light** · **Dark** · **Browser** — "Browser" is the visible label for the `system` value.
+- UI: a cycling toggle (Light → Dark → Browser → Light) showing the active mode's icon + label
+  (label hidden when the sidebar is collapsed). "Browser" is the visible label for the `system` value.
 - Default: `system` (browser/OS) when the user has made no choice.
 - Persistence: `localStorage['appearance']` + an `appearance` cookie (for SSR), set by the hook. No
   account/server storage.
