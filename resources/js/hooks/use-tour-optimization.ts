@@ -17,9 +17,8 @@ export function useTourOptimization(userId: number) {
     const channelName = `App.Models.User.${userId}`;
     const pollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
     const activeJob = useRef<string | null>(null);
-    // The mode + loop shape the current optimization was started with, so a result
-    // arriving later (broadcast / poll) is settled with the values it was optimized
-    // for (FR-007). `closeLoop` true = closed tour, false = open one-way (004).
+    // Snapshot of the shape a pending optimization was started with, so a result
+    // arriving via broadcast/poll is settled with the values it was optimized for (FR-007).
     const optimizedMode = useRef<DeliveryMode>('trucking');
     const closeLoop = useRef<boolean>(true);
 

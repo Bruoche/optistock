@@ -1,7 +1,4 @@
-// Feature 003/004: the editing-view control bar beneath the map. Holds the
-// delivery mode dropdown + the loop toggle on the left and the Optimize
-// ("validate") button to its right. Shown only while editing — once a tour result
-// is displayed it is replaced by the result view.
+// Feature 003/004: editing-view control bar — mode dropdown + loop toggle + the Optimize button.
 import { LoopToggle } from '@/components/tour/loop-toggle';
 import { ModeSelect } from '@/components/tour/mode-select';
 import { Button } from '@/components/ui/button';

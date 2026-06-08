@@ -56,9 +56,6 @@ class OpenStreetTspClient
      */
     public function optimize(array $coordinates, ?string $mode = null, ?string $tour = null): array
     {
-        // A 2-point tour is trivially optimal + the API can't process it.
-        // Return it as-is.
-        // Distance/duration require a routing call we don't make here, so they are left null until the OpenStreet /route/ endpoint is wired in
         if (count($coordinates) < self::MIN_TSP_POINTS) {
             return $this->trivialTour($coordinates);
         }
@@ -114,7 +111,6 @@ class OpenStreetTspClient
                 ->connectTimeout($this->connectTimeout)
                 ->retry(
                     $this->retries + 1,
-                    // Exponential backoff: 1s before retry 1, 2s before retry 2, ...
                     sleepMilliseconds: static fn (int $attempt): int => $attempt * 1000,
                     throw: false,
                 )
