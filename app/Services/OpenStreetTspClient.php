@@ -12,7 +12,9 @@ use Illuminate\Http\Client\Response;
  *
  * Request shape (GET):
  *   {url}?pts=lat,lng|lat,lng|...&nb=N&mode={mode}&unit=m&tour=closed&key=...
- *   (mode comes from config `services.openstreet.mode`; default `trucking`)
+ *   (mode is the per-call override passed by the caller — the user-selected
+ *   delivery mode (003) — falling back to config `services.openstreet.mode`,
+ *   default `trucking`, when none is given)
  *
  * MUST only be called from a background job — the upstream API can take
  * several minutes for large point sets. We therefore use a generous *read*
