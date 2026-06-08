@@ -27,12 +27,17 @@ export function TourControlBar({
     optimizing,
 }: TourControlBarProps) {
     return (
-        <div className="flex items-center gap-3">
-            <ModeSelect value={mode} onChange={onModeChange} disabled={optimizing} />
-            <LoopToggle value={loop} onChange={onLoopChange} disabled={optimizing} />
-            <Button onClick={onOptimize} disabled={!canOptimize} className="flex-1">
-                Optimize route
-            </Button>
+        <div className="flex items-center justify-between rounded-md bg-primary px-4 py-3 text-text-on-color">
+            <div>
+                <p className="text-xs uppercase tracking-wide">Options</p>
+				<div className="flex items-center gap-3">
+					<ModeSelect value={mode} onChange={onModeChange} disabled={optimizing} />
+					<LoopToggle value={loop} onChange={onLoopChange} disabled={optimizing} />
+	            </div>
+			</div>
+			<Button variant="secondary" onClick={onOptimize} disabled={!canOptimize}>
+				Optimize route
+			</Button>
         </div>
     );
 }
