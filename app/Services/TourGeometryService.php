@@ -33,16 +33,13 @@ class TourGeometryService
     {
         $stops = array_values($orderedStops);
         $count = count($stops);
-        // Closed: every stop has an outgoing leg, the last returning to the origin.
-        // Open: the last stop has no outgoing leg — one fewer leg, no return.
-        $legCount = $loop ? $count : $count - 1;
+        $legCount = $loop ? $count : $count - 1; // No final leg for an non-looping tour.
         $legs = [];
         $totalDistance = 0;
         $totalDuration = 0;
         $allOk = true;
         for ($index = 0; $index < $legCount; $index++) {
             $origin = $stops[$index];
-            // The closing leg (last → first) only exists for a closed tour.
             $destination = $stops[($index + 1) % $count];
             try {
                 $leg = $this->client->traceLeg($origin, $destination, $mode);

@@ -45,8 +45,7 @@ class OpenStreetTspClient
     /**
      * @param  array<int, array{lat: float, lng: float}>  $coordinates
      * @param  string|null  $mode  Travel mode override; defaults to the configured mode.
-     * @param  string|null  $tour  Tour shape forwarded to the API: `closed` (default) or `open` (004).
-     *                             The boolean→string mapping is done by the caller (the job).
+     * @param  string|null  $tour  Tour shape forwarded to the API: `closed` (default) or `open`.
      * @return array{
      *     ordered_stops: array<int, array{lat: float, lng: float, order: int}>,
      *     total_distance_m: int|null,

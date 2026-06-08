@@ -59,8 +59,6 @@ class OptimizeTourJob implements ShouldQueue
 
     public function handle(OpenStreetTspClient $client, TourCache $cache): void
     {
-        // Translate the loop boolean to the OpenStreet `tour` value here (004): the
-        // job owns the domain → API mapping; the client just forwards the string.
         $tourShape = $this->loop ? 'closed' : 'open';
         try {
             $tour = $client->optimize($this->coordinates, $this->mode, $tourShape);
