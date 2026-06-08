@@ -117,7 +117,7 @@ selecting Driving shows Driving; the dropdown is disabled while a tour is optimi
 - [ ] T021 [P] [US3] Create `ModeSelect` (reuses shadcn `components/ui/select.tsx`; props `{ value, onChange, disabled }`; trucking default; options from `DELIVERY_MODES`; role-color classes only) in resources/js/components/tour/mode-select.tsx (depends on T004)
 - [ ] T022 [US3] Create the control bar (flex row: `ModeSelect` left + the Optimize button right) in resources/js/components/tour/tour-control-bar.tsx (depends on T021)
 - [ ] T023 [US3] Remove the Optimize button from `StopList` (now in the control bar), keeping the list, and update resources/js/components/tour/stop-list.test.tsx accordingly — file: resources/js/components/tour/stop-list.tsx
-- [ ] T024 [US3] Render the control bar in the editing view, bind the dropdown to the page `mode` state, and disable it while optimizing, in resources/js/pages/tour/optimize.tsx (depends on T022, T023, T015)
+- [ ] T024 [US3] Render the control bar **only in the editing view** (not once a result is displayed — `ResultSummary` takes over), bind the dropdown to the page `mode` state, and disable it while optimizing, in resources/js/pages/tour/optimize.tsx (depends on T022, T023, T015)
 
 **Checkpoint**: Full feature — user-selectable mode driving both optimization and tracing.
 
@@ -128,7 +128,7 @@ selecting Driving shows Driving; the dropdown is disabled while a tour is optimi
 - [ ] T025 [P] Run `php artisan test --filter "TourOptimization|TourCache|DeliveryMode|TourGeometry"`; confirm the 002 trace suite still passes after the enum swap (T017)
 - [ ] T026 [P] Run `npm run test -- use-tour-optimization use-tour-geometry mode-select stop-list`
 - [ ] T027 Run quickstart.md manual verification: all three modes optimize+trace, FR-007 congruence, FR-008 (dropdown change does not alter shown tour), 422 on bad mode, unreachable-host fallback
-- [ ] T028 Resolve analyze finding F1: decide the dropdown's visibility during the result view (visible-but-disabled vs editing-only) and align FR-004 wording in spec.md with optimize.tsx behavior
+- [ ] T028 Add a test asserting the control bar / mode dropdown is **absent** once a result is shown (editing-only, per the resolved FR-004) in resources/js/pages/tour/optimize.test.tsx (or extend mode-select/optimize coverage)
 
 ---
 
