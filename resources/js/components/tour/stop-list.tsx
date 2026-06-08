@@ -43,6 +43,7 @@ export function StopList({ stops, onRemove, locked = false }: StopListProps) {
                         <Button
                             variant="ghost"
                             size="icon"
+                            className="hover:bg-primary hover:text-primary-foreground"
                             aria-label={`Remove stop ${index + 1}`}
                             disabled={locked}
                             onClick={() => onRemove(stop.id)}
