@@ -16,7 +16,7 @@ export function LoopToggle({ value, onChange, disabled = false }: LoopToggleProp
             onPressedChange={onChange}
             disabled={disabled}
             aria-label="Return to origin"
-            className="bg-primary text-text-on-color hover:bg-primary/90 hover:text-text-on-color data-[state=on]:bg-primary data-[state=on]:text-text-on-color"
+            className="bg-primary text-text-on-color hover:bg-secondary hover:text-secondary-foreground data-[state=on]:bg-primary data-[state=on]:text-text-on-color"
         >
             {value ? 'Loop' : 'One-way'}
         </Toggle>

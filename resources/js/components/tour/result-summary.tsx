@@ -38,7 +38,11 @@ export function ResultSummary({ result, roadMetrics, onReset }: ResultSummaryPro
                     <p className="text-xs uppercase tracking-wide">Tour duration</p>
                     <p className="text-lg font-semibold">{formatDuration(durationS)}</p>
                 </div>
-                <Button variant="secondary" onClick={onReset}>
+                <Button
+                    variant="secondary"
+                    className="bg-accent text-accent-foreground hover:bg-accent/90"
+                    onClick={onReset}
+                >
                     New tour
                 </Button>
             </div>

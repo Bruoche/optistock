@@ -13,13 +13,17 @@ export function ModeSelect({ value, onChange, disabled = false }: ModeSelectProp
         <Select value={value} onValueChange={(next) => onChange(next as DeliveryMode)} disabled={disabled}>
             <SelectTrigger 
 			    aria-label="Delivery mode"
-                className="w-40 bg-primary text-text-on-color hover:bg-primary/90 dark:bg-primary dark:hover:bg-primary/90 [&>svg]:!text-text-on-color [&>svg]:!opacity-100"
+                className="w-40 bg-primary text-text-on-color hover:bg-secondary dark:bg-primary dark:hover:bg-secondary [&>svg]:!text-text-on-color [&>svg]:!opacity-100"
             >
                 <SelectValue />
             </SelectTrigger>
             <SelectContent>
                 {DELIVERY_MODES.map((mode) => (
-                    <SelectItem key={mode.value} value={mode.value}>
+                    <SelectItem
+                        key={mode.value}
+                        value={mode.value}
+                        className="focus:bg-secondary focus:text-secondary-foreground"
+                    >
                         {mode.label}
                     </SelectItem>
                 ))}

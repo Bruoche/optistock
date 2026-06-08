@@ -35,7 +35,12 @@ export function TourControlBar({
 					<LoopToggle value={loop} onChange={onLoopChange} disabled={optimizing} />
 	            </div>
 			</div>
-			<Button variant="secondary" onClick={onOptimize} disabled={!canOptimize}>
+			<Button
+				variant="secondary"
+				className="bg-accent text-accent-foreground hover:bg-accent/90"
+				onClick={onOptimize}
+				disabled={!canOptimize}
+			>
 				Optimize route
 			</Button>
         </div>
