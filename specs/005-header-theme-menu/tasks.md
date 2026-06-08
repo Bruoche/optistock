@@ -25,7 +25,7 @@ Front-end: `resources/js/`.
 
 ## Phase 1: Setup
 
-- [ ] T001 Confirm `resources/js/hooks/use-appearance.tsx` is reused unchanged — it is the standard starter-kit theming method (light/dark/system, default system) and already covers FR-005/006/007/008. No edit; this is the basis the selector builds on.
+- [x] T001 Confirm `resources/js/hooks/use-appearance.tsx` is reused unchanged — it is the standard starter-kit theming method (light/dark/system, default system) and already covers FR-005/006/007/008. No edit; this is the basis the selector builds on.
 
 ---
 
@@ -46,12 +46,12 @@ menu still present, and no Dashboard / Repository / Documentation / team switche
 
 ### Tests for User Story 1 ⚠️ (write first, ensure they fail)
 
-- [ ] T002 [P] [US1] Create resources/js/components/app-sidebar.test.tsx: renders "Optistock"; **keeps** the user menu (`NavUser` — assert via its `data-test="sidebar-menu-button"`); does NOT render the removed entries (Dashboard, Repository, Documentation, team-switcher trigger `data-test="team-switcher-trigger"`). Mock `@inertiajs/react` `usePage` (auth user + currentTeam/teams) and `@/hooks/use-appearance`
+- [x] T002 [P] [US1] Create resources/js/components/app-sidebar.test.tsx: renders "Optistock"; **keeps** the user menu (`NavUser` — assert via its `data-test="sidebar-menu-button"`); does NOT render the removed entries (Dashboard, Repository, Documentation, team-switcher trigger `data-test="team-switcher-trigger"`). Mock `@inertiajs/react` `usePage` (auth user + currentTeam/teams) and `@/hooks/use-appearance`
 
 ### Implementation for User Story 1
 
-- [ ] T003 [P] [US1] Change the title text "Laravel Starter Kit" → "Optistock" (keep `AppLogoIcon` placeholder) in resources/js/components/app-logo.tsx
-- [ ] T004 [US1] Remove `TeamSwitcher`, `NavMain`, `NavFooter` (and their now-unused imports + the `mainNavItems`/`footerNavItems` arrays) while keeping the `Sidebar` / `SidebarHeader` / `SidebarContent` / `SidebarFooter` skeleton, the brand row, and **`NavUser`** (functional account/auth menu — kept per user decision), in resources/js/components/app-sidebar.tsx
+- [x] T003 [P] [US1] Change the title text "Laravel Starter Kit" → "Optistock" (keep `AppLogoIcon` placeholder) in resources/js/components/app-logo.tsx
+- [x] T004 [US1] Remove `TeamSwitcher`, `NavMain`, `NavFooter` (and their now-unused imports + the `mainNavItems`/`footerNavItems` arrays) while keeping the `Sidebar` / `SidebarHeader` / `SidebarContent` / `SidebarFooter` skeleton, the brand row, and **`NavUser`** (functional account/auth menu — kept per user decision), in resources/js/components/app-sidebar.tsx
 
 **Checkpoint**: Sidebar is rebranded + stripped. MVP demoable.
 
@@ -67,13 +67,13 @@ clicking it cycles light → dark → browser → light, calling `updateAppearan
 
 ### Tests for User Story 2 ⚠️
 
-- [ ] T005 [P] [US2] Create resources/js/components/theme-selector.test.tsx: with `appearance: 'system'` the toggle shows the Browser icon + label; clicking cycles to the next mode — assert `updateAppearance` is called with `'light'` from `system`, `'dark'` from `light`, `'system'` from `dark` (re-render per mocked appearance); assert the label text renders for each mode (Light/Dark/Browser). Mock `@/hooks/use-appearance`
+- [x] T005 [P] [US2] Create resources/js/components/theme-selector.test.tsx: with `appearance: 'system'` the toggle shows the Browser icon + label; clicking cycles to the next mode — assert `updateAppearance` is called with `'light'` from `system`, `'dark'` from `light`, `'system'` from `dark` (re-render per mocked appearance); assert the label text renders for each mode (Light/Dark/Browser). Mock `@/hooks/use-appearance`
 
 ### Implementation for User Story 2
 
-- [ ] T006 [P] [US2] Create resources/js/components/theme-selector.tsx: consume `useAppearance`; a single toggle that **cycles** light → dark → browser → light on click (`updateAppearance(next)`); show the active mode's icon (`Sun`/`Moon`/`Monitor`) + label (**Light**/**Dark**/**Browser**); hide the label when the sidebar is collapsed (`group-data-[collapsible=icon]:hidden`, icon-only); **role-named color classes + shared primitives only** (no raw `neutral-*`/hex — constitution VI). FR-009/FR-010
-- [ ] T007 [US2] Render `<ThemeSelector />` inside the kept sidebar skeleton (footer, above `NavUser`) in resources/js/components/app-sidebar.tsx (depends on T004, T006)
-- [ ] T008 [US2] Extend resources/js/components/app-sidebar.test.tsx to assert the theme toggle is present in the sidebar (depends on T002, T007)
+- [x] T006 [P] [US2] Create resources/js/components/theme-selector.tsx: consume `useAppearance`; a single toggle that **cycles** light → dark → browser → light on click (`updateAppearance(next)`); show the active mode's icon (`Sun`/`Moon`/`Monitor`) + label (**Light**/**Dark**/**Browser**); hide the label when the sidebar is collapsed (`group-data-[collapsible=icon]:hidden`, icon-only); **role-named color classes + shared primitives only** (no raw `neutral-*`/hex — constitution VI). FR-009/FR-010
+- [x] T007 [US2] Render `<ThemeSelector />` inside the kept sidebar skeleton (footer, above `NavUser`) in resources/js/components/app-sidebar.tsx (depends on T004, T006)
+- [x] T008 [US2] Extend resources/js/components/app-sidebar.test.tsx to assert the theme toggle is present in the sidebar (depends on T002, T007)
 
 **Checkpoint**: Full feature — rebranded sidebar carrying the theme selector.
 
@@ -81,7 +81,7 @@ clicking it cycles light → dark → browser → light, calling `updateAppearan
 
 ## Phase 5: Polish & Cross-Cutting Concerns
 
-- [ ] T009 [P] Run `npm run test -- theme-selector app-sidebar`; confirm green
+- [x] T009 [P] Run `npm run test -- theme-selector app-sidebar`; confirm green
 - [ ] T010 Run quickstart.md manual verification: Optistock title + user menu kept + no nav/links/team-switcher; cycling toggle switches immediately, persists across reload, Browser follows the OS; collapsed sidebar shows the toggle as a single icon
 
 ---
