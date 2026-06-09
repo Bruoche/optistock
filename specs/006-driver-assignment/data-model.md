@@ -14,7 +14,7 @@
 
 - Model `App\Models\Driver`.
 - Accessor `image_url`: `image_path ? Storage::disk('public')->url(image_path) : null`.
-- Relation: `deliveryModes(): belongsToMany(DeliveryModeOption::class)`.
+- Relation: `deliveryModes(): belongsToMany(DeliveryMode::class)`.
 - Scope `available(DeliveryMode $mode)`: `whereHas('deliveryModes', label = $mode->value)`, eager-loads
   `deliveryModes`, ordered by `name` asc.
 
@@ -25,7 +25,8 @@
 | id     | bigint, PK, auto |                                                             |
 | label  | string, unique   | One of `trucking` / `driving` / `walking` (enum values).    |
 
-- Model `App\Models\DeliveryModeOption`.
+- Model `App\Models\DeliveryMode` (the `App\Enums\DeliveryMode` enum is imported aliased as
+  `DeliveryModeEnum` where both are referenced).
 - Seeded by `DeliveryModeSeeder` with exactly the three `App\Enums\DeliveryMode` backing values (idempotent
   `updateOrCreate` on `label`).
 - Relation: `drivers(): belongsToMany(Driver::class)`.
@@ -65,7 +66,7 @@ export type Driver = {
 ## Relationships
 
 ```
-Driver  *────*  DeliveryModeOption        (belongsToMany via driver_delivery_mode)
+Driver  *────*  DeliveryMode (model)      (belongsToMany via driver_delivery_mode)
 Tour (transient, client-side) ── has one DeliveryMode ── filters Drivers by matching mode
 ```
 

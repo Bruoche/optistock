@@ -19,18 +19,21 @@ one-to-many.
 ## R2 — Enum vs. lookup table, and model naming
 
 **Decision**: Keep `App\Enums\DeliveryMode` as the authoritative mode set; name the new Eloquent model
-`App\Models\DeliveryModeOption`. Seed `delivery_modes.label` with the enum's backing values
+`App\Models\DeliveryMode` (clean, idiomatic). At the few sites that reference both, import the enum aliased:
+`use App\Enums\DeliveryMode as DeliveryModeEnum`. Seed `delivery_modes.label` with the enum's backing values
 (`trucking`/`driving`/`walking`).
 
 **Rationale**: The enum already drives optimize/geometry requests and is the single source of allowed modes.
-The table is a persistence mirror enabling the FK relationship. Two classes literally named `DeliveryMode`
-(enum + model) would be ambiguous at every import site, against the project's naming philosophy; `…Option`
-names the persisted lookup row clearly. Mirroring the enum values means the frontend filters/labels with the
-same strings it already has — no mapping layer.
+The lookup table *is* the canonical persisted delivery-mode record, so its model deserves the clean name; an
+import alias resolves the two-namespace collision at the handful of shared sites (controller + request).
+Mirroring the enum values means the frontend filters/labels with the same strings it already has — no mapping
+layer.
 
 **Alternatives considered**:
-- *Name the model `DeliveryMode` (Models namespace)*: most "default" Laravel, but collides in meaning with the
-  enum. Rejected for clarity.
+- *`DeliveryModeOption`*: avoids the alias, but is slightly generic and the table really is *the* delivery
+  mode, not an "option of" something. Rejected once the alias proved cheap (≈2 sites).
+- *`DeliveryModeModel` (or any `…Model` suffix)*: rejected — every Eloquent class is a model, so the suffix
+  names the framework layer, not the concept; pure noise against the naming philosophy.
 - *Cast `label` to the enum on the model*: nice, but unnecessary for this feature's read path; can be added
   later. Deferred.
 

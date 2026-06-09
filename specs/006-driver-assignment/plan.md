@@ -73,10 +73,12 @@ No violations.
   strings it already uses (`DeliveryMode` TS type) — no translation layer. A `DeliveryModeSeeder` (called from
   `DatabaseSeeder`) inserts the three rows idempotently.
 
-- **D3 — Eloquent model named `DeliveryModeOption`, to avoid colliding with the `DeliveryMode` enum.** The
-  authoritative mode set stays the `App\Enums\DeliveryMode` enum; the new table's model is
-  `App\Models\DeliveryModeOption` (the persisted lookup row). This keeps both symbols unambiguous per the
-  naming philosophy (no two `DeliveryMode` classes). `Driver` `belongsToMany(DeliveryModeOption::class)`.
+- **D3 — Eloquent model named `DeliveryMode`; alias the enum where both appear.** The lookup table *is* the
+  canonical delivery-mode record, so its model gets the clean idiomatic name `App\Models\DeliveryMode`. The
+  authoritative allowed-set stays the `App\Enums\DeliveryMode` enum; at the few sites that reference both
+  (controller, request validation), import the enum aliased — `use App\Enums\DeliveryMode as DeliveryModeEnum`
+  — keeping each symbol unambiguous (a "Model" suffix would be pure framework-layer noise, against the naming
+  philosophy). `Driver` `belongsToMany(DeliveryMode::class)`.
 
 - **D4 — `GET /api/tour/drivers?mode=<mode>`.** Auth-guarded (same `auth` group as the other tour routes),
   reusing the session cookie. Validates `mode` against the enum (FormRequest). Returns
@@ -108,8 +110,8 @@ Backend — **new**:
 - `database/migrations/<ts>_create_drivers_table.php` — `drivers`, `delivery_modes`, `driver_delivery_mode`.
 - `database/seeders/DeliveryModeSeeder.php` — the three mode rows (idempotent); called from `DatabaseSeeder`.
 - `database/factories/DriverFactory.php` — drivers with a name + optional image + attached modes (1–2).
-- `app/Models/Driver.php` — `belongsToMany(DeliveryModeOption::class)`, `image_url` accessor, `available` scope.
-- `app/Models/DeliveryModeOption.php` — the lookup row; `belongsToMany(Driver::class)`.
+- `app/Models/Driver.php` — `belongsToMany(DeliveryMode::class)`, `image_url` accessor, `available` scope.
+- `app/Models/DeliveryMode.php` — the lookup row; `belongsToMany(Driver::class)`.
 - `app/Http/Controllers/DriverController.php` — `available(AvailableDriversRequest)` → JSON.
 - `app/Http/Requests/AvailableDriversRequest.php` — validates `mode` ∈ enum.
 
