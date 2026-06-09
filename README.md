@@ -15,6 +15,16 @@ Uses the OpenStreet API for itinary calculations.
    npm install        # front-end deps (composer setup also runs this; safe to repeat)
    ```
 
+   **Windows only — SSL certificates** 
+   If getting the `cURL error 60` on request it's likely that PHP on Windows has no system CA bundle.
+   Download [`cacert.pem`](https://curl.se/ca/cacert.pem) and update these two lines to your `php.ini`
+   (`php --ini` shows its location):
+   ```ini
+   curl.cainfo = "C:/path/to/cacert.pem"
+   openssl.cafile = "C:/path/to/cacert.pem"
+   ```
+   (Restart any running PHP processes afterwards)
+
 2. **Add your OpenStreet API key** — REQUIRED, optimization fails without it. In `.env`:
 
    ```
