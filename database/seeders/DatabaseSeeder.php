@@ -13,11 +13,17 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
+        $this->call(DeliveryModeSeeder::class);
+
         // User::factory(10)->create();
 
         User::factory()->create([
             'name' => 'Test User',
             'email' => 'test@example.com',
         ]);
+
+        if (! app()->isProduction()) {
+            $this->call(DriverDemoSeeder::class);
+        }
     }
 }

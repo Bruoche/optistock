@@ -1,13 +1,16 @@
 // FR-014/FR-015: after a result arrives, this replaces the Optimize button row.
-// Shows the total tour duration at the top; the space the stop list occupied is
-// left empty (reserved for a future drivers list — out of scope here).
+// Shows the total tour duration at the top; the space the stop list occupied now
+// holds the available-driver list for the tour's mode (feature 006).
 import { ActionButton } from '@/components/action-button';
-import type { TourResult } from '@/types/tour';
+import { DriverList } from '@/components/tour/driver-list';
+import type { DeliveryMode, TourResult } from '@/types/tour';
 
 type ResultSummaryProps = {
     result: TourResult;
     /** Road-accurate metrics (feature 002); when present and non-null they override the initial estimate. */
     roadMetrics?: { distance_m: number | null; duration_s: number | null } | null;
+    /** The mode the shown tour was optimized with — drives the available-driver list. */
+    mode: DeliveryMode;
     onReset: () => void;
 };
 
@@ -27,7 +30,7 @@ function formatDuration(totalSeconds: number | null): string {
     return `${minutes} min`;
 }
 
-export function ResultSummary({ result, roadMetrics, onReset }: ResultSummaryProps) {
+export function ResultSummary({ result, roadMetrics, mode, onReset }: ResultSummaryProps) {
     // Prefer the road-accurate duration once available; otherwise the initial estimate.
     const durationS = roadMetrics?.duration_s ?? result.total_duration_s;
 
@@ -41,8 +44,7 @@ export function ResultSummary({ result, roadMetrics, onReset }: ResultSummaryPro
                 <ActionButton onClick={onReset}>New tour</ActionButton>
             </div>
 
-            {/* Reserved for the future drivers list (out of scope). */}
-            <div className="flex-1" />
+            <DriverList mode={mode} />
         </div>
     );
 }

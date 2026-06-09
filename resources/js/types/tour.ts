@@ -11,6 +11,15 @@ export const DELIVERY_MODES: ReadonlyArray<{ value: DeliveryMode; label: string 
     { value: 'walking', label: 'Walking' },
 ];
 
+/** A delivery driver available for an optimized tour (feature 006). `modes` are
+ *  the driver's supported delivery modes (one or more). */
+export type Driver = {
+    id: number;
+    name: string;
+    imageUrl: string | null;
+    modes: DeliveryMode[];
+};
+
 /** A coordinate the planner placed on the map (client-side only). */
 export type Stop = {
     /** Client-generated id for list keys + removal. */
