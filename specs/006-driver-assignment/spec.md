@@ -10,7 +10,7 @@
 
 ## Context
 
-Tours are already optimized with a chosen **delivery mode** (walking, driving, or trucking — feature 003). This feature introduces **delivery drivers** and surfaces, on the **results page**, the drivers that can actually run the just-optimized tour. A driver carries a name, a profile image, and the set of tour modes they can provide (at least one, but never all three). After optimization, the system filters drivers down to those whose available modes include the tour's mode and presents them as a list — placed where the coordinate list sat on the edit page, but now on the results page. Each entry leads with the driver's name and shows mode icons (walking figure, car, truck) for the modes that driver supports.
+Tours are already optimized with a chosen **delivery mode** (walking, driving, or trucking — feature 003). This feature introduces **delivery drivers** and surfaces, on the **results page**, the drivers that can actually run the just-optimized tour. A driver carries a name, a profile image, and the set of tour modes they can provide (at least one; up to all three). After optimization, the system filters drivers down to those whose available modes include the tour's mode and presents them as a list — placed where the coordinate list sat on the edit page, but now on the results page. Each entry leads with the driver's name and shows mode icons (walking figure, car, truck) for the modes that driver supports.
 
 This feature's scope is **listing** the available drivers only. Actually selecting/assigning a specific driver to the tour, and time-related constraints and information, are explicitly **out of scope** and will come in later features.
 
@@ -43,7 +43,7 @@ After optimizing a tour, the user sees, on the results page, a list of the drive
 
 - **No matching driver**: the tour's mode is supported by no driver — show the message "No one available for this delivery." in place of the list, not a blank or broken list.
 - **Single matching driver**: the list still renders normally with one entry.
-- **Driver with two modes**: both supported-mode icons appear; the unsupported mode's icon does not.
+- **Driver with a subset of modes**: only the supported-mode icons appear; icons for unsupported modes do not.
 - **Missing driver image**: a profile-icon placeholder is shown so the entry stays well-formed.
 - **Re-optimizing with a different mode**: the available-driver list refreshes to match the new mode.
 - **Long driver name**: the name stays the most prominent element without breaking the entry's layout.
@@ -53,7 +53,7 @@ After optimizing a tour, the user sees, on the results page, a list of the drive
 ### Functional Requirements
 
 - **FR-001**: A driver MUST have a name, a profile image, and a set of supported tour modes drawn from {walking, driving, trucking}.
-- **FR-002**: A driver's supported-mode set MUST contain at least one mode and MUST NOT contain all three (i.e. one or two modes only).
+- **FR-002**: A driver's supported-mode set MUST contain at least one mode (one, two, or all three are allowed).
 - **FR-003**: After a tour is optimized, the system MUST determine the list of **available drivers** for that tour as those whose supported modes include the tour's delivery mode.
 - **FR-004**: The results page MUST present the available-driver list in the same location that the coordinate list occupied on the edit page.
 - **FR-005**: Each driver entry MUST display the driver's name as its most prominent element.
@@ -66,7 +66,7 @@ After optimizing a tour, the user sees, on the results page, a list of the drive
 
 ### Key Entities *(include if feature involves data)*
 
-- **Driver**: a person who can run a tour. Attributes: name, profile image, and a set of supported tour modes (1 or 2 of {walking, driving, trucking}; never all three).
+- **Driver**: a person who can run a tour. Attributes: name, profile image, and a set of supported tour modes (one or more of {walking, driving, trucking}; at least one).
 - **Available-driver list**: the subset of drivers, computed for a specific optimized tour, whose supported modes include that tour's delivery mode. Relates a Tour (with its delivery mode) to the Drivers eligible to run it.
 
 ## Success Criteria *(mandatory)*

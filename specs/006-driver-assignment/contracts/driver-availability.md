@@ -57,7 +57,8 @@ Validated by `AvailableDriversRequest`: `mode` ∈ `App\Enums\DeliveryMode`.
 
 Rendered inside `ResultSummary`, in the region the stop list occupied on the edit page (FR-004).
 
-- **Loading**: a neutral loading state (no layout jump).
+- **Loading**: a spinner with the text **"Checking available drivers…"** beside it, in the list region (no
+  layout jump).
 - **Ready, ≥1 driver**: one row per driver:
   - profile image (rounded), or a placeholder profile icon when `imageUrl` is null (FR-008);
   - **name** as the most prominent element (FR-005);

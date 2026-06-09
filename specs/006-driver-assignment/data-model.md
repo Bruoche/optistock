@@ -44,9 +44,9 @@
 
 ## Constraints / business rules
 
-- **CR-1**: A driver MUST support at least one mode and MUST NOT support all three (1 or 2 of 3). Enforced at
+- **CR-1**: A driver MUST support at least one mode (one, two, or all three are allowed). Enforced at
   data-creation time (factory/seeder + any future create path), not by a DB constraint (the pivot cannot
-  express "1–2 of 3" alone). Tests assert the rule on seeded/factory data.
+  express "≥1 of 3" alone). Tests assert the rule on seeded/factory data.
 - **CR-2**: `delivery_modes.label` values MUST equal the `App\Enums\DeliveryMode` backing values so the
   frontend filters with the same strings. A unit test guards label ↔ enum parity.
 - **CR-3**: "Available for a tour" = the driver's `deliveryModes` includes the tour's mode (label match).
@@ -75,5 +75,5 @@ No persisted Tour↔Driver link this feature (assignment is out of scope).
 ## Seed / fixture data
 
 - `DeliveryModeSeeder`: 3 rows — `trucking`, `driving`, `walking`.
-- `DriverFactory`: name (faker), optional `image_path`, attaches a random valid mode set (1–2 of 3) after
-  create. Used by tests and optional demo seeding.
+- `DriverFactory`: name (faker), optional `image_path`, attaches a random valid mode set (1–3 of 3, at least
+  one) after create. Used by tests and optional demo seeding.

@@ -6,9 +6,9 @@
 `driver_delivery_mode` pivot; Laravel `belongsToMany`.
 
 **Rationale**: The spec asks for a shared "enum table" (autoincrement id + string label) whose labels match
-the app's modes, *and* for a driver to support one or more modes. A shared 3-row lookup referenced by many
-drivers, each linking 1–2 of those rows, is by definition many-to-many. The user confirmed this over a literal
-one-to-many.
+the app's modes, *and* for a driver to support one or more modes (one up to all three). A shared 3-row lookup
+referenced by many drivers, each linking one or more of those rows, is by definition many-to-many. The user
+confirmed this over a literal one-to-many.
 
 **Alternatives considered**:
 - *Literal one-to-many* (`delivery_modes.driver_id`): each mode row owned by one driver → no shared enum,

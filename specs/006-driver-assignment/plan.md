@@ -63,8 +63,8 @@ No violations.
 ## Decisions
 
 - **D1 — Three tables, many-to-many (confirmed with user).** `drivers`, a shared `delivery_modes` lookup
-  (autoincrement `id` + unique string `label`), and a `driver_delivery_mode` pivot. A driver supports 1–2
-  modes (never all three); modes are shared across drivers. This is the correct relational shape for "a shared
+  (autoincrement `id` + unique string `label`), and a `driver_delivery_mode` pivot. A driver supports one or
+  more modes (at least one, up to all three); modes are shared across drivers. This is the correct relational shape for "a shared
   enum table" + "a driver can have one or more modes" (the spec's "one-to-many" wording resolved to
   many-to-many). Laravel `belongsToMany`.
 
@@ -84,8 +84,10 @@ No violations.
   reusing the session cookie. Validates `mode` against the enum (FormRequest). Returns
   `{ "data": [ { id, name, image_url, modes: ["driving", …] }, … ] }`, drivers whose modes include `mode`,
   **ordered alphabetically by name**. A thin `DriverController@available` delegates to a query/`Driver` scope;
-  no domain logic in the controller (mirrors `TourOptimizationController`). Throttled like the other tour
-  endpoints.
+  no domain logic in the controller (mirrors `TourOptimizationController`). **Throttled via a shared
+  synchronous-read limiter**: the existing `tour-geometry` RateLimiter (used by the 002 trace endpoint, a
+  comparable lightweight read at 30/min) is renamed `tour-read` and applied to both the geometry trace route
+  and this drivers route — so a driver fetch does not consume the heavy `tour-optimize` budget (10/min).
 
 - **D5 — Image via `public` disk + `image_url` accessor.** `drivers.image_path` (nullable) stores the disk
   path; the model exposes `image_url` through `Storage::disk('public')->url()`. When `image_path` is null the
@@ -107,16 +109,19 @@ No violations.
 ## Project Structure (feature-specific)
 
 Backend — **new**:
-- `database/migrations/<ts>_create_drivers_table.php` — `drivers`, `delivery_modes`, `driver_delivery_mode`.
+- `database/migrations/<ts>_create_driver_tables.php` — `drivers`, `delivery_modes`, `driver_delivery_mode`.
 - `database/seeders/DeliveryModeSeeder.php` — the three mode rows (idempotent); called from `DatabaseSeeder`.
-- `database/factories/DriverFactory.php` — drivers with a name + optional image + attached modes (1–2).
+- `database/factories/DriverFactory.php` — drivers with a name + optional image + attached modes (1–3, ≥1).
 - `app/Models/Driver.php` — `belongsToMany(DeliveryMode::class)`, `image_url` accessor, `available` scope.
 - `app/Models/DeliveryMode.php` — the lookup row; `belongsToMany(Driver::class)`.
 - `app/Http/Controllers/DriverController.php` — `available(AvailableDriversRequest)` → JSON.
 - `app/Http/Requests/AvailableDriversRequest.php` — validates `mode` ∈ enum.
 
 Backend — **change**:
-- `routes/api.php` — add `GET tour/drivers` → `DriverController@available` in the `auth` group.
+- `routes/api.php` — add `GET tour/drivers` → `DriverController@available` in the `auth` group with
+  `throttle:tour-read`; update the existing geometry route's `throttle:tour-geometry` → `throttle:tour-read`.
+- `app/Providers/AppServiceProvider.php` — rename the `tour-geometry` RateLimiter to `tour-read` (30/min,
+  unchanged limit; now shared by the trace + drivers reads).
 - `database/seeders/DatabaseSeeder.php` — call `DeliveryModeSeeder`.
 
 Frontend — **new**:
