@@ -10,6 +10,7 @@ Uses the OpenStreet API for itinary calculations.
 1. **Install** (first time on a machine):
 
    ```bash
+   composer update
    composer setup     # install deps, copy .env, app key, migrate (SQLite), build assets
    npm install        # front-end deps (composer setup also runs this; safe to repeat)
    ```
