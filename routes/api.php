@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\DriverController;
 use App\Http\Controllers\TourGeometryController;
 use App\Http\Controllers\TourOptimizationController;
 use Illuminate\Support\Facades\Route;
@@ -21,8 +22,14 @@ Route::middleware('auth')->group(function (): void {
         ->name('tour.status');
 
     // Road-accurate route tracing (feature 002): synchronous; fetches /route geometry
-    // per leg. Dedicated limiter, separate from tour-optimize.
+    // per leg. Shared lightweight-read limiter, separate from tour-optimize.
     Route::post('tour/geometry', [TourGeometryController::class, 'trace'])
-        ->middleware('throttle:tour-geometry')
+        ->middleware('throttle:tour-read')
         ->name('tour.geometry');
+
+    // Available drivers for an optimized tour (feature 006): drivers whose modes
+    // include the tour's mode, alphabetical.
+    Route::get('tour/drivers', [DriverController::class, 'available'])
+        ->middleware('throttle:tour-read')
+        ->name('tour.drivers');
 });

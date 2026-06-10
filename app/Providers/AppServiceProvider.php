@@ -68,9 +68,10 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('tour-optimize', static fn (Request $request): Limit => Limit::perMinute(10)
             ->by((string) ($request->user()?->id ?: $request->ip())));
 
-        // Road-geometry tracing (feature 002): fast synchronous call, fired once per
-        // optimized tour — a separate, higher quota than the optimization limiter.
-        RateLimiter::for('tour-geometry', static fn (Request $request): Limit => Limit::perMinute(30)
+        // Synchronous tour reads (geometry tracing 002, available drivers 006): fast
+        // calls fired once per optimized tour — a separate, higher quota than the
+        // optimization limiter, shared by these lightweight reads.
+        RateLimiter::for('tour-read', static fn (Request $request): Limit => Limit::perMinute(30)
             ->by((string) ($request->user()?->id ?: $request->ip())));
     }
 

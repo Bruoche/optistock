@@ -48,7 +48,7 @@ export default function TourOptimize() {
 
                 <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden border-t border-border p-4">
                     {isDone ? (
-                        <ResultSummary result={state.result} roadMetrics={geometry.metrics} onReset={reset} />
+                        <ResultSummary result={state.result} roadMetrics={geometry.metrics} mode={state.mode} onReset={reset} />
                     ) : (
                         <>
                             <TourControlBar
