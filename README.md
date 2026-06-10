@@ -51,6 +51,21 @@ Uses the OpenStreet API for itinary calculations.
 Open **http://localhost:8000** (the app — not Vite's port), log in, go to **`/tour`**.
 (Without Reverb the app still works — it falls back to polling for results, just less instant.)
 
+## Seed the database
+
+To seed the database:
+```bash
+php artisan db:seed              # populate an already-migrated DB
+```
+
+To drop the seed data:
+```bash
+php artisan migrate:fresh --seed # drop everything, re-migrate, then seed (clean slate)
+```
+
+This creates a `test@example.com` login, the delivery modes, and a set of demo drivers (varied mode sets and avatars) for manual testing. 
+Seeders are idempotent (safe to re-run). The driver demo data is skipped in production.
+
 ## Run the tests
 
 ```bash
