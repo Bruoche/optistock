@@ -67,9 +67,9 @@ not embedded in the (cacheable) tour body.
 
 - **CR-1**: `wait_time_s` MUST equal the exact sum of the submitted stop durations (in seconds), independent
   of optimized stop order. Tested for cache-miss and cache-hit paths.
-- **CR-2**: A stop duration MUST be a non-negative whole number of minutes; empty/non-numeric/negative input
-  MUST resolve to a valid value (client coercion + server `422` on out-of-rule payloads) so the totals can
-  never become `NaN` or negative.
+- **CR-2**: A stop duration MUST be a non-negative whole number of minutes (0–1440); empty/non-numeric/negative
+  client input coerces to **0** (non-integers floored), and the server returns `422` on out-of-rule payloads,
+  so the totals can never become `NaN` or negative.
 - **CR-3**: `Tour duration` MUST equal `Time on road` + `wait_time` for every tour, treating an unavailable
   `Time on road` as 0.
 - **CR-4**: Editing a stop's duration MUST NOT change the optimize cache key (no re-fire of the upstream TSP
