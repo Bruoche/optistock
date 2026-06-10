@@ -3,7 +3,10 @@
 // (walking figure / car / truck) sit beneath it. Empty → a clear message.
 import { Car, Loader2, PersonStanding, Truck, UserRound } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { useTourDrivers } from '@/hooks/use-tour-drivers';
+import { cn } from '@/lib/utils';
+import { DELIVERY_MODES } from '@/types/tour';
 import type { DeliveryMode } from '@/types/tour';
 
 const MODE_ICON: Record<DeliveryMode, LucideIcon> = {
@@ -12,43 +15,57 @@ const MODE_ICON: Record<DeliveryMode, LucideIcon> = {
     trucking: Truck,
 };
 
-const MODE_LABEL: Record<DeliveryMode, string> = {
-    walking: 'Walking',
-    driving: 'Driving',
-    trucking: 'Trucking',
-};
+// Reuse the app-wide mode labels (single source) for the icon aria-labels.
+const MODE_LABEL = Object.fromEntries(
+    DELIVERY_MODES.map((mode) => [mode.value, mode.label]),
+) as Record<DeliveryMode, string>;
 
 type DriverListProps = {
     /** The mode the shown tour was optimized with. */
     mode: DeliveryMode;
 };
 
+function StatusLine({
+    children,
+    tone = 'muted',
+}: {
+    children: ReactNode;
+    tone?: 'muted' | 'error';
+}) {
+    return (
+        <div
+            className={cn(
+                'flex flex-1 items-center justify-center gap-2 text-sm',
+                tone === 'error' ? 'text-destructive' : 'text-muted-foreground',
+            )}
+        >
+            {children}
+        </div>
+    );
+}
+
 export function DriverList({ mode }: DriverListProps) {
     const { drivers, status } = useTourDrivers(mode);
 
     if (status === 'loading') {
         return (
-            <div className="flex flex-1 items-center justify-center gap-2 text-sm text-muted-foreground">
+            <StatusLine>
                 <Loader2 className="size-4 animate-spin" />
                 Checking available drivers…
-            </div>
+            </StatusLine>
         );
     }
 
     if (status === 'error') {
         return (
-            <div className="flex flex-1 items-center justify-center text-sm text-destructive">
+            <StatusLine tone="error">
                 Could not load available drivers.
-            </div>
+            </StatusLine>
         );
     }
 
     if (drivers.length === 0) {
-        return (
-            <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
-                No one available for this delivery.
-            </div>
-        );
+        return <StatusLine>No one available for this delivery.</StatusLine>;
     }
 
     return (

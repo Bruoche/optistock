@@ -6,7 +6,6 @@ use App\Enums\DeliveryMode as DeliveryModeEnum;
 use App\Models\DeliveryMode;
 use App\Models\Driver;
 use Illuminate\Database\Eloquent\Factories\Factory;
-use Illuminate\Support\Collection;
 
 /**
  * @extends Factory<Driver>
@@ -25,22 +24,13 @@ class DriverFactory extends Factory
     }
 
     /**
-     * Attach a random valid mode set (1–3, at least one) unless a state already
-     * set specific modes.
+     * Every factory driver gets a random valid mode set (1–3); withModes() overrides it.
      */
     public function configure(): static
     {
-        return $this->afterCreating(function (Driver $driver) {
-            if ($driver->deliveryModes()->exists()) {
-                return;
-            }
-
-            $labels = collect(DeliveryModeEnum::cases())
-                ->map(fn (DeliveryModeEnum $mode): string => $mode->value)
-                ->random(fake()->numberBetween(1, 3));
-
-            $driver->deliveryModes()->sync($this->modeIds($labels));
-        });
+        return $this->afterCreating(fn (Driver $driver) => $driver->deliveryModes()->sync(
+            $this->modeIds($this->randomModeLabels()),
+        ));
     }
 
     /**
@@ -50,20 +40,31 @@ class DriverFactory extends Factory
      */
     public function withModes(array $labels): static
     {
-        return $this->afterCreating(function (Driver $driver) use ($labels): void {
-            $driver->deliveryModes()->sync($this->modeIds(collect($labels)));
-        });
+        return $this->afterCreating(
+            fn (Driver $driver) => $driver->deliveryModes()->sync($this->modeIds($labels)),
+        );
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function randomModeLabels(): array
+    {
+        return collect(DeliveryModeEnum::cases())
+            ->map(fn (DeliveryModeEnum $mode): string => $mode->value)
+            ->random(fake()->numberBetween(1, 3))
+            ->all();
     }
 
     /**
      * Resolve mode labels to their lookup-row ids, creating any missing rows.
      *
-     * @param  Collection<int, string>  $labels
+     * @param  array<int, string>  $labels
      * @return array<int, int>
      */
-    private function modeIds($labels): array
+    private function modeIds(array $labels): array
     {
-        return $labels
+        return collect($labels)
             ->map(fn (string $label): int => DeliveryMode::firstOrCreate(['label' => $label])->id)
             ->all();
     }
