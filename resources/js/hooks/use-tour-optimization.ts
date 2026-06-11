@@ -6,9 +6,29 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { getEcho } from '@/lib/echo';
 import { postJson } from '@/lib/http';
-import type { DeliveryMode, OptimizeState, Stop, TourError, TourResult } from '@/types/tour';
+import {
+    DEFAULT_STOP_DURATION_MINUTES,
+    MAX_STOP_DURATION_MINUTES,
+} from '@/types/tour';
+import type {
+    DeliveryMode,
+    OptimizeState,
+    Stop,
+    TourError,
+    TourResult,
+} from '@/types/tour';
 
 const POLL_INTERVAL_MS = 3000;
+
+// Keep a stop duration a valid non-negative whole number (CR-2): empty/NaN/negative
+// reads as 0 ("no time here"), non-integers floor, and the 24 h ceiling clamps.
+function normalizeStopDuration(minutes: number): number {
+    if (!Number.isFinite(minutes) || minutes < 0) {
+        return 0;
+    }
+
+    return Math.min(Math.floor(minutes), MAX_STOP_DURATION_MINUTES);
+}
 
 export function useTourOptimization(userId: number) {
     const [stops, setStops] = useState<Stop[]>([]);
@@ -35,7 +55,12 @@ export function useTourOptimization(userId: number) {
     const settleDone = useCallback(
         (result: TourResult) => {
             cleanup();
-            setState({ status: 'done', result, mode: optimizedMode.current, loop: closeLoop.current });
+            setState({
+                status: 'done',
+                result,
+                mode: optimizedMode.current,
+                loop: closeLoop.current,
+            });
         },
         [cleanup],
     );
@@ -50,11 +75,32 @@ export function useTourOptimization(userId: number) {
     );
 
     const addStop = useCallback((lat: number, lng: number) => {
-        setStops((current) => [...current, { id: crypto.randomUUID(), lat, lng }]);
+        setStops((current) => [
+            ...current,
+            {
+                id: crypto.randomUUID(),
+                lat,
+                lng,
+                durationMinutes: DEFAULT_STOP_DURATION_MINUTES,
+            },
+        ]);
     }, []);
 
     const removeStop = useCallback((id: string) => {
         setStops((current) => current.filter((stop) => stop.id !== id));
+    }, []);
+
+    const setStopDuration = useCallback((id: string, minutes: number) => {
+        setStops((current) =>
+            current.map((stop) =>
+                stop.id === id
+                    ? {
+                          ...stop,
+                          durationMinutes: normalizeStopDuration(minutes),
+                      }
+                    : stop,
+            ),
+        );
     }, []);
 
     const reset = useCallback(() => {
@@ -69,24 +115,33 @@ export function useTourOptimization(userId: number) {
 
             getEcho()
                 .private(channelName)
-                .listen('.TourOptimized', (event: { job_uuid: string; data: TourResult }) => {
-                    if (event.job_uuid === activeJob.current) {
-                        settleDone(event.data);
-                    }
-                })
-                .listen('.TourOptimizationFailed', (event: { job_uuid: string; error: TourError }) => {
-                    if (event.job_uuid === activeJob.current) {
-                        settleFailed(event.error);
-                    }
-                });
+                .listen(
+                    '.TourOptimized',
+                    (event: { job_uuid: string; data: TourResult }) => {
+                        if (event.job_uuid === activeJob.current) {
+                            settleDone(event.data);
+                        }
+                    },
+                )
+                .listen(
+                    '.TourOptimizationFailed',
+                    (event: { job_uuid: string; error: TourError }) => {
+                        if (event.job_uuid === activeJob.current) {
+                            settleFailed(event.error);
+                        }
+                    },
+                );
 
             // WebSocket fallback: poll the status endpoint.
             pollTimer.current = setInterval(async () => {
                 try {
-                    const response = await fetch(`/api/tour/status/${jobUuid}`, {
-                        credentials: 'same-origin',
-                        headers: { Accept: 'application/json' },
-                    });
+                    const response = await fetch(
+                        `/api/tour/status/${jobUuid}`,
+                        {
+                            credentials: 'same-origin',
+                            headers: { Accept: 'application/json' },
+                        },
+                    );
 
                     if (!response.ok) {
                         return;
@@ -107,57 +162,96 @@ export function useTourOptimization(userId: number) {
         [channelName, settleDone, settleFailed],
     );
 
-    const optimize = useCallback(async (mode: DeliveryMode, loop: boolean) => {
-        if (stops.length < 2) {
-            return;
-        }
-
-        optimizedMode.current = mode;
-        closeLoop.current = loop;
-        setState({ status: 'submitting', mode, loop });
-
-        try {
-            const response = await postJson('/api/tour/optimize', {
-                coordinates: stops.map((stop) => [stop.lat, stop.lng]),
-                mode,
-                loop,
-            });
-
-            if (response.status === 200) {
-                const payload = await response.json();
-                setState({ status: 'done', result: payload.data as TourResult, mode, loop });
-
+    const optimize = useCallback(
+        async (mode: DeliveryMode, loop: boolean) => {
+            if (stops.length < 2) {
                 return;
             }
 
-            if (response.status === 202) {
-                const payload = await response.json();
-                setState({ status: 'pending', jobUuid: payload.job_uuid, mode, loop });
-                subscribe(payload.job_uuid);
+            optimizedMode.current = mode;
+            closeLoop.current = loop;
+            setState({ status: 'submitting', mode, loop });
 
-                return;
+            try {
+                const response = await postJson('/api/tour/optimize', {
+                    coordinates: stops.map((stop) => [stop.lat, stop.lng]),
+                    mode,
+                    loop,
+                });
+
+                if (response.status === 200) {
+                    const payload = await response.json();
+                    setState({
+                        status: 'done',
+                        result: payload.data as TourResult,
+                        mode,
+                        loop,
+                    });
+
+                    return;
+                }
+
+                if (response.status === 202) {
+                    const payload = await response.json();
+                    setState({
+                        status: 'pending',
+                        jobUuid: payload.job_uuid,
+                        mode,
+                        loop,
+                    });
+                    subscribe(payload.job_uuid);
+
+                    return;
+                }
+
+                if (response.status === 422) {
+                    settleFailed({
+                        code: 'invalid_response',
+                        message: 'Some coordinates are invalid.',
+                    });
+
+                    return;
+                }
+
+                if (response.status === 429) {
+                    settleFailed({
+                        code: 'api_error',
+                        message: 'Too many requests — please wait a minute.',
+                    });
+
+                    return;
+                }
+
+                settleFailed({
+                    code: 'api_error',
+                    message: 'Could not start optimization.',
+                });
+            } catch {
+                settleFailed({
+                    code: 'timeout',
+                    message: 'Network error — please try again.',
+                });
             }
-
-            if (response.status === 422) {
-                settleFailed({ code: 'invalid_response', message: 'Some coordinates are invalid.' });
-
-                return;
-            }
-
-            if (response.status === 429) {
-                settleFailed({ code: 'api_error', message: 'Too many requests — please wait a minute.' });
-
-                return;
-            }
-
-            settleFailed({ code: 'api_error', message: 'Could not start optimization.' });
-        } catch {
-            settleFailed({ code: 'timeout', message: 'Network error — please try again.' });
-        }
-    }, [stops, subscribe, settleFailed]);
+        },
+        [stops, subscribe, settleFailed],
+    );
 
     // Drop subscriptions/timers if the component unmounts mid-flight.
     useEffect(() => cleanup, [cleanup]);
 
-    return { stops, addStop, removeStop, optimize, reset, state };
+    // Stop total in seconds (FR-007). Derived live: stops are frozen between submit
+    // and done, so this stays congruent with the optimized tour without a snapshot.
+    const waitTimeS =
+        stops.reduce((sum, stop) => sum + stop.durationMinutes, 0) * 60;
+
+    return {
+        stops,
+        addStop,
+        removeStop,
+        setStopDuration,
+        optimize,
+        reset,
+        state,
+        waitTimeS,
+    };
 }

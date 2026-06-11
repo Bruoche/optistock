@@ -3,17 +3,26 @@
 // Greyed + non-interactive while a tour is optimizing.
 import { Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
+import { MAX_STOP_DURATION_MINUTES } from '@/types/tour';
 import type { Stop } from '@/types/tour';
 
 type StopListProps = {
     stops: Stop[];
     onRemove: (id: string) => void;
+    /** Edit a stop's delivery duration (minutes) — feature 007. */
+    onDurationChange?: (id: string, minutes: number) => void;
     /** True while optimizing — list is shown but locked. */
     locked?: boolean;
 };
 
-export function StopList({ stops, onRemove, locked = false }: StopListProps) {
+export function StopList({
+    stops,
+    onRemove,
+    onDurationChange,
+    locked = false,
+}: StopListProps) {
     return (
         <div className="flex h-full flex-col gap-3">
             <ul
@@ -40,16 +49,40 @@ export function StopList({ stops, onRemove, locked = false }: StopListProps) {
                             </span>
                             {stop.lat.toFixed(5)}, {stop.lng.toFixed(5)}
                         </span>
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            className="hover:bg-primary hover:text-primary-foreground"
-                            aria-label={`Remove stop ${index + 1}`}
-                            disabled={locked}
-                            onClick={() => onRemove(stop.id)}
-                        >
-                            <Trash2 className="text-destructive" />
-                        </Button>
+                        <span className="flex items-center gap-2">
+                            <label className="flex items-center gap-1 text-xs text-muted-foreground">
+                                <Input
+                                    type="number"
+                                    min={0}
+                                    max={MAX_STOP_DURATION_MINUTES}
+                                    step={1}
+                                    value={stop.durationMinutes}
+                                    disabled={locked}
+                                    aria-label={`Delivery duration for stop ${index + 1} (minutes)`}
+                                    className="h-8 w-16"
+                                    onChange={(event) =>
+                                        onDurationChange?.(
+                                            stop.id,
+                                            Number.parseInt(
+                                                event.target.value,
+                                                10,
+                                            ),
+                                        )
+                                    }
+                                />
+                                min
+                            </label>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="hover:bg-primary hover:text-primary-foreground"
+                                aria-label={`Remove stop ${index + 1}`}
+                                disabled={locked}
+                                onClick={() => onRemove(stop.id)}
+                            >
+                                <Trash2 className="text-destructive" />
+                            </Button>
+                        </span>
                     </li>
                 ))}
             </ul>

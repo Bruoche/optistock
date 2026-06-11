@@ -4,8 +4,8 @@ import type { Stop } from '@/types/tour';
 import { StopList } from './stop-list';
 
 const STOPS: Stop[] = [
-    { id: 'a', lat: 48.1, lng: 2.1 },
-    { id: 'b', lat: 48.2, lng: 2.2 },
+    { id: 'a', lat: 48.1, lng: 2.1, durationMinutes: 10 },
+    { id: 'b', lat: 48.2, lng: 2.2, durationMinutes: 20 },
 ];
 
 const noop = () => {};
@@ -18,7 +18,9 @@ describe('StopList', () => {
 
     it('shows an empty hint with no stops', () => {
         render(<StopList stops={[]} onRemove={noop} />);
-        expect(screen.getByText(/click on the map to add stops/i)).toBeInTheDocument();
+        expect(
+            screen.getByText(/click on the map to add stops/i),
+        ).toBeInTheDocument();
     });
 
     it('removes the matching stop (FR-002 / FR-010)', () => {
@@ -35,5 +37,42 @@ describe('StopList', () => {
         const list = screen.getByRole('list');
         expect(list).toHaveAttribute('aria-disabled', 'true');
         expect(list.className).toContain('pointer-events-none');
+    });
+
+    it('shows a minutes input per row pre-filled with the stop duration (FR-001/FR-002)', () => {
+        render(<StopList stops={STOPS} onRemove={noop} />);
+
+        expect(
+            screen.getByLabelText(/delivery duration for stop 1/i),
+        ).toHaveValue(10);
+        expect(
+            screen.getByLabelText(/delivery duration for stop 2/i),
+        ).toHaveValue(20);
+    });
+
+    it('edits only the targeted stop duration (FR-003)', () => {
+        const onDurationChange = vi.fn();
+        render(
+            <StopList
+                stops={STOPS}
+                onRemove={noop}
+                onDurationChange={onDurationChange}
+            />,
+        );
+
+        fireEvent.change(
+            screen.getByLabelText(/delivery duration for stop 2/i),
+            {
+                target: { value: '25' },
+            },
+        );
+        expect(onDurationChange).toHaveBeenCalledWith('b', 25);
+    });
+
+    it('disables the duration input while locked (FR-012)', () => {
+        render(<StopList stops={STOPS} onRemove={noop} locked />);
+        expect(
+            screen.getByLabelText(/delivery duration for stop 1/i),
+        ).toBeDisabled();
     });
 });

@@ -8,11 +8,25 @@ import type { DeliveryMode, TourResult } from '@/types/tour';
 type ResultSummaryProps = {
     result: TourResult;
     /** Road-accurate metrics (feature 002); when present and non-null they override the initial estimate. */
-    roadMetrics?: { distance_m: number | null; duration_s: number | null } | null;
+    roadMetrics?: {
+        distance_m: number | null;
+        duration_s: number | null;
+    } | null;
+    /** Sum of the stops' delivery durations in seconds (feature 007). */
+    waitTimeS: number;
     /** The mode the shown tour was optimized with — drives the available-driver list. */
     mode: DeliveryMode;
     onReset: () => void;
 };
+
+function Figure({ label, value }: { label: string; value: string }) {
+    return (
+        <div>
+            <p className="text-xs tracking-wide uppercase">{label}</p>
+            <p className="text-lg font-semibold">{value}</p>
+        </div>
+    );
+}
 
 function formatDuration(totalSeconds: number | null): string {
     // 2-point tours have no metrics yet (pending the /route/ endpoint).
@@ -30,16 +44,30 @@ function formatDuration(totalSeconds: number | null): string {
     return `${minutes} min`;
 }
 
-export function ResultSummary({ result, roadMetrics, mode, onReset }: ResultSummaryProps) {
+export function ResultSummary({
+    result,
+    roadMetrics,
+    waitTimeS,
+    mode,
+    onReset,
+}: ResultSummaryProps) {
     // Prefer the road-accurate duration once available; otherwise the initial estimate.
     const durationS = roadMetrics?.duration_s ?? result.total_duration_s;
+    // Unavailable road time contributes 0 to the tour duration (FR-011).
+    const tourDurationS = (durationS ?? 0) + waitTimeS;
 
     return (
         <div className="flex h-full flex-col gap-3">
             <div className="flex items-center justify-between rounded-md bg-primary px-4 py-3 text-text-on-color">
-                <div>
-                    <p className="text-xs uppercase tracking-wide">Tour duration</p>
-                    <p className="text-lg font-semibold">{formatDuration(durationS)}</p>
+                <div className="flex gap-6">
+                    <Figure
+                        label="Time on road"
+                        value={formatDuration(durationS)}
+                    />
+                    <Figure
+                        label="Tour duration"
+                        value={formatDuration(tourDurationS)}
+                    />
                 </div>
                 <ActionButton onClick={onReset}>New tour</ActionButton>
             </div>

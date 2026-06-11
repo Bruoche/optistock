@@ -1,8 +1,9 @@
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read the current plan:
-`specs/006-driver-assignment/plan.md` (design artifacts: `research.md`,
-`data-model.md`, `contracts/driver-availability.md`, `quickstart.md`). Prior features:
+`specs/007-stop-duration/plan.md` (design artifacts: `research.md`,
+`data-model.md`, `contracts/optimize-wait-time.md`, `quickstart.md`). Prior features:
+`specs/006-driver-assignment/plan.md` (delivery driver assignment),
 `specs/005-header-theme-menu/plan.md` (header brand & theme menu),
 `specs/004-tour-loop-toggle/plan.md` (tour loop toggle),
 `specs/003-delivery-mode-selection/plan.md` (delivery mode selection),

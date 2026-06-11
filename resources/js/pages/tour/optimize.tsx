@@ -17,13 +17,23 @@ const MIN_STOPS = 2;
 
 export default function TourOptimize() {
     const userId = usePage().props.auth.user.id;
-    const { stops, addStop, removeStop, optimize, reset, state } = useTourOptimization(userId);
+    const {
+        stops,
+        addStop,
+        removeStop,
+        setStopDuration,
+        optimize,
+        reset,
+        state,
+        waitTimeS,
+    } = useTourOptimization(userId);
 
     // Defaults apply on first load and are retained across a reset (reset clears the tour, not these).
     const [mode, setMode] = useState<DeliveryMode>('trucking');
     const [loop, setLoop] = useState<boolean>(true);
 
-    const isPending = state.status === 'submitting' || state.status === 'pending';
+    const isPending =
+        state.status === 'submitting' || state.status === 'pending';
     const isDone = state.status === 'done';
     const canOptimize = stops.length >= MIN_STOPS && !isPending;
 
@@ -41,14 +51,29 @@ export default function TourOptimize() {
 
             <div className="flex min-h-0 flex-1 flex-col">
                 <div className="min-h-0 flex-[2] overflow-hidden">
-                    <TourMap stops={stops} onAddStop={addStop} addable={!isPending && !isDone}>
-                        {isDone && <RouteLayer path={geometry.routePath} closed={geometry.closed} />}
+                    <TourMap
+                        stops={stops}
+                        onAddStop={addStop}
+                        addable={!isPending && !isDone}
+                    >
+                        {isDone && (
+                            <RouteLayer
+                                path={geometry.routePath}
+                                closed={geometry.closed}
+                            />
+                        )}
                     </TourMap>
                 </div>
 
                 <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden border-t border-border p-4">
                     {isDone ? (
-                        <ResultSummary result={state.result} roadMetrics={geometry.metrics} mode={state.mode} onReset={reset} />
+                        <ResultSummary
+                            result={state.result}
+                            roadMetrics={geometry.metrics}
+                            waitTimeS={waitTimeS}
+                            mode={state.mode}
+                            onReset={reset}
+                        />
                     ) : (
                         <>
                             <TourControlBar
@@ -60,7 +85,12 @@ export default function TourOptimize() {
                                 canOptimize={canOptimize}
                                 optimizing={isPending}
                             />
-                            <StopList stops={stops} onRemove={removeStop} locked={isPending} />
+                            <StopList
+                                stops={stops}
+                                onRemove={removeStop}
+                                onDurationChange={setStopDuration}
+                                locked={isPending}
+                            />
                         </>
                     )}
                 </div>
