@@ -21,7 +21,9 @@ function primaryColor(): string {
         return PRIMARY_FALLBACK;
     }
 
-    const value = getComputedStyle(document.documentElement).getPropertyValue('--primary').trim();
+    const value = getComputedStyle(document.documentElement)
+        .getPropertyValue('--primary')
+        .trim();
 
     return value || PRIMARY_FALLBACK;
 }

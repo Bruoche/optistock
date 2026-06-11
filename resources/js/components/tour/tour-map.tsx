@@ -4,9 +4,12 @@
 import 'maplibre-gl/dist/maplibre-gl.css';
 
 import { useCallback } from 'react';
-import type { ReactNode } from 'react';
 import { Map, Marker } from 'react-map-gl/maplibre';
-import type { MapLayerMouseEvent, StyleSpecification } from 'react-map-gl/maplibre';
+import type { ReactNode } from 'react';
+import type {
+    MapLayerMouseEvent,
+    StyleSpecification,
+} from 'react-map-gl/maplibre';
 import type { Stop } from '@/types/tour';
 
 // Raster OSM style — no API token required.
@@ -32,7 +35,12 @@ type TourMapProps = {
     children?: ReactNode;
 };
 
-export function TourMap({ stops, onAddStop, addable = true, children }: TourMapProps) {
+export function TourMap({
+    stops,
+    onAddStop,
+    addable = true,
+    children,
+}: TourMapProps) {
     const handleClick = useCallback(
         (event: MapLayerMouseEvent) => {
             if (!addable || !onAddStop) {
@@ -47,14 +55,23 @@ export function TourMap({ stops, onAddStop, addable = true, children }: TourMapP
 
     return (
         <Map
-            initialViewState={{ longitude: 2.3522, latitude: 48.8566, zoom: 11 }}
+            initialViewState={{
+                longitude: 2.3522,
+                latitude: 48.8566,
+                zoom: 11,
+            }}
             mapStyle={OSM_STYLE}
             style={{ width: '100%', height: '100%' }}
             cursor={addable ? 'crosshair' : 'grab'}
             onClick={handleClick}
         >
             {stops.map((stop, index) => (
-                <Marker key={stop.id} longitude={stop.lng} latitude={stop.lat} anchor="bottom">
+                <Marker
+                    key={stop.id}
+                    longitude={stop.lng}
+                    latitude={stop.lat}
+                    anchor="bottom"
+                >
                     <span className="flex size-6 items-center justify-center rounded-full bg-primary text-xs font-semibold text-text-on-color shadow">
                         {index + 1}
                     </span>

@@ -29,15 +29,23 @@ export function TourControlBar({
     return (
         <div className="flex items-center justify-between rounded-md bg-primary px-4 py-3 text-text-on-color">
             <div>
-                <p className="text-xs uppercase tracking-wide">Options</p>
-				<div className="flex items-center gap-3">
-					<ModeSelect value={mode} onChange={onModeChange} disabled={optimizing} />
-					<LoopToggle value={loop} onChange={onLoopChange} disabled={optimizing} />
-	            </div>
-			</div>
-			<ActionButton onClick={onOptimize} disabled={!canOptimize}>
-				Optimize route
-			</ActionButton>
+                <p className="text-xs tracking-wide uppercase">Options</p>
+                <div className="flex items-center gap-3">
+                    <ModeSelect
+                        value={mode}
+                        onChange={onModeChange}
+                        disabled={optimizing}
+                    />
+                    <LoopToggle
+                        value={loop}
+                        onChange={onLoopChange}
+                        disabled={optimizing}
+                    />
+                </div>
+            </div>
+            <ActionButton onClick={onOptimize} disabled={!canOptimize}>
+                Optimize route
+            </ActionButton>
         </div>
     );
 }

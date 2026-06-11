@@ -43,6 +43,7 @@ class TourOptimizationService
         }
         $this->cache->markPending($jobUuid);
         OptimizeTourJob::dispatch($jobUuid, $userId, $coordinatesHash, $normalizedCoordinates, $mode, $loop);
+
         return TourOptimizationResult::pending($jobUuid);
     }
 

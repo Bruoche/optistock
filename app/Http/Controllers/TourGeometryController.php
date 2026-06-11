@@ -26,6 +26,7 @@ class TourGeometryController extends Controller
         $mode = $request->validated('mode') ?? config('services.openstreet.mode');
         // No loop in the request → default to a closed tour (trace the return leg).
         $loop = $request->boolean('loop', true);
+
         return response()->json($geometry->trace($stops, $mode, $loop));
     }
 }
