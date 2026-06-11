@@ -4,11 +4,17 @@ import type { ComponentProps } from 'react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
-export function ActionButton({ className, ...props }: ComponentProps<typeof Button>) {
+export function ActionButton({
+    className,
+    ...props
+}: ComponentProps<typeof Button>) {
     return (
         <Button
             variant="secondary"
-            className={cn('hover:bg-secondary-hover hover:text-secondary-foreground', className)}
+            className={cn(
+                'hover:bg-secondary-hover hover:text-secondary-foreground',
+                className,
+            )}
             {...props}
         />
     );

@@ -8,16 +8,24 @@ import { AppSidebar } from './app-sidebar';
 vi.mock('@inertiajs/react', () => ({
     usePage: () => ({
         props: {
-            auth: { user: { id: 1, name: 'Alice', email: 'alice@example.com' } },
+            auth: {
+                user: { id: 1, name: 'Alice', email: 'alice@example.com' },
+            },
             currentTeam: null,
             teams: [],
         },
     }),
-    Link: ({ children, ...props }: { children: ReactNode }) => <a {...props}>{children}</a>,
+    Link: ({ children, ...props }: { children: ReactNode }) => (
+        <a {...props}>{children}</a>
+    ),
 }));
 
 vi.mock('@/hooks/use-appearance', () => ({
-    useAppearance: () => ({ appearance: 'system', resolvedAppearance: 'light', updateAppearance: vi.fn() }),
+    useAppearance: () => ({
+        appearance: 'system',
+        resolvedAppearance: 'light',
+        updateAppearance: vi.fn(),
+    }),
 }));
 
 function renderSidebar() {
@@ -38,7 +46,9 @@ describe('AppSidebar', () => {
 
     it('keeps the account/user menu', () => {
         const { container } = renderSidebar();
-        expect(container.querySelector('[data-test="sidebar-menu-button"]')).not.toBeNull();
+        expect(
+            container.querySelector('[data-test="sidebar-menu-button"]'),
+        ).not.toBeNull();
     });
 
     it('shows the theme toggle', () => {
@@ -49,7 +59,9 @@ describe('AppSidebar', () => {
 
     it('removes the starter-kit nav, links, and team switcher', () => {
         const { container } = renderSidebar();
-        expect(container.querySelector('[data-test="team-switcher-trigger"]')).toBeNull();
+        expect(
+            container.querySelector('[data-test="team-switcher-trigger"]'),
+        ).toBeNull();
         expect(screen.queryByText('Dashboard')).not.toBeInTheDocument();
         expect(screen.queryByText('Repository')).not.toBeInTheDocument();
         expect(screen.queryByText('Documentation')).not.toBeInTheDocument();

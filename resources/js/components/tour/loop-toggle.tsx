@@ -8,7 +8,11 @@ type LoopToggleProps = {
     disabled?: boolean;
 };
 
-export function LoopToggle({ value, onChange, disabled = false }: LoopToggleProps) {
+export function LoopToggle({
+    value,
+    onChange,
+    disabled = false,
+}: LoopToggleProps) {
     return (
         <Toggle
             variant="outline"
