@@ -35,6 +35,8 @@ vi.mock('@/hooks/use-tour-optimization', () => ({
     }),
 }));
 
+// Imported after the vi.mock() calls so the mocks are registered first.
+// eslint-disable-next-line import/order
 import TourOptimize from './optimize';
 
 beforeAll(() => {

@@ -4,8 +4,8 @@
 import 'maplibre-gl/dist/maplibre-gl.css';
 
 import { useCallback } from 'react';
-import type { ReactNode } from 'react';
 import { Map, Marker } from 'react-map-gl/maplibre';
+import type { ReactNode } from 'react';
 import type {
     MapLayerMouseEvent,
     StyleSpecification,

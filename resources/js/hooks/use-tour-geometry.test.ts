@@ -1,7 +1,7 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { TourGeometry, TourResult } from '@/types/tour';
 import { useTourGeometry } from './use-tour-geometry';
+import type { TourGeometry, TourResult } from '@/types/tour';
 
 const RESULT: TourResult = {
     ordered_stops: [

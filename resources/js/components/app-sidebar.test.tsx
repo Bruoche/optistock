@@ -1,9 +1,9 @@
 import { render, screen } from '@testing-library/react';
-import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { SidebarProvider } from '@/components/ui/sidebar';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { AppSidebar } from './app-sidebar';
+import type { ReactNode } from 'react';
 
 vi.mock('@inertiajs/react', () => ({
     usePage: () => ({

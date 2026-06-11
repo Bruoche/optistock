@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import type { TourResult } from '@/types/tour';
 import { ResultSummary } from './result-summary';
+import type { TourResult } from '@/types/tour';
 
 const mockUseTourDrivers = vi.fn();
 
