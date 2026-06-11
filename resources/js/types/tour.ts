@@ -5,7 +5,10 @@
 export type DeliveryMode = 'trucking' | 'driving' | 'walking';
 
 /** The selectable modes in display order; trucking first (the default). */
-export const DELIVERY_MODES: ReadonlyArray<{ value: DeliveryMode; label: string }> = [
+export const DELIVERY_MODES: ReadonlyArray<{
+    value: DeliveryMode;
+    label: string;
+}> = [
     { value: 'trucking', label: 'Trucking' },
     { value: 'driving', label: 'Driving' },
     { value: 'walking', label: 'Walking' },
@@ -20,12 +23,20 @@ export type Driver = {
     modes: DeliveryMode[];
 };
 
+/** Default delivery duration (minutes) assigned to every new stop (feature 007). */
+export const DEFAULT_STOP_DURATION_MINUTES = 10;
+
+/** Per-stop ceiling (minutes, 24 h) — blocks absurd/overflow input (feature 007). */
+export const MAX_STOP_DURATION_MINUTES = 1440;
+
 /** A coordinate the planner placed on the map (client-side only). */
 export type Stop = {
     /** Client-generated id for list keys + removal. */
     id: string;
     lat: number;
     lng: number;
+    /** Minutes spent delivering at this stop (feature 007); default 10. */
+    durationMinutes: number;
 };
 
 /** One stop in the optimized order (from the backend `ordered_stops`). */
@@ -67,7 +78,12 @@ export type RoutePath = Array<{ lat: number; lng: number }>;
 /** Road geometry + metrics for a single leg, or a fallback marker when it failed.
  *  `coordinates` are `[lat, lng]` pairs (the backend's decoded polyline). */
 export type LegGeometry =
-    | { ok: true; coordinates: Array<[number, number]>; distance_m: number; duration_s: number }
+    | {
+          ok: true;
+          coordinates: Array<[number, number]>;
+          distance_m: number;
+          duration_s: number;
+      }
     | { ok: false };
 
 /** Aggregated road geometry for the whole closed tour (response of /api/tour/geometry). */
