@@ -1,6 +1,6 @@
 # Quickstart: Per-Stop Delivery Duration & Tour Duration Total
 
-Manual verification of the feature end to end.
+Manual verification of the feature end to end. **Frontend-only** — no backend behavior changes.
 
 ## Prerequisites
 
@@ -32,14 +32,19 @@ Manual verification of the feature end to end.
 3. **Expect immediately**: Time on road = "Unavailable", **Tour duration = 25 min** (`0 + 15 + 10`).
 4. When the road trace responds (e.g. 20 min): Time on road = 20 min, **Tour duration = 45 min**.
 
-## 4 — Duration edits don't re-hit the upstream API (CR-4)
+## 4 — Durations never touch the backend / cache
 
 1. Optimize a route; note it completes.
 2. Reset, re-add the **same** coordinates but change only the durations, optimize again.
-3. **Expect**: the route result returns from cache fast (no multi-minute wait), but **Tour duration**
-   reflects the **new** durations (fresh `wait_time`).
+3. **Expect**: identical optimize behavior to today (route from cache, fast), and **Tour duration** reflects
+   the **new** durations — because the total is computed in the browser, not by the server.
+4. (Optional) Open the network tab on **Optimize**: the request body is `{ coordinates, mode, loop }` with
+   **no** `durations`, and the response carries **no** `wait_time_s`.
 
-## 5 — Validation (robustness)
+## 5 — Client input coercion (robustness)
 
-- A `durations` array whose length ≠ coordinates, or a negative / non-integer / > 1440 value, → `422`
-  (exercise via the network tab or a direct request); the UI keeps a valid value rather than breaking.
+- Clear a duration field, or type a negative / non-integer / very large value:
+  - empty / non-numeric / negative → **0**
+  - non-integer → floored
+  - greater than 1440 → clamped to **1440**
+- The field always shows a valid number and the totals never read `NaN` or a negative value.

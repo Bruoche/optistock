@@ -1,77 +1,73 @@
 # Research: Per-Stop Delivery Duration & Tour Duration Total
 
-## R1 — Where `wait_time` is computed (and the caching trap)
+## R1 — Where the stop total is computed
 
-**Decision**: Compute `wait_time` **in the optimize controller**, synchronously, from the request's
-`durations` array (`wait_time_s = sum(durations_minutes) * 60`), and return it as a **sibling of the
-response** (alongside `data` / `job_uuid`) — **never inside the cached tour body and never part of the
-optimize cache key**. Durations are **not** sent to the OpenStreet API.
+**Decision**: Compute the stop total **entirely on the frontend**: `waitTimeS = Σ(durationMinutes) × 60`,
+derived in `useTourOptimization` from its `stops`. Durations **never leave the browser** — the optimize
+request, its response, the queue job, the broadcast, the status endpoint, and `TourCache` are all unchanged.
 
-**Rationale**: The expensive, cached, deduplicated thing is the TSP optimization, keyed by
-`(mode, loop, coordinatesHash)` (see `TourOptimizationService` + `TourCache`). `wait_time` is a trivial
-order-independent sum that does not affect routing at all. If durations entered the cache key, editing a
-single stop's minutes would re-fire a multi-minute upstream OpenStreet call for an identical route —
-violating Performance-with-Clarity and the existing dedup design. Computing it in the controller from the
-live request means a cache **hit** still returns a fresh, correct `wait_time` for the durations just sent,
-with zero upstream cost. This honors the user's directive ("a new field in the response `wait_time`") while
-keeping the heavy path untouched.
-
-**Alternatives considered**:
-- *Put `wait_time` inside the cached tour / TSP cache key*: pollutes the cache, re-triggers upstream calls on
-  pure duration edits. Rejected (perf + dedup regression).
-- *Compute `wait_time` purely on the frontend* (it already holds the stops): viable and even simpler, but the
-  user explicitly wants the value returned by the backend (single authoritative figure + server-side duration
-  validation). Followed the user's design; frontend still owns the final `delivery + wait` display sum.
-- *Thread durations → job → broadcast → frontend*: the job has no use for durations (not sent upstream), and
-  the async result path (broadcast/poll) would need a new field. Unnecessary — see R2.
-
-## R2 — Delivering `wait_time` to the frontend in both sync and async paths
-
-**Decision**: Return `wait_time_s` in the **immediate** optimize response (200 *and* 202). The frontend
-**carries it through the `OptimizeState` machine** (submitting → pending → done) exactly the way `mode` and
-`loop` are already carried — via state + a ref so an async result settled from a broadcast/poll still has it.
-The `TourOptimized` broadcast, the status-poll endpoint, and `TourCache` are **left unchanged**.
-
-**Rationale**: `mode` and `loop` set the precedent: request-time values that the result must stay congruent
-with are snapshotted client-side, not round-tripped through the queue. `wait_time_s` is the same kind of
-value (known at request time, independent of the async TSP compute). This keeps the change off the job /
-cache / broadcast surface entirely — the minimal, lowest-risk footprint.
+**Rationale**: The stop total is a trivial, order-independent sum of values the client already owns. The
+earlier design sent a `durations` array to `POST /api/tour/optimize` so the controller could return
+`wait_time_s = sum × 60` as a response sibling. But the backend made **no other use** of those durations: they
+were not sent to the OpenStreet TSP API and were deliberately kept out of the optimize cache key — the server
+received them only to echo their sum straight back. That round-trip bought nothing and cost a request field, a
+response field, server-side validation, a documented cache caveat, and `OptimizeState` plumbing to carry the
+echoed value through submit→pending→done. Computing the sum where the data already lives removes all of it.
+The expensive, cached, deduplicated TSP result stays keyed by `(mode, loop, coordinatesHash)` and is now
+**structurally** unreachable by a duration edit — not by a careful caching decision, but because durations
+never reach the backend at all.
 
 **Alternatives considered**:
-- *Add `wait_time_s` to the broadcast + status payloads*: needs job-side plumbing for a value the job never
-  uses; larger blast radius. Rejected.
+- *Backend computes `wait_time` from a `durations` request field* (the previous design): adds request/response
+  fields, validation, a cache caveat, and state-carry for a value the client can compute itself. Rejected as
+  unnecessary complexity — the trigger for this rework.
+- *Put `wait_time` inside the cached tour / TSP cache key*: would re-fire a multi-minute upstream call on a
+  pure duration edit. Rejected long ago; now moot (durations never reach the cache).
 
-## R3 — Request shape for durations
+## R2 — Delivering the stop total to the result view
 
-**Decision**: Add an optional `durations` array to `POST /api/tour/optimize`: one non-negative integer
-(minutes) per coordinate, aligned by index. Validation: `durations` array; size equals `coordinates` size
-when present; `durations.*` integer `min:0`, `max:1440`. When **absent**, the server defaults every stop to
-**10** minutes (the feature default), so older/edge callers still get a sensible `wait_time`.
+**Decision**: Derive `waitTimeS` live from `stops` and pass it from the page into `ResultSummary`. **No**
+`OptimizeState` field, **no** ref snapshot.
 
-**Rationale**: A parallel `durations` array leaves the existing strict `coordinates` rules (the `[lat,lng]`
-pair shape, ranges) completely untouched — lower risk than widening coordinates to `[lat,lng,duration]`
-triples. Order-alignment does not matter for the **sum**, but one-per-stop alignment keeps the contract
-self-describing and lets validation reject mismatched payloads. `max:1440` (24 h/stop) is a sane ceiling that
-blocks absurd/overflow input without constraining realistic deliveries (the spec sets no hard cap, only
-"format correctly").
+**Rationale**: `mode` and `loop` are snapshotted into `OptimizeState` (state + ref) because they are call-time
+arguments to `optimize()` that the persistent UI does not otherwise hold once a result settles asynchronously.
+Stop durations are different: they are persistent `stops` state owned by the hook, and they are **frozen**
+between submit and `done` — the stop list is locked (non-interactive) while optimizing, and on `done`
+`ResultSummary` replaces `StopList`, so no edit is possible in between. Therefore `Σ durationMinutes` at render
+time always equals the durations the tour was optimized with; deriving it live is correct and strictly simpler
+than carrying a snapshot through the state machine.
 
 **Alternatives considered**:
-- *Coordinates as `[lat,lng,duration]` triples*: fewer arrays, but rewrites the well-tested coordinate
-  validation and the `coordinates.map` on the client. Rejected for blast radius.
-- *Require `durations` (not optional)*: marginally tighter, but the optional+default form is more robust and
-  matches the "default 10" semantics natively. Chose optional-with-default.
+- *Carry `waitTimeS` in `OptimizeState` like `mode`/`loop`*: defensible by analogy, but adds a field to three
+  state variants and a ref for a value that is already derivable from frozen state. Rejected as redundant.
+
+## R3 — Where durations live and their default
+
+**Decision**: Add `durationMinutes` to the client `Stop` view model, defaulted to a frontend constant
+`DEFAULT_STOP_DURATION_MINUTES = 10` assigned in `addStop`. A `MAX_STOP_DURATION_MINUTES = 1440` constant
+bounds input.
+
+**Rationale**: Durations are transient UI state on the stop the planner is editing; the `Stop` view model is
+their natural home. The default and the ceiling are frontend constants because the backend has no use for
+either — keeping them as a server config value (as an earlier commit did) would split ownership of a purely
+client concern across the wire for no benefit. `1440` (24 h/stop) blocks absurd/overflow input without
+constraining realistic deliveries.
+
+**Alternatives considered**:
+- *Default sourced from server config, passed as an Inertia prop*: keeps a single server-authoritative default,
+  but reintroduces a backend dependency for a frontend-only feature. Rejected — front owns it end to end.
 
 ## R4 — Unit and "delivery unavailable = 0"
 
-**Decision**: `wait_time_s` is in **seconds** (minutes × 60) so it adds directly to the existing
-second-based `total_duration_s` / road `duration_s`. The displayed **Tour duration** =
-`(delivery_s ?? 0) + wait_time_s`; a null/unavailable delivery time contributes **0** (never makes the total
-unavailable). The existing **Time on road** keeps its current `null → "Unavailable"` rendering.
+**Decision**: `waitTimeS` is in **seconds** (minutes × 60) so it adds directly to the existing second-based
+`total_duration_s` / road `duration_s`. The displayed **Tour duration** = `(deliveryS ?? 0) + waitTimeS`; a
+null/unavailable delivery time contributes **0** (never makes the total unavailable). The existing **Time on
+road** keeps its current `null → "Unavailable"` rendering.
 
-**Rationale**: Working in one unit (seconds) end-to-end means the frontend reuses the existing
-`formatDuration(seconds)` helper for both figures — no new formatting path. Coercing a null delivery to 0
-exactly reproduces the user's worked example (2-point, 15 + 10 min ⇒ 25 min before legs; ⇒ 45 min once the
-20-min trace arrives) and satisfies FR-011.
+**Rationale**: Working in one unit (seconds) end-to-end means `ResultSummary` reuses its local
+`formatDuration(seconds)` for both figures — no new formatting path. Coercing a null delivery to 0 reproduces
+the worked example (2-point, 15 + 10 min ⇒ 25 min before legs; ⇒ 45 min once the 20-min trace arrives) and
+satisfies FR-011.
 
 ## R5 — Where durations are edited in the UX
 
@@ -82,5 +78,5 @@ fixed once a tour is `done`.
 
 **Rationale**: `ResultSummary` already replaces `StopList` on `done`, and `mode`/`loop` are likewise immutable
 post-optimization — you reset to change them. Treating durations the same keeps one consistent interaction
-model. The only live post-`done` recalculation is travel time (road metrics overriding the estimate), which
-FR-008 is satisfied by.
+model and is what makes the live-derive in R2 safe. The only live post-`done` recalculation is travel time
+(road metrics overriding the estimate), which FR-008 is satisfied by.

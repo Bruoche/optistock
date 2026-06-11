@@ -1,73 +1,44 @@
-# Contract: Optimize request/response with stop durations & `wait_time`
+# Contract: Stop durations & the two duration figures (frontend-only)
 
-Extends the feature-001 optimize contract. Only the **deltas** are listed; everything else is unchanged.
+This feature is **frontend-only**. There is **no API change**. The contracts below are the frontend UI
+contracts the feature adds.
 
-## `POST /api/tour/optimize` (auth, throttle:tour-optimize)
+## `POST /api/tour/optimize` — UNCHANGED
 
-### Request (delta)
+No request or response delta. The body remains `{ coordinates, mode?, loop? }`; the response remains the
+feature-001 shape (200 `{status,data}` / 202 `{status,job_uuid}`). Durations are **not** sent and **no**
+`wait_time_s` is returned. The status endpoint, `TourOptimized` broadcast, geometry endpoint, and `TourCache`
+are likewise unchanged.
 
-```jsonc
-{
-  "coordinates": [[48.85, 2.35], [48.86, 2.34]],   // unchanged: 2–10 [lat,lng] pairs
-  "mode": "trucking",                               // unchanged (optional)
-  "loop": true,                                     // unchanged (optional)
-  "durations": [15, 10]                             // NEW (optional): minutes per coordinate, aligned by index
-}
-```
-
-- `durations`: optional array. When present, its size MUST equal `coordinates` size.
-- `durations.*`: `integer`, `min:0`, `max:1440` (minutes).
-- When omitted → server defaults each stop to **10** minutes.
-- `durations` is **not** forwarded to the OpenStreet API and **not** part of the optimize cache key.
-
-### Response (delta)
-
-`wait_time_s` (integer seconds = `sum(durations) * 60`) is added as a **sibling** of the existing body,
-computed from the request on every call (cache hit or miss).
-
-**200 — cache hit / trivial tour**
-```jsonc
-{
-  "status": "done",
-  "data": { "ordered_stops": [...], "total_distance_m": null, "total_duration_s": null },
-  "wait_time_s": 1500
-}
-```
-
-**202 — queued**
-```jsonc
-{
-  "status": "pending",
-  "job_uuid": "…",
-  "wait_time_s": 1500
-}
-```
-
-- **422**: `durations` size mismatch with `coordinates`, or a `durations.*` not an integer / negative / > 1440.
-- **401 / 429**: unchanged.
-
-### Unchanged
-
-- `GET /api/tour/status/{job_uuid}` — **no** `wait_time_s`; the frontend already holds it from the 202.
-- `TourOptimized` broadcast — unchanged (carries `data` only).
-- `POST /api/tour/geometry` — unchanged (durations are irrelevant to road geometry).
+The stop total (`waitTimeS`) is computed in the browser from the stops' `durationMinutes` and used only for
+display — see below.
 
 ## Frontend display contract (`ResultSummary`)
 
-Two figures, both formatted by the existing `formatDuration(seconds)`:
+Accepts a new `waitTimeS: number` (seconds) prop. Two figures, both formatted by the component's local
+`formatDuration(seconds)`:
 
-| Label          | Value                                   | Null/unavailable handling                          |
-| -------------- | --------------------------------------- | -------------------------------------------------- |
-| **Time on road** | `roadMetrics?.duration_s ?? result.total_duration_s` | `null` → "Unavailable" (existing behavior) |
-| **Tour duration** | `(deliveryS ?? 0) + waitTimeS`         | never unavailable; ≥ `waitTimeS`                   |
+| Label             | Value                                                | Null/unavailable handling                          |
+| ----------------- | ---------------------------------------------------- | -------------------------------------------------- |
+| **Time on road**  | `roadMetrics?.duration_s ?? result.total_duration_s` | `null` → "Unavailable" (existing behavior)         |
+| **Tour duration** | `(deliveryS ?? 0) + waitTimeS`                       | never unavailable; ≥ `waitTimeS`                   |
 
-Worked example (matches the spec): 2-point tour, durations `[15, 10]` ⇒ `wait_time_s = 1500`.
+Worked example (matches the spec): 2-point tour, durations `[15, 10]` ⇒ `waitTimeS = 1500`.
 - Before legs respond: Time on road = "Unavailable", Tour duration = `0 + 1500` = **25 min**.
 - After trace responds with 1200 s: Time on road = **20 min**, Tour duration = `1200 + 1500` = **45 min**.
 
 ## Stop list input contract (`StopList`)
 
-- Each stop row shows a numeric **minutes** input, defaulting to `10` for newly added stops.
-- Editing one stop's value updates only that stop (`onDurationChange(id, minutes)`); other stops and their
-  values are unaffected.
+- Each stop row shows a numeric **minutes** input, defaulting to `DEFAULT_STOP_DURATION_MINUTES` (10) for newly
+  added stops.
+- Editing one stop's value calls `onDurationChange(id, minutes)` and updates only that stop; other stops and
+  their values are unaffected.
+- Input is coerced to a valid value: empty/non-numeric/negative → `0`, non-integers floored, values > 1440
+  clamped to 1440 (CR-2). The field always shows a valid number — never `NaN`/negative.
 - Locked (greyed, non-interactive) while a tour is optimizing, like the rest of the list.
+
+## Hook contract (`useTourOptimization`)
+
+- `addStop` assigns `durationMinutes: DEFAULT_STOP_DURATION_MINUTES`.
+- Adds `setStopDuration(id, minutes)` applying the CR-2 coercion to the matching stop only.
+- Exposes a derived `waitTimeS = Σ(durationMinutes) * 60` (seconds). The optimize POST body is unchanged.

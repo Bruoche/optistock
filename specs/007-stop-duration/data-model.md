@@ -1,48 +1,45 @@
 # Data Model: Per-Stop Delivery Duration & Tour Duration Total
 
-No database tables, migrations, or persisted entities. Durations are transient request/UI data; `wait_time`
-is a derived response value. This feature touches only the request payload, a response field, and frontend
-view models.
+No database tables, migrations, or persisted entities. No request or response payload changes either —
+durations are **transient client UI state** and the stop total is **derived on the frontend**. This feature
+touches only frontend view models.
 
-## Transient / request entities
+## Transient / client entities
 
 ### Stop (client-side, extended)
 
 ```ts
 // resources/js/types/tour.ts
+export const DEFAULT_STOP_DURATION_MINUTES = 10;
+export const MAX_STOP_DURATION_MINUTES = 1440; // 24 h ceiling, blocks absurd/overflow input
+
 export type Stop = {
-    id: string;             // client-generated (unchanged)
-    lat: number;            // unchanged
-    lng: number;            // unchanged
+    id: string;              // client-generated (unchanged)
+    lat: number;             // unchanged
+    lng: number;             // unchanged
     durationMinutes: number; // NEW — minutes spent delivering at this stop; default 10
 };
 ```
 
-- **Default**: `durationMinutes = 10` is assigned in `addStop` for every new stop.
-- **Validation (client)**: kept a non-negative whole number; empty/invalid input coerces to a valid value
-  (see CR-2). Integer minutes only.
+- **Default**: `durationMinutes = DEFAULT_STOP_DURATION_MINUTES` is assigned in `addStop` for every new stop.
+- **Validation (client)**: kept a non-negative whole number in `0..MAX_STOP_DURATION_MINUTES`; empty/invalid
+  input coerces to a valid value (see CR-2). Integer minutes only.
 
-### Optimize request `durations` (new field)
+### Optimize request / response — UNCHANGED
 
-`POST /api/tour/optimize` gains an optional `durations` array, parallel to `coordinates`:
+`POST /api/tour/optimize` gains **no** `durations` request field and returns **no** `wait_time_s` response
+field. The job, `TourOptimized` broadcast, status endpoint, and `TourCache` are likewise unchanged. Durations
+never reach the backend.
 
-| Field          | Type                | Rules                                                              |
-| -------------- | ------------------- | ------------------------------------------------------------------ |
-| `durations`    | array of int        | optional; when present, `size` == `coordinates` size               |
-| `durations.*`  | int (minutes)       | `integer`, `min:0`, `max:1440`                                     |
+## Derived values (frontend)
 
-- When `durations` is **omitted**, the server defaults every stop to **10** minutes.
-- Durations are **not** forwarded to the OpenStreet API and are **not** part of the optimize cache key.
+### `waitTimeS` (derived in the hook)
 
-## Derived value
+- `waitTimeS = Σ(stop.durationMinutes) * 60` (seconds), computed from `useTourOptimization`'s `stops`.
+- Exposed from the hook; recomputed on render. Not stored in `OptimizeState`, not snapshotted (stops are frozen
+  between submit and `done` — see research R2).
 
-### `wait_time_s` (response field)
-
-- `wait_time_s = sum(durations_in_minutes) * 60` (seconds).
-- Computed in `TourOptimizationController` from the request `durations` on **every** call (cache hit or miss).
-- Returned as a sibling of `data` (200) / `job_uuid` (202); never nested in the cached tour body.
-
-### `tourDurationS` (frontend, displayed)
+### `tourDurationS` (displayed in `ResultSummary`)
 
 - `tourDurationS = (deliveryS ?? 0) + waitTimeS`
 - `deliveryS = roadMetrics?.duration_s ?? result.total_duration_s` (the existing value, now labeled
@@ -50,27 +47,26 @@ export type Stop = {
 
 ## Frontend view-model changes
 
+`OptimizeState` is **unchanged** — `waitTimeS` is derived from `stops`, not carried through the state machine:
+
 ```ts
-// OptimizeState carries waitTimeS alongside mode/loop (snapshotted at request time):
 type OptimizeState =
     | { status: 'idle' }
-    | { status: 'submitting'; mode: DeliveryMode; loop: boolean; waitTimeS: number }
-    | { status: 'pending'; jobUuid: string; mode: DeliveryMode; loop: boolean; waitTimeS: number }
-    | { status: 'done'; result: TourResult; mode: DeliveryMode; loop: boolean; waitTimeS: number }
+    | { status: 'submitting'; mode: DeliveryMode; loop: boolean }
+    | { status: 'pending'; jobUuid: string; mode: DeliveryMode; loop: boolean }
+    | { status: 'done'; result: TourResult; mode: DeliveryMode; loop: boolean }
     | { status: 'failed'; error: TourError };
 ```
 
-`TourResult` is **unchanged** — `wait_time_s` rides as a response sibling and is carried in `OptimizeState`,
-not embedded in the (cacheable) tour body.
+`TourResult` is **unchanged** — the stop total is a client-derived display value, never part of the (cacheable)
+tour body.
 
 ## Constraints / business rules
 
-- **CR-1**: `wait_time_s` MUST equal the exact sum of the submitted stop durations (in seconds), independent
-  of optimized stop order. Tested for cache-miss and cache-hit paths.
+- **CR-1**: `waitTimeS` MUST equal the exact sum of the stops' durations (in seconds), independent of the
+  optimized stop order.
 - **CR-2**: A stop duration MUST be a non-negative whole number of minutes (0–1440); empty/non-numeric/negative
-  client input coerces to **0** (non-integers floored), and the server returns `422` on out-of-rule payloads,
-  so the totals can never become `NaN` or negative.
-- **CR-3**: `Tour duration` MUST equal `Time on road` + `wait_time` for every tour, treating an unavailable
+  client input coerces to **0** (non-integers floored, values > 1440 clamped to 1440), so the totals can never
+  become `NaN` or negative.
+- **CR-3**: `Tour duration` MUST equal `Time on road` + `waitTimeS` for every tour, treating an unavailable
   `Time on road` as 0.
-- **CR-4**: Editing a stop's duration MUST NOT change the optimize cache key (no re-fire of the upstream TSP
-  call for an otherwise identical route).
