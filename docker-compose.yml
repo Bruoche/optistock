@@ -1,0 +1,151 @@
+# Single-stack deployment: one `docker compose up` brings up the whole app (FR-001).
+# Bring-up order is enforced by conditions (CR-3): database healthy -> backend(init)
+# completed -> serve/queue/websocket -> web. Only `web` publishes a host port (C-2).
+# Secrets are file-backed and injected via *_FILE paths only — no literal secret in
+# this file (C-4/CR-2). Non-secret config comes from .env.production (env_file), which
+# is also the recommended --env-file for ${...} interpolation below.
+
+services:
+  database:
+    image: postgres:18
+    environment:
+      POSTGRES_DB: ${DB_DATABASE:-optistock}
+      POSTGRES_USER: ${DB_USERNAME:-optistock}
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password   # native *_FILE (R5)
+    secrets:
+      - db_password
+    volumes:
+      - pgdata:/var/lib/postgresql/data                  # the only durable volume (CR-4)
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+  backend:                                               # build target init — run once
+    build:
+      context: .
+      target: init
+    env_file: [.env.production]
+    secrets:
+      - app_key
+      - db_password
+      - openstreet_api_key
+      - reverb_app_secret
+    environment:                                         # *_FILE point at mounted secrets
+      APP_KEY_FILE: /run/secrets/app_key
+      DB_PASSWORD_FILE: /run/secrets/db_password
+      OPENSTREET_API_KEY_FILE: /run/secrets/openstreet_api_key
+      REVERB_APP_SECRET_FILE: /run/secrets/reverb_app_secret
+    depends_on:
+      database:
+        condition: service_healthy                       # FR-009
+    restart: "no"                                        # one-shot (CR-3)
+
+  serve:                                                 # build target fpm
+    build:
+      context: .
+      target: fpm
+    env_file: [.env.production]
+    secrets:
+      - app_key
+      - db_password
+      - openstreet_api_key
+      - reverb_app_secret
+    environment:
+      APP_KEY_FILE: /run/secrets/app_key
+      DB_PASSWORD_FILE: /run/secrets/db_password
+      OPENSTREET_API_KEY_FILE: /run/secrets/openstreet_api_key
+      REVERB_APP_SECRET_FILE: /run/secrets/reverb_app_secret
+    depends_on:
+      backend:
+        condition: service_completed_successfully        # CR-3
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/healthcheck.sh", "fpm"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    restart: unless-stopped
+
+  queue:                                                 # build target queue
+    build:
+      context: .
+      target: queue
+    env_file: [.env.production]
+    secrets:
+      - app_key
+      - db_password
+      - openstreet_api_key
+      - reverb_app_secret
+    environment:
+      APP_KEY_FILE: /run/secrets/app_key
+      DB_PASSWORD_FILE: /run/secrets/db_password
+      OPENSTREET_API_KEY_FILE: /run/secrets/openstreet_api_key
+      REVERB_APP_SECRET_FILE: /run/secrets/reverb_app_secret
+    depends_on:
+      backend:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/healthcheck.sh", "queue"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    restart: unless-stopped
+
+  websocket:                                             # build target reverb
+    build:
+      context: .
+      target: reverb
+    env_file: [.env.production]
+    secrets:
+      - app_key
+      - db_password
+      - reverb_app_secret
+    environment:
+      APP_KEY_FILE: /run/secrets/app_key
+      DB_PASSWORD_FILE: /run/secrets/db_password
+      REVERB_APP_SECRET_FILE: /run/secrets/reverb_app_secret
+    depends_on:
+      backend:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/healthcheck.sh", "reverb"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    restart: unless-stopped
+
+  web:                                                   # build docker/nginx — single ingress
+    build:
+      context: .
+      dockerfile: docker/nginx/Dockerfile
+      args:
+        VITE_REVERB_APP_KEY: ${REVERB_APP_KEY:-optistock-key}
+    ports:
+      - "${HTTP_PORT:-8080}:80"                           # the only published port (C-2)
+    depends_on:
+      serve:
+        condition: service_healthy
+      websocket:
+        condition: service_started                        # not healthy — avoids cyclic wait
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1/up"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    restart: unless-stopped
+
+secrets:
+  app_key:            { file: ./docker/secrets/app_key }
+  db_password:        { file: ./docker/secrets/db_password }
+  openstreet_api_key: { file: ./docker/secrets/openstreet_api_key }
+  reverb_app_secret:  { file: ./docker/secrets/reverb_app_secret }
+
+volumes:
+  pgdata:

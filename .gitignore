@@ -15,6 +15,8 @@
 .env
 .env.backup
 .env.production
+/docker/secrets/*
+!/docker/secrets/*.example
 .phpactor.json
 .phpunit.result.cache
 Homestead.json
