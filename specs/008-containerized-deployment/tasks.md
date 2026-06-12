@@ -11,8 +11,9 @@ description: "Task list for Containerized Deployment with a Single Compose Stack
 **Tests**: This is infrastructure — no application unit tests are added. Verification is the `quickstart.md`
 walkthrough plus the compose healthchecks (each user story below ends with a concrete verification task).
 
-**Scope**: New deployment files only — **no application source changes**. `pgsql` is already supported by
-`config/database.php`, so switching engines is configuration (`DB_CONNECTION=pgsql`).
+**Scope**: New deployment files, plus **one small front-end change** — `resources/js/lib/echo.ts` gains a
+same-origin websocket fallback so the container image carries no per-environment host (F1). `pgsql` is already
+supported by `config/database.php`, so switching engines is configuration (`DB_CONNECTION=pgsql`).
 
 **Organization**: Four user stories — US1 (one-command bring-up, P1, MVP), US2 (data/schema persistence, P2),
 US3 (env config + secret hygiene, P3), US4 (background + realtime across containers, P3). Most build work is a
@@ -44,15 +45,15 @@ Repo root holds `Dockerfile`, `docker-compose.yml`, `.dockerignore`; supporting 
 **Purpose**: The buildable images + entrypoint + nginx config every service depends on. **Blocks all user
 stories.** Pinned bases only (CR-1); UBI-clean, layer-ordered (D7); secrets never enter the build (CR-2).
 
-- [ ] T004 Create the multi-stage `Dockerfile` `vendor` stage (`FROM composer:2.8`): add `$PHPIZE_DEPS` + `postgresql-dev` (build-only), `COPY composer.json composer.lock` **before** source, `composer install --no-dev --prefer-dist --no-scripts --no-progress --optimize-autoloader`, then `COPY . .` + `composer dump-autoload --optimize --classmap-authoritative` (contracts/images.md I-5, D7).
+- [ ] T004 Create the multi-stage `Dockerfile` `vendor` stage (`FROM composer:2.8`): **no DB build tools** (composer `--no-scripts` doesn't need `pdo_pgsql`), `COPY composer.json composer.lock` **before** source, `composer install --no-dev --prefer-dist --no-scripts --no-progress --optimize-autoloader`, then `COPY . .` + `composer dump-autoload --optimize --classmap-authoritative` (contracts/images.md I-5, D7).
 - [ ] T005 Add the `Dockerfile` `assets` stage (`FROM node:22-alpine`): `ARG VITE_REVERB_APP_KEY` (public only), `COPY package.json package-lock.json` before source, `npm ci`, `COPY . .`, `npm run build` → `public/build` (I-2).
-- [ ] T006 Add the `Dockerfile` `runtime` stage (`FROM php:8.4.22-alpine`): install **runtime** libpq + compiled `pdo_pgsql`, opcache (`validate_timestamps=0`); create a non-root user; `COPY --from=vendor` the vendor + app code and `COPY --from=assets` the built `public/build`; set `ENTRYPOINT` to `entrypoint.sh`; `USER` non-root. No build toolchain shipped (I-3, I-4, R7).
-- [ ] T007 Add the four `Dockerfile` final targets extending `runtime`: `fpm` (`EXPOSE 9000`, `CMD php-fpm -F`, HEALTHCHECK fpm ping), `queue` (`CMD php artisan queue:work --queue=default,broadcasts --tries=1 --timeout=1320`), `reverb` (`EXPOSE 8080`, `CMD php artisan reverb:start --host=0.0.0.0 --port=8080`), `init` (`CMD` migrate `--force` + `config/route/event/view:cache` + `storage:link`) (I-1, I-6, D1, D2).
-- [ ] T008 [P] Create `docker/php/entrypoint.sh`: `*_FILE` → env shim for `APP_KEY_FILE`/`DB_PASSWORD_FILE`/`OPENSTREET_API_KEY_FILE`/`REVERB_APP_SECRET_FILE` (read file, export var, `unset` the `_FILE`); assert required vars non-empty and **fail fast naming the missing one**; `exec "$@"` as PID 1; never log secret values (contracts/images.md E-1..E-4, D4, D6, FR-015).
+- [ ] T006 Add the `Dockerfile` `ext` stage (`FROM php:8.4.22-alpine` — **same base as runtime** so the ABI matches, F3): `apk add --virtual .build-deps $PHPIZE_DEPS postgresql-dev`, `docker-php-ext-install pdo_pgsql`. Then the `runtime` stage (`FROM php:8.4.22-alpine`): `apk add --no-cache libpq` (runtime lib only), `COPY --from=ext` the `pdo_pgsql.so` + enable it, opcache (`validate_timestamps=0`); create a non-root user; `COPY --from=vendor` the vendor + app code and `COPY --from=assets` the built `public/build`; set `ENTRYPOINT` to `entrypoint.sh`; `USER` non-root. No build toolchain shipped (I-3, I-4, R7).
+- [ ] T007 Add the four `Dockerfile` final targets extending `runtime`: `fpm` (`EXPOSE 9000`, `CMD php-fpm -F`, HEALTHCHECK fpm ping), `queue` (`CMD php artisan queue:work --queue=default,broadcasts --tries=1 --timeout=1320`), `reverb` (`EXPOSE 8080`, `CMD php artisan reverb:start --host=0.0.0.0 --port=8080`), `init` (`CMD php artisan migrate --force` **only** — caches are NOT warmed here, see F2/T008) (I-1, I-6, D1, D2).
+- [ ] T008 [P] Create `docker/php/entrypoint.sh`: `*_FILE` → env shim for `APP_KEY_FILE`/`DB_PASSWORD_FILE`/`OPENSTREET_API_KEY_FILE`/`REVERB_APP_SECRET_FILE` (read file, export var, `unset` the `_FILE`); assert required vars non-empty and **fail fast naming the missing one**; **then warm this container's own caches** (`config:cache`, `route:cache`, `event:cache`, `view:cache`, `storage:link` — F2/E-5; the `init` role may skip them) so the serving containers are cached on their own fs; `exec "$@"` as PID 1; never log secret values (contracts/images.md E-1..E-5, D4, D6, FR-015).
 - [ ] T009 [P] Create `docker/php/healthcheck.sh` taking a role arg: `fpm` → php-fpm ping on `:9000`, `reverb` → TCP connect `:8080`, `queue` → worker-process liveness (R7, FR-013).
 - [ ] T010 [P] Create `docker/php/php.ini` + `docker/php/opcache.ini` with production settings (opcache enabled, `validate_timestamps=0`, sane memory/limits) referenced by the `runtime` stage (R7).
 - [ ] T011 [P] Create `docker/nginx/Dockerfile` (`FROM nginx:1.31-trixie-perl`): copy built `public/` (from the `assets` stage/context) to the web root and `default.conf`; `HEALTHCHECK` `GET http://127.0.0.1/up` (contracts/images.md front section, D3).
-- [ ] T012 [P] Create `docker/nginx/default.conf`: serve static `public/` with SPA/PHP fallback to `index.php`; `location ~ \.php$` → `fastcgi_pass serve:9000`; the Reverb websocket path → `proxy_pass http://websocket:8080` with `Upgrade`/`Connection` upgrade headers (single same-origin ingress, D3, R4).
+- [ ] T012 [P] Create `docker/nginx/default.conf`: serve static `public/` with SPA/PHP fallback to `index.php`; `location ~ \.php$` → `fastcgi_pass serve:9000`; the Reverb websocket path **`location /app`** → `proxy_pass http://websocket:8080` with `proxy_http_version 1.1` + `Upgrade`/`Connection: upgrade` headers (single same-origin ingress; the Echo client connects same-origin to `/app`, F1/D3, R4).
 
 **Checkpoint**: `docker build --target {fpm|queue|reverb|init} .` and the nginx image build succeed; finals are thin, non-root, secret-free.
 
@@ -64,7 +65,7 @@ stories.** Pinned bases only (CR-1); UBI-clean, layer-ordered (D7); secrets neve
 
 **Independent Test**: On a clean host, supply config + secrets, run the single command, confirm every service healthy and the home page loads (quickstart §3–4).
 
-- [ ] T013 [US1] Create `docker-compose.yml` with all six services per `contracts/compose-services.md`: `database` (`postgres:19`, `POSTGRES_*`, `pg_isready` healthcheck, `pgdata` volume), `backend` (target `init`, `depends_on database: service_healthy`, `restart: "no"`), `serve`/`queue`/`websocket` (their targets, `depends_on backend: service_completed_successfully`, healthchecks via `healthcheck.sh`), `web` (nginx build, `ports: ${HTTP_PORT}:80`, `depends_on serve: healthy`), one bridge network, `restart: unless-stopped` for long-runners (FR-001, FR-009, C-1..C-3).
+- [ ] T013 [US1] Create `docker-compose.yml` with all six services per `contracts/compose-services.md`: `database` (`postgres:18`, `POSTGRES_*`, `pg_isready` healthcheck, `pgdata` volume), `backend` (target `init`, `depends_on database: service_healthy`, `restart: "no"`), `serve`/`queue`/`websocket` (their targets, `depends_on backend: service_completed_successfully`, healthchecks via `healthcheck.sh`), `web` (nginx build, `ports: ${HTTP_PORT}:80`, `depends_on serve: healthy`), one bridge network, `restart: unless-stopped` for long-runners (FR-001, FR-009, C-1..C-3).
 - [ ] T014 [US1] In `docker-compose.yml`, add the top-level `secrets:` block (file-backed `app_key`/`db_password`/`openstreet_api_key`/`reverb_app_secret`) and reference them per service with `*_FILE` env paths only (no literal secret values); `database` uses `POSTGRES_PASSWORD_FILE` (C-4, CR-2, FR-011).
 - [ ] T015 [US1] Verify per quickstart §3–4: `docker compose up -d --build` → `docker compose ps` shows long-runners healthy and `backend` exited 0; `curl /up` returns 200; home page loads (SC-001).
 
@@ -162,7 +163,7 @@ stories.** Pinned bases only (CR-1); UBI-clean, layer-ordered (D7); secrets neve
 ## Notes
 
 - [P] = different files, no dependencies.
-- **No app source changes**; `pgsql` already in `config/database.php`. Engine switch is `DB_CONNECTION=pgsql`.
+- **One small app change** (`resources/js/lib/echo.ts` same-origin WS fallback, F1); otherwise deployment files only. `pgsql` already in `config/database.php`. Engine switch is `DB_CONNECTION=pgsql`.
 - All image references are **exact pinned tags** (CR-1); build-only `node:22-alpine`/`composer:2.8` never ship.
 - Secrets enter only at runtime via file-mounted Docker secrets + the `*_FILE` shim (CR-2); only the public
   `VITE_REVERB_APP_KEY` is a build arg.

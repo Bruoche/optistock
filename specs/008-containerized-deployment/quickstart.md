@@ -34,8 +34,8 @@ docker compose up -d --build
 ```
 
 - `database` comes up → `pg_isready` healthy.
-- `backend` (init) runs migrations + cache warming, then exits 0.
-- `serve` / `queue` / `websocket` start and go healthy.
+- `backend` (init) runs migrations, then exits 0.
+- `serve` / `queue` / `websocket` start (each warms its own caches in its entrypoint) and go healthy.
 - `web` (nginx) goes healthy on `${HTTP_PORT}`.
 
 ## 4 — Verify healthy (US1, SC-001)

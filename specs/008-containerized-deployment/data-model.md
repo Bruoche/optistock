@@ -12,7 +12,7 @@ volumes, networks — and the configuration/secret inventory that parameterizes 
 | `queue` | build target `queue` | — | — | `backend` (completed_successfully) | worker liveness |
 | `websocket` | build target `reverb` | — | 8080 | `backend` (completed_successfully) | TCP `:8080` |
 | `backend` | build target `init` | — | — | `database` (healthy) | none (one-shot, gated by exit 0) |
-| `database` | `postgres:19` (unmodified) | — (internal only) | 5432 | — | `pg_isready` |
+| `database` | `postgres:18` (unmodified) | — (internal only) | 5432 | — | `pg_isready` |
 
 - `restart`: `unless-stopped` for the four long-running services + `database`; `backend` uses `restart: "no"`
   (run-once).
@@ -22,9 +22,9 @@ volumes, networks — and the configuration/secret inventory that parameterizes 
 
 | Image | Base (pinned) | Build stages | Ships | Non-root |
 | --- | --- | --- | --- | --- |
-| PHP services (`fpm`/`queue`/`reverb`/`init`) | `php:8.4.22-alpine` | `vendor` (composer:2.8) → `assets` (node:22-alpine) → `runtime` → target | vendor, app code, built `public/build`, `pdo_pgsql`, opcache | yes (`www`/non-root) |
+| PHP services (`fpm`/`queue`/`reverb`/`init`) | `php:8.4.22-alpine` | `vendor` (composer:2.8) + `ext` (php:8.4.22-alpine, builds `pdo_pgsql`) + `assets` (node:22-alpine) → `runtime` → target | vendor, app code, built `public/build`, `pdo_pgsql`, opcache | yes (`www`/non-root) |
 | `web` | `nginx:1.31-trixie-perl` | copies built `public/` from the `assets` stage/context + `default.conf` | static assets + nginx config | runs as non-root where the base allows |
-| `database` | `postgres:19` | — (not built) | stock | per base image |
+| `database` | `postgres:18` | — (not built) | stock | per base image |
 
 Build-only images (`composer:2.8`, `node:22-alpine`) never appear in a shipped layer.
 

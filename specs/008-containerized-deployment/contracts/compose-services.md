@@ -7,8 +7,8 @@ and volumes below. Pinned images only (CR-1).
 
 ```yaml
 services:
-  database:        # postgres:19
-    image: postgres:19
+  database:        # postgres:18
+    image: postgres:18
     environment:
       POSTGRES_DB: ${DB_DATABASE}
       POSTGRES_USER: ${DB_USERNAME}

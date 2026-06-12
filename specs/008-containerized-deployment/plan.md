@@ -10,7 +10,7 @@ multi-stage build (Composer vendor stage + Node asset stage) and reused by four 
 images that differ only by entrypoint: **serve** (php-fpm), **queue** (worker), **websocket** (Reverb), and
 **back-end** (a one-shot migrate/optimize init that runs before the others). A pinned `nginx:1.31-trixie-perl`
 image serves the built static assets and reverse-proxies PHP (FastCGI → fpm) and the websocket (→ reverb),
-acting as the single ingress. `postgres:19` provides durable storage; sessions, queue, and cache already use
+acting as the single ingress. `postgres:18` provides durable storage; sessions, queue, and cache already use
 the database driver, so no extra broker is needed. Secrets are injected at run time (Docker Compose secrets +
 a `*_FILE` entrypoint shim), never baked into images; logs go to stderr; healthchecks + `depends_on` give an
 ordered, self-reporting bring-up.
@@ -25,12 +25,12 @@ ordered, self-reporting bring-up.
 | `serve` | custom on `php:8.4.22-alpine` (target `fpm`) | php-fpm, handles HTTP PHP (Inertia + API) | yes |
 | `queue` | same base (target `queue`) | `php artisan queue:work` — `default` + `broadcasts` queues | yes |
 | `websocket` | same base (target `reverb`) | `php artisan reverb:start` — broadcasts to browsers | yes |
-| `backend` (init) | same base (target `init`) | one-shot: `migrate --force` + `config/route/event/view:cache` + `storage:link`, then exits 0 | no (run-once) |
-| `database` | `postgres:19` (unmodified) | durable relational store; also session/queue/cache backend | yes |
+| `backend` (init) | same base (target `init`) | one-shot: `migrate --force` only, then exits 0 (caches warmed per-service at startup — F2) | no (run-once) |
+| `database` | `postgres:18` (unmodified) | durable relational store; also session/queue/cache backend | yes |
 
 **Stack**: Laravel 13 (PHP 8.4) + React/Inertia/Vite front end + Reverb (websockets) + PostgreSQL.
 
-**Image bases (all pinned, per the brief)**: `php:8.4.22-alpine`, `nginx:1.31-trixie-perl`, `postgres:19`,
+**Image bases (all pinned, per the brief)**: `php:8.4.22-alpine`, `nginx:1.31-trixie-perl`, `postgres:18`,
 plus a pinned `node:22-alpine` and `composer:2.8` used **only** in build stages (not shipped). Pinning by exact
 tag (not `latest`/floating) is mandatory so production never moves under us.
 
@@ -45,7 +45,8 @@ build of the images is the regression guard.
 the dev sqlite to Postgres is **configuration only** — no code change — provided the PHP image carries the
 `pdo_pgsql` extension.
 
-**Current state (touch points — all new files, no app code changes)**:
+**Current state (touch points — all new files, plus one small front-end change: `resources/js/lib/echo.ts`
+same-origin WS fallback, F1)**:
 - `Dockerfile` (multi-stage, build targets `fpm` / `queue` / `reverb` / `init`).
 - `docker/nginx/Dockerfile` (+ `default.conf`) — the front image.
 - `docker/php/entrypoint.sh`, `docker/php/*.ini`, `docker/php/healthcheck.sh`.
@@ -83,24 +84,33 @@ No violations.
 
 ## Decisions
 
-- **D1 — One multi-stage Dockerfile, four build targets, shared base.** Stages: `vendor` (Composer, with
-  `$PHPIZE_DEPS` + `postgresql-dev` to build `pdo_pgsql`) → `assets` (Node, `npm ci` + `npm run build`) →
-  `runtime` (php:8.4.22-alpine + runtime libs + the compiled `pdo_pgsql` ext + vendor + app code + built
+- **D1 — One multi-stage Dockerfile, build stages + four targets, shared base.** Stages: `vendor` (Composer,
+  `install --no-scripts` — no DB build tools needed) → `ext` (**`FROM php:8.4.22-alpine`**, builds `pdo_pgsql`
+  with `$PHPIZE_DEPS` + `postgresql-dev`) → `assets` (Node, `npm ci` + `npm run build`) → `runtime`
+  (php:8.4.22-alpine + runtime `libpq` + the `pdo_pgsql.so` **copied from `ext`** + vendor + app code + built
   `public/build`, non-root). Four thin targets (`fpm`, `queue`, `reverb`, `init`) extend `runtime` and set only
-  the entrypoint/CMD. "One image per service" is honored (four tagged images) while the heavy layers are built
-  once and shared — the layer-reduction the brief asks for. (research R1, R2.)
+  the entrypoint/CMD. Building the extension on the **same** PHP base as runtime avoids the ABI mismatch that
+  compiling it in the `composer` image would risk (F3). "One image per service" is honored (four tagged images)
+  while the heavy layers are built once and shared — the layer-reduction the brief asks for. (research R1, R2.)
 
-- **D2 — "back-end" service = a run-once migrate/optimize init.** The app has no scheduled tasks
+- **D2 — "back-end" service = a run-once migrate init.** The app has no scheduled tasks
   (`routes/console.php` is the stock `inspire` only), so the fourth PHP service is the initializer:
-  `migrate --force`, `config:cache`, `route:cache`, `event:cache`, `view:cache`, `storage:link`, then exit 0.
-  Compose gates the app services on its **successful completion** (`service_completed_successfully`),
-  satisfying FR-007 (auto-migrate before serving) and FR-009 (wait for DB). If scheduled tasks are added later
-  this slot becomes a `schedule:work` long-runner. (research R3.)
+  `migrate --force`, then exit 0. It does **not** warm caches: `config/route/event/view:cache` and `storage:link`
+  write to the init container's **own** filesystem, which is thrown away on exit, so the separate
+  `serve`/`queue`/`websocket` containers would never see them (F2). Instead each serving container warms its own
+  caches in the shared entrypoint at startup (D5/E-5) — effective and still env-driven (FR-012). Compose gates
+  the app services on the init's **successful completion** (`service_completed_successfully`), satisfying FR-007
+  (auto-migrate before serving) and FR-009 (wait for DB). If scheduled tasks are added later this slot becomes a
+  `schedule:work` long-runner. (research R3.)
 
 - **D3 — nginx is the single ingress; it proxies both PHP and the websocket.** Static assets served directly
-  from the baked `public/`; `*.php` → FastCGI `serve:9000`; the Reverb websocket path → `websocket:8080`.
-  One published host port (HTTP/WS), and the browser connects same-origin — so the front image carries **no**
-  per-environment host/scheme, keeping it portable (FR-012). (research R4.)
+  from the baked `public/`; `*.php` → FastCGI `serve:9000`; the Reverb websocket path `/app` → `websocket:8080`
+  (with `Upgrade`/`Connection` + `proxy_http_version 1.1`). One published host port (HTTP/WS). The browser
+  connects **same-origin**: `resources/js/lib/echo.ts` derives `wsHost`/`wsPort`/scheme from `window.location`
+  when the `VITE_REVERB_*` build vars are absent (they are **not** passed to the container build — only the
+  public `VITE_REVERB_APP_KEY` is), and still honors explicit `VITE_REVERB_*` for local dev. So the front image
+  carries **no** per-environment host/scheme, keeping it portable (FR-012). This is the one small front-end
+  change this feature makes (F1); everything else is new deployment files. (research R4.)
 
 - **D4 — Secrets never in images; injected at run time via Compose secrets + a `*_FILE` shim.** Sensitive
   values — `APP_KEY`, `DB_PASSWORD`, `OPENSTREET_API_KEY`, `REVERB_APP_SECRET` — are Docker **secrets**
@@ -126,10 +136,10 @@ No violations.
 
 ## Project Structure (feature-specific)
 
-New files (no application source changes):
+New files (plus one small front-end edit — `resources/js/lib/echo.ts` same-origin WS fallback, F1):
 
 ```
-Dockerfile                         # multi-stage; targets: fpm, queue, reverb, init
+Dockerfile                         # multi-stage; stages: vendor, ext, assets, runtime; targets: fpm, queue, reverb, init
 .dockerignore
 docker-compose.yml                 # the single stack: web, serve, queue, websocket, backend(init), database
 .env.production.example            # non-secret config template (gitignored real file)
@@ -153,11 +163,12 @@ backups, multi-node orchestration, zero-downtime rollout.
 
 ## Flow (bring-up order)
 
-1. `database` (postgres:19) starts → healthcheck `pg_isready` → **healthy**.
+1. `database` (postgres:18) starts → healthcheck `pg_isready` → **healthy**.
 2. `backend` (init) `depends_on database: healthy` → entrypoint loads secrets, asserts required vars →
-   `migrate --force` + `*:cache` + `storage:link` → **exits 0**.
+   `migrate --force` → **exits 0**. (Caches are **not** warmed here — that fs is discarded; see F2/D2.)
 3. `serve` / `queue` / `websocket` `depends_on backend: completed_successfully` → each loads secrets, asserts
-   vars, starts its process → healthchecks go **healthy**.
+   vars, **warms its own caches** (`config/route/event/view:cache`, `storage:link`), starts its process →
+   healthchecks go **healthy**.
 4. `web` (nginx) `depends_on serve: healthy` (and websocket) → serves assets, proxies PHP + WS → `/up` healthy.
 5. A user hits the published port → Inertia app loads; an optimization queues → `queue` processes it →
    `websocket` broadcasts → browser updates (FR + SC-003).

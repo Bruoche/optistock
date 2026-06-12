@@ -2,7 +2,7 @@
 
 ## R1 — Image bases, version pinning, and UBI-clean layering
 
-**Decision**: Pin **every** base by exact tag: `php:8.4.22-alpine`, `nginx:1.31-trixie-perl`, `postgres:19`,
+**Decision**: Pin **every** base by exact tag: `php:8.4.22-alpine`, `nginx:1.31-trixie-perl`, `postgres:18`,
 and the build-only `node:22-alpine` + `composer:2.8`. Apply clean-image (UBI-style) hygiene to the custom
 images: minimal packages, caches cleaned inside the same `RUN`, a non-root final user, no build toolchain in
 the shipped layers, and a single concern per image. Order layers heaviest/most-stable first.
@@ -24,9 +24,10 @@ code edit rebuilds only the cheap tail.
 
 ## R2 — One multi-stage Dockerfile with four service targets vs. four separate Dockerfiles
 
-**Decision**: A single multi-stage `Dockerfile`. Build stages `vendor` (Composer) and `assets` (Node) compile
-once; a `runtime` stage assembles the lean image (php-alpine + runtime libs + `pdo_pgsql` + vendor + code +
-built assets, non-root); four final targets `fpm`, `queue`, `reverb`, `init` extend `runtime` and set only the
+**Decision**: A single multi-stage `Dockerfile`. Build stages `vendor` (Composer), `ext` (php:8.4.22-alpine —
+compiles `pdo_pgsql` on the runtime's own base), and `assets` (Node) compile once; a `runtime` stage assembles
+the lean image (php-alpine + runtime `libpq` + the `pdo_pgsql.so` copied from `ext` + vendor + code + built
+assets, non-root); four final targets `fpm`, `queue`, `reverb`, `init` extend `runtime` and set only the
 entrypoint/CMD. Build each service image with `--target`.
 
 **Rationale**: The four PHP services run the **same** codebase and dependencies — duplicating that across four
@@ -44,17 +45,20 @@ the brief asks for, while still producing "one image per service."
 
 ## R3 — Identity of the fourth ("back-end") PHP service
 
-**Decision**: Make `backend` a **run-once initializer**: `php artisan migrate --force`, then
-`config:cache`/`route:cache`/`event:cache`/`view:cache` and `storage:link`, then exit 0. App services depend on
-it via `service_completed_successfully`.
+**Decision**: Make `backend` a **run-once initializer** that runs `php artisan migrate --force` **only**, then
+exit 0. App services depend on it via `service_completed_successfully`. Cache warming
+(`config:cache`/`route:cache`/`event:cache`/`view:cache`, `storage:link`) is **not** done here — it runs in
+each long-running container's own entrypoint at startup (R5/E-5).
 
 **Rationale**: The brief lists four PHP services (websocket, queue, serve, back-end) but the app has **no
 scheduled tasks** (`routes/console.php` holds only the stock `inspire` command), so a `schedule:work` daemon
-would idle. The genuinely-needed fourth role is initialization: something must migrate the schema and warm the
-production caches exactly once, before the long-running services serve traffic. A one-shot init container is the
-clean, idempotent way to do that and directly satisfies FR-007 (auto-migrate before serving) and FR-009 (it
-itself waits on DB health). Caching at container start (not build) keeps env changes effective without a
-rebuild (FR-012).
+would idle. The genuinely-needed fourth role is initialization: the schema must migrate exactly once, before
+the long-running services serve traffic — and migration writes to the **shared Postgres**, so a one-shot is the
+right place. The caches, by contrast, are written to the **local container filesystem**; warming them in the
+one-shot `init` would leave the *separate* `serve`/`queue`/`websocket` containers uncached (F2). So caches are
+warmed per-container at startup instead — still at run time (not build), keeping env changes effective without a
+rebuild (FR-012). A single gated one-shot for migration directly satisfies FR-007 (auto-migrate before serving)
+and FR-009 (it waits on DB health).
 
 **Alternatives considered**:
 - *Run migrations inside the `serve` entrypoint*: races across multiple app replicas and reruns on every
@@ -66,8 +70,11 @@ rebuild (FR-012).
 
 **Decision**: The `web` (nginx) image is the only published ingress. It serves the baked `public/` static
 assets, forwards `*.php` to `serve:9000` over FastCGI, and reverse-proxies the Reverb websocket path to
-`websocket:8080` (with `Upgrade`/`Connection` headers). The browser connects **same-origin**; the client
-derives host/scheme from `window.location`, so the front image needs no per-environment host.
+`websocket:8080` at the Reverb path **`/app`** (with `Upgrade`/`Connection` headers + `proxy_http_version 1.1`).
+The browser connects **same-origin**: `resources/js/lib/echo.ts` derives `wsHost`/`wsPort`/scheme from
+`window.location` when the `VITE_REVERB_*` build vars are absent (the container build passes only the public
+`VITE_REVERB_APP_KEY`), while still honoring explicit `VITE_REVERB_*` in local dev. So the front image needs no
+per-environment host — at the cost of one small `echo.ts` change (F1).
 
 **Rationale**: A single ingress means one published port and no CORS/cross-origin websocket setup. Crucially it
 keeps the front image **environment-portable** (FR-012): if the websocket host/scheme were baked into the Vite
@@ -119,8 +126,10 @@ and replace-safe (FR-017) and make the only durable thing — the database volum
 
 ## R7 — PHP extensions, process management, and healthchecks
 
-**Decision**: Build `pdo_pgsql` in the `vendor`/build stage (needs `$PHPIZE_DEPS` + `postgresql-dev`); the
-final keeps only the runtime `libpq` and the compiled extension. Add opcache (production settings) and an
+**Decision**: Build `pdo_pgsql` in a dedicated `ext` stage that is **`FROM php:8.4.22-alpine`** — the same base
+as `runtime` — so the compiled `.so` matches the runtime PHP ABI (needs `$PHPIZE_DEPS` + `postgresql-dev`, both
+build-only); the final keeps only the runtime `libpq` and the copied extension. (Compiling it in the `composer`
+image, a different PHP build, risked an ABI mismatch that would fail to load at runtime — F3.) Add opcache (production settings) and an
 `opcache.preload`-free, `validate_timestamps=0` config (code is immutable in the image). Healthchecks per role:
 `postgres` → `pg_isready`; `serve` → php-fpm ping (`cgi-fcgi`/script on `:9000`); `web` → HTTP `GET /up`
 (Laravel's built-in health route through fpm); `websocket` → TCP connect on `:8080`; `queue` → liveness via the
