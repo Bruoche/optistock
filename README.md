@@ -65,8 +65,9 @@ Compose plugin.
 
 2. **Secrets (never committed — `docker/secrets/` is gitignored; `*.example` show the format):**
    ```bash
-   php artisan key:generate --show > docker/secrets/app_key   # then strip any extra output to one line
-   # (These next three files can be manually created instead)
+   echo "base64:$(openssl rand -base64 32)" > docker/secrets/app_key
+   # (with Laravel handy: `php artisan key:generate --show` gives the same base64: format)
+   # These next three files can also be manually created instead:
    printf '%s' 'a-strong-db-password' > docker/secrets/db_password # some strong password
    printf '%s' 'your-openstreet-key'  > docker/secrets/openstreet_api_key # the openstreet API key
    printf '%s' 'your-reverb-secret'   > docker/secrets/reverb_app_secret # some strong password
