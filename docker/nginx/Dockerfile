@@ -4,15 +4,35 @@
 # context excludes public/build; only the PUBLIC Reverb key is a build arg).
 ARG NODE_BASE=node:22-alpine
 ARG NGINX_BASE=nginx:1.31-trixie-perl
+ARG COMPOSER_BASE=composer:2.8
+
+# --- stage: wayfinder (build-only, PHP) ---
+# Generate Wayfinder's TS route/action helpers where PHP exists — the node assets
+# stage has none. A throwaway APP_KEY only lets the framework boot to read routes;
+# no real secret enters the build (CR-2). Output: resources/js/{actions,routes,wayfinder}.
+FROM ${COMPOSER_BASE} AS wayfinder
+WORKDIR /app
+COPY composer.json composer.lock ./
+RUN composer install --no-dev --prefer-dist --no-scripts --no-progress
+COPY . .
+RUN APP_KEY=base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA= \
+    php artisan wayfinder:generate --with-form
 
 # --- stage: assets (build-only) ---
 FROM ${NODE_BASE} AS assets
 WORKDIR /app
 ARG VITE_REVERB_APP_KEY
 ENV VITE_REVERB_APP_KEY=${VITE_REVERB_APP_KEY}
+# No PHP here, so skip Wayfinder's artisan call; consume the prebuilt helpers below.
+ENV WAYFINDER_SKIP=1
 COPY package.json package-lock.json ./
 RUN npm ci
 COPY . .
+# Wayfinder helpers from the PHP stage. Copied AFTER `COPY . .` so they win over any
+# stale host copies; they are gitignored, so a clean clone would otherwise lack them.
+COPY --from=wayfinder /app/resources/js/actions ./resources/js/actions
+COPY --from=wayfinder /app/resources/js/routes ./resources/js/routes
+COPY --from=wayfinder /app/resources/js/wayfinder ./resources/js/wayfinder
 RUN npm run build
 
 # --- final: nginx ---
