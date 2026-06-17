@@ -15,7 +15,7 @@ services:
     secrets:
       - db_password
     volumes:
-      - pgdata:/var/lib/postgresql/data                  # the only durable volume (CR-4)
+      - pgdata:/var/lib/postgresql                       # the only durable volume (CR-4); pg18 stores data in versioned subdir
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 10s
