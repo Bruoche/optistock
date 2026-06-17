@@ -4,7 +4,7 @@
 # never enter the build — only the PUBLIC VITE_REVERB_APP_KEY is a build arg (CR-2).
 
 # Pinned bases (CR-1) — no `latest`/floating tags.
-ARG PHP_BASE=php:8.4.22-alpine
+ARG PHP_BASE=php:8.4.22-fpm-alpine
 ARG NODE_BASE=node:22-alpine
 ARG COMPOSER_BASE=composer:2.8
 
@@ -28,7 +28,7 @@ RUN APP_KEY=base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA= \
 FROM ${PHP_BASE} AS ext
 # Build the pdo_pgsql extension against the exact runtime PHP; build deps never ship.
 RUN apk add --no-cache --virtual .build-deps $PHPIZE_DEPS postgresql-dev \
-    && docker-php-ext-install pdo_pgsql \
+    && docker-php-ext-install pdo_pgsql pcntl \
     && apk del .build-deps
 
 # --- stage: assets (build-only) -------------------------------------------------
@@ -61,7 +61,7 @@ RUN apk add --no-cache libpq fcgi \
 
 # The compiled extension from `ext` (same base → same extension dir/ABI), then enable.
 COPY --from=ext /usr/local/lib/php/extensions /usr/local/lib/php/extensions
-RUN docker-php-ext-enable pdo_pgsql
+RUN docker-php-ext-enable pdo_pgsql pcntl
 
 # Production PHP + opcache tuning.
 COPY docker/php/php.ini /usr/local/etc/php/conf.d/zz-app.ini
