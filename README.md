@@ -67,87 +67,34 @@ Compose plugin.
    ```bash
    echo "base64:$(openssl rand -base64 32)" > docker/secrets/app_key
    # (with Laravel handy: `php artisan key:generate --show` gives the same base64: format)
-   # These next three files can also be manually created instead:
-   printf '%s' 'a-strong-db-password' > docker/secrets/db_password # some strong password
-   printf '%s' 'your-openstreet-key'  > docker/secrets/openstreet_api_key # the openstreet API key
-   printf '%s' 'your-reverb-secret'   > docker/secrets/reverb_app_secret # some strong password
-   # For security on a shared linux server: (skip on local deployment)
+   printf '%s' 'a-strong-db-password' > docker/secrets/db_password      # any strong password
+   printf '%s' 'your-openstreet-key'  > docker/secrets/openstreet_api_key  # the OpenStreet API key
+   printf '%s' 'your-reverb-secret'   > docker/secrets/reverb_app_secret   # any strong password
+   # For security on a shared linux server (skip on local deployment):
    chmod 600 docker/secrets/*
    ```
+
+   > **Each secret file must contain exactly the value on a SINGLE line — no comments, no
+   > trailing blank lines.** PostgreSQL and the PHP services read the *whole file* as the secret,
+   > so a stray `#` comment or extra line becomes part of the password/key and the service fails
+   > (database reports "unhealthy", optimization returns "unexpected payload"). The `*.example`
+   > files are value-only on purpose: if you `cp` one, replace just that single line. Prefer the
+   > `printf '%s'` form above — it writes no trailing newline.
 
 3. **Build the images:**
    ```bash
    docker compose --env-file .env.production build
    ```
-   Builds all five images (the four PHP targets `serve`/`queue`/`websocket`/`backend` from the
-   root `Dockerfile`, plus `web` from `docker/nginx/Dockerfile`). Run this first to surface any
-   build error before bringing the stack up. 
-   
-   To build single images directly:
+   Builds all five images from the root `Dockerfile` — the four PHP targets
+   (`serve`/`queue`/`websocket`/`backend`) and the nginx `web` ingress (`target: web`, which reuses
+   the same `assets` build stage as the PHP images so the front-end asset hashes always match).
+   Run this first to surface any build error before bringing the stack up.
+
+   To build single images directly (pass the **same** `VITE_REVERB_APP_KEY` to every build so the
+   shared asset bundle is identical):
    ```bash
    docker build --target fpm -t optistock-serve .                       # one PHP target
-   docker build -f docker/nginx/Dockerfile --build-arg VITE_REVERB_APP_KEY=$REVERB_APP_KEY \
-     -t optistock-web .                                                 # the nginx ingress
-   ```
-
-4. **Start (one command):**
-   ```bash
-   docker compose --env-file .env.production up -d        # add --build to rebuild + start in one step
-   ```
-   `database` → healthy, `backend` runs migrations and exits 0, then `serve`/`queue`/`websocket`
-   start (each warms its own caches) and `web` comes up on `HTTP_PORT`.
-
-5. **Verify:**
-   ```bash
-   docker compose ps                              # long-runners healthy; backend exited (0)
-   curl -fsS http://localhost:${HTTP_PORT}/up     # Laravel health route → 200
-   ```
-   Open `http://localhost:${HTTP_PORT}`.
-
-6. **Teardown:**
-   ```bash
-   docker compose down       # keep the database volume (pgdata)
-   docker compose down -v    # also DESTROY the database volume
-   ```
-
-Re-deploying elsewhere changes only `.env.production` + `docker/secrets/*` — no rebuild (the
-images carry no per-environment host or secret).
-
-## Seed the database
-
-To seed the database:nd PostgreSQL — all from pinned images,
-started with one command. No PHP/Node/Postgres needed on the host, just Docker + the
-Compose plugin.
-
-1. **Configure (non-secret):**
-   ```bash
-   cp .env.production.example .env.production   # edit APP_URL, HTTP_PORT, DB_*, REVERB_*, OPENSTREET_*
-   ```
-
-2. **Secrets (never committed — `docker/secrets/` is gitignored; `*.example` show the format):**
-   ```bash
-   echo "base64:$(openssl rand -base64 32)" > docker/secrets/app_key
-   # (with Laravel handy: `php artisan key:generate --show` gives the same base64: format)
-   # These next three files can also be manually created instead:
-   printf '%s' 'a-strong-db-password' > docker/secrets/db_password # some strong password
-   printf '%s' 'your-openstreet-key'  > docker/secrets/openstreet_api_key # the openstreet API key
-   printf '%s' 'your-reverb-secret'   > docker/secrets/reverb_app_secret # some strong password
-   # For security on a shared linux server: (skip on local deployment)
-   chmod 600 docker/secrets/*
-   ```
-
-3. **Build the images:**
-   ```bash
-   docker compose --env-file .env.production build
-   ```
-   Builds all five images (the four PHP targets `serve`/`queue`/`websocket`/`backend` from the
-   root `Dockerfile`, plus `web` from `docker/nginx/Dockerfile`). Run this first to surface any
-   build error before bringing the stack up. 
-   
-   To build single images directly:
-   ```bash
-   docker build --target fpm -t optistock-serve .                       # one PHP target
-   docker build -f docker/nginx/Dockerfile --build-arg VITE_REVERB_APP_KEY=$REVERB_APP_KEY \
+   docker build --target web --build-arg VITE_REVERB_APP_KEY=$REVERB_APP_KEY \
      -t optistock-web .                                                 # the nginx ingress
    ```
 
@@ -181,14 +128,9 @@ To seed the database:
 php artisan db:seed              # populate an already-migrated DB
 ```
 
-To drop the seed data:
+To drop the seed data and start from a clean slate:
 ```bash
-php artisan db:seed              # populate an already-migrated DB
-```
-
-To drop the seed data:
-```bash
-php artisan migrate:fresh --seed # drop everything, re-migrate, then seed (clean slate)
+php artisan migrate:fresh --seed # drop everything, re-migrate, then seed
 ```
 
 This creates a `test@example.com` login, the delivery modes, and a set of demo drivers (varied mode sets and avatars) for manual testing. 

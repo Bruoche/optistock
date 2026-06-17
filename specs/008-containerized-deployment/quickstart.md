@@ -25,6 +25,12 @@ docker/secrets/openstreet_api_key
 docker/secrets/reverb_app_secret
 ```
 
+Each file must hold **only the value on a single line** — no comments, no trailing blank lines.
+PostgreSQL and the PHP services read the *whole file* as the secret, so any extra line (e.g. a `#`
+header copied from a template) becomes part of the password/key and the service fails to start. The
+`*.example` files are value-only for this reason; when copying one, replace just that single line.
+Prefer `printf '%s' '<value>' > docker/secrets/<name>` (writes no trailing newline).
+
 Set restrictive permissions (`chmod 600 docker/secrets/*`).
 
 ## 3 — Build + start (one command)
