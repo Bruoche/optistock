@@ -7,6 +7,7 @@
 ARG PHP_BASE=php:8.4.22-fpm-alpine
 ARG NODE_BASE=node:22-alpine
 ARG COMPOSER_BASE=composer:2.8
+ARG NGINX_BASE=nginx:1.31-trixie-perl
 
 # --- stage: vendor (build-only) -------------------------------------------------
 # Composer dependencies. `--no-scripts` means no DB extension is needed here.
@@ -104,3 +105,16 @@ CMD ["php", "artisan", "reverb:start", "--host=0.0.0.0", "--port=8080"]
 # init: one-shot migrate only (caches are warmed per-container at startup — F2/D2).
 FROM runtime AS init
 CMD ["php", "artisan", "migrate", "--force"]
+
+# web: nginx ingress. Serves the SAME asset build the PHP manifest references by
+# reusing the `assets` stage above (no second `npm run build`), so vite hashes
+# always match. Reverse-proxies PHP (-> serve) and the websocket (-> websocket).
+FROM ${NGINX_BASE} AS web
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/*
+COPY public/ /var/www/html/public/
+COPY --from=assets /app/public/build /var/www/html/public/build
+COPY docker/nginx/default.conf /etc/nginx/conf.d/default.conf
+HEALTHCHECK --interval=15s --timeout=5s --start-period=20s --retries=3 \
+    CMD curl -fsS http://127.0.0.1/up || exit 1

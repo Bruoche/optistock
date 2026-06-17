@@ -28,6 +28,8 @@ services:
     build:
       context: .
       target: init
+      args:
+        VITE_REVERB_APP_KEY: ${REVERB_APP_KEY:-optistock-key}   # same key everywhere -> one shared assets layer
     env_file: [.env.production]
     secrets:
       - app_key
@@ -48,6 +50,8 @@ services:
     build:
       context: .
       target: fpm
+      args:
+        VITE_REVERB_APP_KEY: ${REVERB_APP_KEY:-optistock-key}
     env_file: [.env.production]
     secrets:
       - app_key
@@ -74,6 +78,8 @@ services:
     build:
       context: .
       target: queue
+      args:
+        VITE_REVERB_APP_KEY: ${REVERB_APP_KEY:-optistock-key}
     env_file: [.env.production]
     secrets:
       - app_key
@@ -100,6 +106,8 @@ services:
     build:
       context: .
       target: reverb
+      args:
+        VITE_REVERB_APP_KEY: ${REVERB_APP_KEY:-optistock-key}
     env_file: [.env.production]
     secrets:
       - app_key
@@ -120,10 +128,10 @@ services:
       start_period: 15s
     restart: unless-stopped
 
-  web:                                                   # build docker/nginx — single ingress
+  web:                                                   # build target web — single ingress
     build:
       context: .
-      dockerfile: docker/nginx/Dockerfile
+      target: web                                         # same Dockerfile/assets stage as serve -> matching hashes
       args:
         VITE_REVERB_APP_KEY: ${REVERB_APP_KEY:-optistock-key}
     ports:
