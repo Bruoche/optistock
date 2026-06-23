@@ -2,11 +2,11 @@
 // the stop list held on the edit page. Name is prominent; supported-mode icons
 // (walking figure / car / truck) sit beneath it. Empty → a clear message.
 import { Car, Loader2, PersonStanding, Truck, UserRound } from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
-import type { ReactNode } from 'react';
 import { useTourDrivers } from '@/hooks/use-tour-drivers';
 import { cn } from '@/lib/utils';
 import { DELIVERY_MODES } from '@/types/tour';
+import type { LucideIcon } from 'lucide-react';
+import type { ReactNode } from 'react';
 import type { DeliveryMode } from '@/types/tour';
 
 const MODE_ICON: Record<DeliveryMode, LucideIcon> = {

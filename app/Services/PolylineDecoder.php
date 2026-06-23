@@ -14,7 +14,7 @@ namespace App\Services;
 class PolylineDecoder
 {
     /**
-     * @return array<int, array{0: float, 1: float}>  ordered [lat, lng] pairs
+     * @return array<int, array{0: float, 1: float}> ordered [lat, lng] pairs
      */
     public function decode(string $encoded, int $precision = 5): array
     {
@@ -45,7 +45,7 @@ class PolylineDecoder
 
         do {
             $byte = ord($encoded[$index++]) - 63;
-            $result |= ($byte & 0x1f) << $shift;
+            $result |= ($byte & 0x1F) << $shift;
             $shift += 5;
         } while ($byte >= 0x20 && $index < $length);
 

@@ -1,6 +1,13 @@
 // Feature 003: delivery-mode dropdown for the editing-view control bar.
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { DELIVERY_MODES, type DeliveryMode } from '@/types/tour';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
+import { DELIVERY_MODES } from '@/types/tour';
+import type { DeliveryMode } from '@/types/tour';
 
 type ModeSelectProps = {
     value: DeliveryMode;
@@ -8,11 +15,19 @@ type ModeSelectProps = {
     disabled?: boolean;
 };
 
-export function ModeSelect({ value, onChange, disabled = false }: ModeSelectProps) {
+export function ModeSelect({
+    value,
+    onChange,
+    disabled = false,
+}: ModeSelectProps) {
     return (
-        <Select value={value} onValueChange={(next) => onChange(next as DeliveryMode)} disabled={disabled}>
-            <SelectTrigger 
-			    aria-label="Delivery mode"
+        <Select
+            value={value}
+            onValueChange={(next) => onChange(next as DeliveryMode)}
+            disabled={disabled}
+        >
+            <SelectTrigger
+                aria-label="Delivery mode"
                 className="w-40 border-text-on-color bg-primary text-text-on-color hover:bg-secondary dark:bg-primary dark:hover:bg-secondary [&>svg]:!text-text-on-color [&>svg]:!opacity-100"
             >
                 <SelectValue />

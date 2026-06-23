@@ -4,7 +4,12 @@
 // against a superseded tour's late response winning (FR-010).
 import { useEffect, useRef, useState } from 'react';
 import { postJson } from '@/lib/http';
-import type { DeliveryMode, RoutePath, TourGeometry, TourResult } from '@/types/tour';
+import type {
+    DeliveryMode,
+    RoutePath,
+    TourGeometry,
+    TourResult,
+} from '@/types/tour';
 
 type ComposedGeometry = {
     /** Best-available path for RouteLayer. */
@@ -21,7 +26,11 @@ function orderedStops(result: TourResult): RoutePath {
         .map(({ lat, lng }) => ({ lat, lng }));
 }
 
-function composeGeometry(result: TourResult | null, geometry: TourGeometry | null, loop: boolean): ComposedGeometry {
+function composeGeometry(
+    result: TourResult | null,
+    geometry: TourGeometry | null,
+    loop: boolean,
+): ComposedGeometry {
     if (!result) {
         return { routePath: [], closed: true, metrics: null };
     }
@@ -36,7 +45,9 @@ function composeGeometry(result: TourResult | null, geometry: TourGeometry | nul
     const routePath: RoutePath = [];
     geometry.legs.forEach((leg, index) => {
         if (leg.ok) {
-            leg.coordinates.forEach(([lat, lng]) => routePath.push({ lat, lng }));
+            leg.coordinates.forEach(([lat, lng]) =>
+                routePath.push({ lat, lng }),
+            );
         } else {
             routePath.push(stops[index], stops[(index + 1) % stops.length]);
         }
@@ -45,13 +56,23 @@ function composeGeometry(result: TourResult | null, geometry: TourGeometry | nul
     return {
         routePath,
         closed: false,
-        metrics: { distance_m: geometry.total_distance_m, duration_s: geometry.total_duration_s },
+        metrics: {
+            distance_m: geometry.total_distance_m,
+            duration_s: geometry.total_duration_s,
+        },
     };
 }
 
-export function useTourGeometry(result: TourResult | null, mode: DeliveryMode, loop: boolean): ComposedGeometry {
+export function useTourGeometry(
+    result: TourResult | null,
+    mode: DeliveryMode,
+    loop: boolean,
+): ComposedGeometry {
     // Geometry stored with the result it was fetched for, so a stale entry is ignored by identity.
-    const [entry, setEntry] = useState<{ result: TourResult; geometry: TourGeometry } | null>(null);
+    const [entry, setEntry] = useState<{
+        result: TourResult;
+        geometry: TourGeometry;
+    } | null>(null);
     const token = useRef(0);
 
     useEffect(() => {
@@ -66,7 +87,11 @@ export function useTourGeometry(result: TourResult | null, mode: DeliveryMode, l
         (async () => {
             try {
                 // Same mode + loop the tour was optimized with, so the drawn route matches (FR-007).
-                const response = await postJson('/api/tour/geometry', { stops, mode, loop });
+                const response = await postJson('/api/tour/geometry', {
+                    stops,
+                    mode,
+                    loop,
+                });
 
                 if (!response.ok) {
                     return;
