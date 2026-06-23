@@ -2,7 +2,8 @@
 // reflects the active mode (icon + label; icon-only when the sidebar is collapsed).
 import { Monitor, Moon, Sun } from 'lucide-react';
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
-import { type Appearance, useAppearance } from '@/hooks/use-appearance';
+import {  useAppearance } from '@/hooks/use-appearance';
+import type {Appearance} from '@/hooks/use-appearance';
 
 const NEXT: Record<Appearance, Appearance> = {
     light: 'dark',

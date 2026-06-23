@@ -10,8 +10,8 @@ import {
     TooltipProvider,
     TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { edit, index } from '@/routes/teams';
 import type { Team } from '@/types';
+import { edit, index } from '@/routes/teams';
 
 type Props = {
     teams: Team[];
