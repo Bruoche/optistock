@@ -1,7 +1,13 @@
 // Feature 003: delivery-mode dropdown for the editing-view control bar.
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { DELIVERY_MODES  } from '@/types/tour';
-import type {DeliveryMode} from '@/types/tour';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
+import { DELIVERY_MODES } from '@/types/tour';
+import type { DeliveryMode } from '@/types/tour';
 
 type ModeSelectProps = {
     value: DeliveryMode;
