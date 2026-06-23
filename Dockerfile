@@ -41,7 +41,15 @@ RUN npm run build
 FROM ${PHP_BASE} AS runtime
 WORKDIR /var/www/html
 
-RUN apk add --no-cache libpq fcgi \
+LABEL name="optistock/app" \
+      vendor="OptiStock" \
+      version="1.0.0" \
+      release="1" \
+      summary="Delivery route optimization application" \
+      description="Laravel + Vite delivery route optimization with live tour tracking."
+
+RUN apk upgrade --no-cache \
+    && apk add --no-cache libpq fcgi \
     && docker-php-ext-enable opcache
 
 COPY --from=ext /usr/local/lib/php/extensions /usr/local/lib/php/extensions
@@ -86,7 +94,14 @@ CMD ["php", "artisan", "migrate", "--force"]
 # Reuses the `assets` stage rather than rebuilding, so the served bundle's vite
 # hashes always match the PHP manifest. Reverse-proxies PHP and the websocket.
 FROM ${NGINX_BASE} AS web
-RUN apk add --no-cache curl
+LABEL name="optistock/web" \
+      vendor="OptiStock" \
+      version="1.0.0" \
+      release="1" \
+      summary="Nginx ingress for OptiStock" \
+      description="Reverse-proxies PHP-FPM and the Reverb websocket; serves the Vite bundle."
+RUN apk upgrade --no-cache \
+    && apk add --no-cache curl
 COPY public/ /var/www/html/public/
 COPY --from=assets /app/public/build /var/www/html/public/build
 COPY docker/nginx/default.conf /etc/nginx/conf.d/default.conf
