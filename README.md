@@ -53,8 +53,8 @@ Open **http://localhost:8000** (the app — not Vite's port), log in, go to **`/
 
 ## Deploy with Docker
 
-Production runs as a single Compose stack — nginx ingress, four PHP services
-(`serve`/`queue`/`websocket`/`backend`-init) and PostgreSQL — all from pinned images,
+Production runs as a single Compose stack — nginx ingress (`front`), four PHP services
+(`backend`/`queue`/`websocket`/`migrate`) and PostgreSQL — all from pinned images,
 started with one command. No PHP/Node/Postgres needed on the host, just Docker + the
 Compose plugin.
 
@@ -85,29 +85,30 @@ Compose plugin.
    ```bash
    docker compose --env-file .env.production build
    ```
-   Builds all five images from the root `Dockerfile` — the four PHP targets
-   (`serve`/`queue`/`websocket`/`backend`) and the nginx `web` ingress (`target: web`, which reuses
-   the same `assets` build stage as the PHP images so the front-end asset hashes always match).
-   Run this first to surface any build error before bringing the stack up.
+   Builds all five images from the root `Dockerfile` — the four PHP services
+   (`backend`/`queue`/`websocket`/`migrate`, from targets `fpm`/`queue`/`reverb`/`init`) and the
+   nginx `front` ingress (`target: web`, which reuses the same `assets` build stage as the PHP
+   images so the front-end asset hashes always match). Run this first to surface any build error
+   before bringing the stack up.
 
    To build single images directly (pass the **same** `VITE_REVERB_APP_KEY` to every build so the
    shared asset bundle is identical):
    ```bash
-   docker build --target fpm -t optistock-serve .                       # one PHP target
+   docker build --target fpm -t optistock-backend .                     # the php-fpm app server
    docker build --target web --build-arg VITE_REVERB_APP_KEY=$REVERB_APP_KEY \
-     -t optistock-web .                                                 # the nginx ingress
+     -t optistock-front .                                               # the nginx ingress
    ```
 
 4. **Start (one command):**
    ```bash
    docker compose --env-file .env.production up -d        # add --build to rebuild + start in one step
    ```
-   `database` → healthy, `backend` runs migrations and exits 0, then `serve`/`queue`/`websocket`
-   start (each warms its own caches) and `web` comes up on `HTTP_PORT`.
+   `database` → healthy, `migrate` runs migrations and exits 0, then `backend`/`queue`/`websocket`
+   start (each warms its own caches) and `front` comes up on `HTTP_PORT`.
 
 5. **Verify:**
    ```bash
-   docker compose ps                              # long-runners healthy; backend exited (0)
+   docker compose ps                              # long-runners healthy; migrate exited (0)
    curl -fsS http://localhost:${HTTP_PORT}/up     # Laravel health route → 200
    ```
    Open `http://localhost:${HTTP_PORT}`.
