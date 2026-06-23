@@ -71,40 +71,45 @@ C4Container
 
 ## Deployment
 
-The four back-end roles are **one codebase / one image**, started as four
+The back-end roles are **one codebase / one image**, started as separate
 processes — the worker splits into a dedicated `broadcasts` process so
 notifications never wait behind a long optimization job. The boundary box marks
-the shared monolith: same build artifact, different start command.
+the shared monolith: same build artifact, different start command. 
 
 ```mermaid
 C4Deployment
     title Deployment — processes from one codebase
 
     Deployment_Node(client, "User device", "Browser") {
-        Container(spa, "Frontend", "Inertia + React", "Runs client-side")
+        System_Ext(spa, "Frontend", "Inertia + React", "Runs client-side")
     }
 
     Deployment_Node(host, "Application host", "Docker / Forge") {
-        Deployment_Node(image, "Optistock monolith", "one codebase -> 4 processes") {
-            Container(web, "Web App", "php-fpm", "HTTP requests")
-            Deployment_Node(qw, "Queue Worker", "Laravel queue") {
+        Container(front, "front", "nginx", "Sole ingress: static assets + reverse proxy")
+        Deployment_Node(image, "Optistock monolith", "one codebase -> N processes") {
+            Container(backend, "backend", "php-fpm", "HTTP requests (Inertia + API)")
+            Deployment_Node(qw, "queue", "Laravel queue") {
                 Container(worker, "Optimization Worker", "queue:work", "Optimization jobs")
                 Container(bworker, "Broadcast Worker", "queue:work --queue=broadcasts", "Event delivery")
             }
-            Container(reverb, "WebSocket Server", "Laravel Reverb (reverb:start)", "Relays results")
+            Container(reverb, "websocket", "Laravel Reverb (reverb:start)", "Relays results")
+            Container(migrate, "migrate", "artisan migrate --force", "One-shot: runs before long-runners, exits 0")
         }
     }
 
-    Deployment_Node(dbnode, "Database server", "SQLite / MySQL") {
+    Deployment_Node(dbnode, "Database server", "PostgreSQL 18") {
         ContainerDb(db, "Database", "", "Cache, queue, sessions")
     }
     Deployment_Node(net, "Internet", "") {
         System_Ext(osm, "OpenStreet TSP API", "External optimizer")
     }
 
-    Rel(spa, web, "Submit / poll", "HTTPS")
-    Rel(spa, reverb, "Subscribe / receive", "WebSocket")
-    Rel(web, db, "Cache + enqueue", "SQL")
+    Rel(spa, front, "Submit / poll", "HTTPS")
+    Rel(spa, front, "Subscribe / receive", "WebSocket")
+    Rel(front, backend, "Proxy PHP", "FastCGI :9000")
+    Rel(front, reverb, "Proxy /app", "WebSocket :8080")
+    Rel(backend, db, "Cache + enqueue", "SQL")
+    Rel(migrate, db, "Run migrations", "SQL")
     Rel(worker, db, "Reserve job, cache result, queue broadcast", "SQL")
     Rel(worker, osm, "Optimize request", "HTTPS")
     Rel(bworker, db, "Reserve broadcast job", "SQL")

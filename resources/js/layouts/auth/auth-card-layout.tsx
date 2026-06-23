@@ -7,8 +7,8 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
-import { home } from '@/routes';
 import type { PropsWithChildren } from 'react';
+import { home } from '@/routes';
 
 export default function AuthCardLayout({
     children,

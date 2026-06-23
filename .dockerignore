@@ -1,0 +1,41 @@
+# Build context hygiene: keep the image build small and leak-free (CR-2).
+# Dependencies are installed inside the image from the lockfiles, never copied in.
+vendor/
+node_modules/
+
+# VCS / CI / specs / editor noise — not needed to build the app.
+.git/
+.github/
+.specify/
+specs/
+.idea/
+.vscode/
+.zed/
+.fleet/
+.nova/
+
+# Tests are not run in the production image build.
+tests/
+
+# Local env files and real secrets MUST NOT enter any image layer.
+.env
+.env.*
+!.env.production.example
+docker/secrets/*
+!docker/secrets/*.example
+
+# Build artefacts — assets are rebuilt in the image's `assets` stage.
+public/build/
+public/hot
+public/storage
+bootstrap/ssr
+storage/logs/*
+storage/framework/cache/*
+storage/framework/sessions/*
+storage/framework/views/*
+storage/*.key
+*.log
+
+# OS / misc
+.DS_Store
+Thumbs.db

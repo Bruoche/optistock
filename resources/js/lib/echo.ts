@@ -1,5 +1,9 @@
 // Laravel Echo singleton wired to the self-hosted Reverb server.
-// Config comes from the Vite-exposed REVERB env (see .env / quickstart.md).
+// Only the public app key is build-time config (VITE_REVERB_APP_KEY). The
+// websocket endpoint prefers explicit VITE_REVERB_* (local dev, where Reverb
+// runs on its own port) and otherwise falls back to same-origin derived from
+// window.location — so the container image carries no per-environment host and
+// nginx proxies the websocket on the same origin (see plan D3 / quickstart.md).
 import Echo from 'laravel-echo';
 import Pusher from 'pusher-js';
 
@@ -20,13 +24,25 @@ export function getEcho(): Echo<'reverb'> {
 
     window.Pusher = Pusher;
 
+    const scheme =
+        import.meta.env.VITE_REVERB_SCHEME ??
+        (window.location.protocol === 'https:' ? 'https' : 'http');
+    const host = import.meta.env.VITE_REVERB_HOST ?? window.location.hostname;
+    const port = import.meta.env.VITE_REVERB_PORT
+        ? Number(import.meta.env.VITE_REVERB_PORT)
+        : window.location.port
+          ? Number(window.location.port)
+          : scheme === 'https'
+            ? 443
+            : 80;
+
     echo = new Echo({
         broadcaster: 'reverb',
         key: import.meta.env.VITE_REVERB_APP_KEY,
-        wsHost: import.meta.env.VITE_REVERB_HOST,
-        wsPort: Number(import.meta.env.VITE_REVERB_PORT ?? 80),
-        wssPort: Number(import.meta.env.VITE_REVERB_PORT ?? 443),
-        forceTLS: (import.meta.env.VITE_REVERB_SCHEME ?? 'http') === 'https',
+        wsHost: host,
+        wsPort: port,
+        wssPort: port,
+        forceTLS: scheme === 'https',
         enabledTransports: ['ws', 'wss'],
     });
 

@@ -25,8 +25,6 @@ import {
     TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { useInitials } from '@/hooks/use-initials';
-import { edit, index, update } from '@/routes/teams';
-import { update as updateMember } from '@/routes/teams/members';
 import type {
     RoleOption,
     Team,
@@ -34,6 +32,8 @@ import type {
     TeamMember,
     TeamPermissions,
 } from '@/types';
+import { edit, index, update } from '@/routes/teams';
+import { update as updateMember } from '@/routes/teams/members';
 
 type Props = {
     team: Team;
