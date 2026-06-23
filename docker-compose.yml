@@ -1,6 +1,6 @@
 # Single-stack deployment: one `docker compose up` brings up the whole app (FR-001).
-# Bring-up order is enforced by conditions (CR-3): database healthy -> backend(init)
-# completed -> serve/queue/websocket -> web. Only `web` publishes a host port (C-2).
+# Bring-up order is enforced by conditions (CR-3): database healthy -> migrate
+# completed -> backend/queue/websocket -> front. Only `front` publishes a host port (C-2).
 # Secrets are file-backed and injected via *_FILE paths only — no literal secret in
 # this file (C-4/CR-2). Non-secret config comes from .env.production (env_file), which
 # is also the recommended --env-file for ${...} interpolation below.
@@ -24,7 +24,7 @@ services:
       start_period: 10s
     restart: unless-stopped
 
-  backend:                                               # build target init — run once
+  migrate:                                               # build target init — db migrations only, run once
     build:
       context: .
       target: init
@@ -46,7 +46,7 @@ services:
         condition: service_healthy                       # FR-009
     restart: "no"                                        # one-shot (CR-3)
 
-  serve:                                                 # build target fpm
+  backend:                                               # build target fpm — the app server (php-fpm)
     build:
       context: .
       target: fpm
@@ -64,7 +64,7 @@ services:
       OPENSTREET_API_KEY_FILE: /run/secrets/openstreet_api_key
       REVERB_APP_SECRET_FILE: /run/secrets/reverb_app_secret
     depends_on:
-      backend:
+      migrate:
         condition: service_completed_successfully        # CR-3
     healthcheck:
       test: ["CMD", "/usr/local/bin/healthcheck.sh", "fpm"]
@@ -92,7 +92,7 @@ services:
       OPENSTREET_API_KEY_FILE: /run/secrets/openstreet_api_key
       REVERB_APP_SECRET_FILE: /run/secrets/reverb_app_secret
     depends_on:
-      backend:
+      migrate:
         condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "/usr/local/bin/healthcheck.sh", "queue"]
@@ -118,7 +118,7 @@ services:
       DB_PASSWORD_FILE: /run/secrets/db_password
       REVERB_APP_SECRET_FILE: /run/secrets/reverb_app_secret
     depends_on:
-      backend:
+      migrate:
         condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "/usr/local/bin/healthcheck.sh", "reverb"]
@@ -128,16 +128,16 @@ services:
       start_period: 15s
     restart: unless-stopped
 
-  web:                                                   # build target web — single ingress
+  front:                                                 # build target web — single ingress (nginx)
     build:
       context: .
-      target: web                                         # same Dockerfile/assets stage as serve -> matching hashes
+      target: web                                         # same Dockerfile/assets stage as backend -> matching hashes
       args:
         VITE_REVERB_APP_KEY: ${REVERB_APP_KEY:-optistock-key}
     ports:
       - "${HTTP_PORT:-8080}:80"                           # the only published port (C-2)
     depends_on:
-      serve:
+      backend:
         condition: service_healthy
       websocket:
         condition: service_started                        # not healthy — avoids cyclic wait

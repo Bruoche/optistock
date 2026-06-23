@@ -1,5 +1,5 @@
 #!/bin/sh
-# Shared entrypoint for every PHP service (serve/queue/websocket/init).
+# Shared entrypoint for every PHP service (backend/queue/websocket/migrate).
 #   1. *_FILE shim: read mounted Docker secrets into plain env (E-1).
 #   2. Fail-fast: assert required vars are present, naming any that is missing (E-2, CR-5).
 #   3. Warm this container's OWN caches for the long-running serving roles (E-5/F2).
