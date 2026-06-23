@@ -1,13 +1,13 @@
 ARG PHP_BASE=php:8.4.22-fpm-alpine
 ARG NODE_BASE=node:22-alpine
 ARG COMPOSER_BASE=composer:2.8
-ARG NGINX_BASE=nginx:1.31-trixie-perl
+ARG NGINX_BASE=nginx:1.31-alpine
 
 # --- vendor: composer install + Wayfinder TS helper generation ------------------
 FROM ${COMPOSER_BASE} AS vendor
 WORKDIR /app
 COPY composer.json composer.lock ./
-RUN composer install --no-dev --prefer-dist --no-scripts --no-progress --optimize-autoloader
+RUN composer install --no-dev --prefer-dist --no-scripts --no-progress --no-autoloader
 COPY . .
 RUN composer dump-autoload --optimize --classmap-authoritative
 # Wayfinder helpers must be generated where PHP exists (the assets stage has none).
@@ -53,8 +53,7 @@ COPY docker/php/opcache.ini /usr/local/etc/php/conf.d/zz-opcache.ini
 COPY --chown=www-data:www-data --from=vendor /app /var/www/html
 COPY --chown=www-data:www-data --from=assets /app/public/build /var/www/html/public/build
 
-COPY docker/php/entrypoint.sh /usr/local/bin/entrypoint.sh
-COPY docker/php/healthcheck.sh /usr/local/bin/healthcheck.sh
+COPY docker/php/entrypoint.sh docker/php/healthcheck.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/bin/healthcheck.sh \
     && mkdir -p storage/framework/cache storage/framework/sessions storage/framework/views \
        storage/logs bootstrap/cache \
@@ -87,9 +86,7 @@ CMD ["php", "artisan", "migrate", "--force"]
 # Reuses the `assets` stage rather than rebuilding, so the served bundle's vite
 # hashes always match the PHP manifest. Reverse-proxies PHP and the websocket.
 FROM ${NGINX_BASE} AS web
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends curl \
-    && rm -rf /var/lib/apt/lists/*
+RUN apk add --no-cache curl
 COPY public/ /var/www/html/public/
 COPY --from=assets /app/public/build /var/www/html/public/build
 COPY docker/nginx/default.conf /etc/nginx/conf.d/default.conf
