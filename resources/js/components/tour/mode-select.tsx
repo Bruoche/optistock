@@ -9,11 +9,19 @@ type ModeSelectProps = {
     disabled?: boolean;
 };
 
-export function ModeSelect({ value, onChange, disabled = false }: ModeSelectProps) {
+export function ModeSelect({
+    value,
+    onChange,
+    disabled = false,
+}: ModeSelectProps) {
     return (
-        <Select value={value} onValueChange={(next) => onChange(next as DeliveryMode)} disabled={disabled}>
-            <SelectTrigger 
-			    aria-label="Delivery mode"
+        <Select
+            value={value}
+            onValueChange={(next) => onChange(next as DeliveryMode)}
+            disabled={disabled}
+        >
+            <SelectTrigger
+                aria-label="Delivery mode"
                 className="w-40 border-text-on-color bg-primary text-text-on-color hover:bg-secondary dark:bg-primary dark:hover:bg-secondary [&>svg]:!text-text-on-color [&>svg]:!opacity-100"
             >
                 <SelectValue />

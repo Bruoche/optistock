@@ -4,8 +4,12 @@ import { SidebarProvider } from '@/components/ui/sidebar';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import type { Appearance } from '@/hooks/use-appearance';
 import { ThemeSelector } from './theme-selector';
+import type { Appearance } from '@/hooks/use-appearance';
 
-const mocks = vi.hoisted(() => ({ appearance: 'system' as Appearance, update: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+    appearance: 'system' as Appearance,
+    update: vi.fn(),
+}));
 
 vi.mock('@/hooks/use-appearance', () => ({
     useAppearance: () => ({

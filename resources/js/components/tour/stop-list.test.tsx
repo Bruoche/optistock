@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import type { Stop } from '@/types/tour';
 import { StopList } from './stop-list';
+import type { Stop } from '@/types/tour';
 
 const STOPS: Stop[] = [
     { id: 'a', lat: 48.1, lng: 2.1, durationMinutes: 10 },
