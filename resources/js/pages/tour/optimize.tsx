@@ -86,6 +86,8 @@ export default function TourOptimize() {
                                 onModeChange={setMode}
                                 loop={loop}
                                 onLoopChange={setLoop}
+                                date={tourDate}
+                                onDateChange={setTourDate}
                                 onOptimize={() => optimize(mode, loop)}
                                 canOptimize={canOptimize}
                                 optimizing={isPending}

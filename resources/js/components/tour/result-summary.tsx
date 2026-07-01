@@ -64,8 +64,8 @@ export function ResultSummary({
 
     return (
         <div className="flex h-full flex-col gap-3">
-            <div className="flex items-center justify-between rounded-md bg-primary px-4 py-3 text-text-on-color">
-                <div className="flex gap-6">
+            <div className="flex items-center justify-between gap-6 rounded-md bg-primary px-4 py-3 text-text-on-color">
+                <div className="flex items-center gap-6">
                     <Figure
                         label="Time on road"
                         value={formatDuration(durationS)}
@@ -74,11 +74,10 @@ export function ResultSummary({
                         label="Tour duration"
                         value={formatDuration(tourDurationS)}
                     />
+                    <TourDateField date={date} onDateChange={onDateChange} />
                 </div>
                 <ActionButton onClick={onReset}>New tour</ActionButton>
             </div>
-
-            <TourDateField date={date} onDateChange={onDateChange} />
 
             <DriverList mode={mode} date={date} />
         </div>
