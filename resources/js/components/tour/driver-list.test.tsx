@@ -36,7 +36,12 @@ describe('DriverList', () => {
                 ? {
                       status: 'ready',
                       drivers: [
-                          { id: 1, name: 'Monday Mona', imageUrl: null, modes: ['driving'] },
+                          {
+                              id: 1,
+                              name: 'Monday Mona',
+                              imageUrl: null,
+                              modes: ['driving'],
+                          },
                       ],
                   }
                 : { status: 'ready', drivers: [] },
@@ -45,11 +50,17 @@ describe('DriverList', () => {
         const { rerender } = render(
             <DriverList mode="driving" date="2026-07-06" />,
         );
-        expect(mockUseTourDrivers).toHaveBeenLastCalledWith('driving', '2026-07-06');
+        expect(mockUseTourDrivers).toHaveBeenLastCalledWith(
+            'driving',
+            '2026-07-06',
+        );
         expect(screen.getByText('Monday Mona')).toBeInTheDocument();
 
         rerender(<DriverList mode="driving" date="2026-07-04" />);
-        expect(mockUseTourDrivers).toHaveBeenLastCalledWith('driving', '2026-07-04');
+        expect(mockUseTourDrivers).toHaveBeenLastCalledWith(
+            'driving',
+            '2026-07-04',
+        );
         expect(screen.queryByText('Monday Mona')).not.toBeInTheDocument();
         expect(
             screen.getByText('No one available for this delivery.'),

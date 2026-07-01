@@ -79,7 +79,10 @@ export function ResultSummary({
                         {formatDuration(tourDurationS)}
                     </Figure>
                     <Figure label="Selected date">
-                        <TourDateInput date={date} onDateChange={onDateChange} />
+                        <TourDateInput
+                            date={date}
+                            onDateChange={onDateChange}
+                        />
                         {formatWeekday(date)}
                     </Figure>
                 </div>
