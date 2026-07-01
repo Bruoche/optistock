@@ -3,7 +3,9 @@
 // holds the available-driver list for the tour's mode (feature 006).
 import { ActionButton } from '@/components/action-button';
 import { DriverList } from '@/components/tour/driver-list';
-import { TourDateField } from '@/components/tour/tour-date-field';
+import { TourDateInput } from '@/components/tour/tour-date-field';
+import { formatWeekday } from '@/types/tour';
+import type { ReactNode } from 'react';
 import type { DeliveryMode, TourResult } from '@/types/tour';
 
 type ResultSummaryProps = {
@@ -23,11 +25,16 @@ type ResultSummaryProps = {
     onReset: () => void;
 };
 
-function Figure({ label, value }: { label: string; value: string }) {
+// A header cell whose label and value snap to the two shared rows of the
+// surrounding subgrid, so every figure's label and value stay aligned even when a
+// value (the date input) is taller than the plain-text ones.
+function Figure({ label, children }: { label: string; children: ReactNode }) {
     return (
-        <div>
+        <div className="row-span-2 grid grid-rows-subgrid">
             <p className="text-xs tracking-wide uppercase">{label}</p>
-            <p className="text-lg font-semibold">{value}</p>
+            <div className="flex items-center gap-2 text-lg font-semibold">
+                {children}
+            </div>
         </div>
     );
 }
@@ -65,16 +72,17 @@ export function ResultSummary({
     return (
         <div className="flex h-full flex-col gap-3">
             <div className="flex items-center justify-between gap-6 rounded-md bg-primary px-4 py-3 text-text-on-color">
-                <div className="flex items-center gap-6">
-                    <Figure
-                        label="Time on road"
-                        value={formatDuration(durationS)}
-                    />
-                    <Figure
-                        label="Tour duration"
-                        value={formatDuration(tourDurationS)}
-                    />
-                    <TourDateField date={date} onDateChange={onDateChange} />
+                <div className="grid auto-cols-max grid-flow-col grid-rows-[auto_auto] items-center gap-x-6 gap-y-1">
+                    <Figure label="Time on road">
+                        {formatDuration(durationS)}
+                    </Figure>
+                    <Figure label="Tour duration">
+                        {formatDuration(tourDurationS)}
+                    </Figure>
+                    <Figure label="Selected date">
+                        <TourDateInput date={date} onDateChange={onDateChange} />
+                        {formatWeekday(date)}
+                    </Figure>
                 </div>
                 <ActionButton onClick={onReset}>New tour</ActionButton>
             </div>
