@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\DeliveryMode as DeliveryModeEnum;
+use App\Enums\WeekDay as WeekDayEnum;
 use Database\Factories\DriverFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
@@ -29,6 +30,16 @@ class Driver extends Model
     }
 
     /**
+     * The weekdays this driver is scheduled to work (their schedule; may be empty).
+     *
+     * @return BelongsToMany<WeekDay, $this>
+     */
+    public function weekDays(): BelongsToMany
+    {
+        return $this->belongsToMany(WeekDay::class, 'driver_week_day');
+    }
+
+    /**
      * Public URL for the driver's image, or null when none is stored.
      *
      * @return Attribute<string|null, never>
@@ -41,15 +52,17 @@ class Driver extends Model
     }
 
     /**
-     * Drivers able to run a tour of the given mode, alphabetical by name.
+     * Drivers able to run a tour of the given mode on the given weekday —
+     * supporting the mode and scheduled to work that day, alphabetical by name.
      *
      * @param  Builder<Driver>  $query
      * @return Builder<Driver>
      */
-    public function scopeAvailable(Builder $query, DeliveryModeEnum $mode): Builder
+    public function scopeAvailable(Builder $query, DeliveryModeEnum $mode, WeekDayEnum $day): Builder
     {
         return $query
             ->whereHas('deliveryModes', fn (Builder $modes) => $modes->where('label', $mode->value))
+            ->whereHas('weekDays', fn (Builder $days) => $days->where('label', $day->value))
             ->with('deliveryModes')
             ->orderBy('name');
     }

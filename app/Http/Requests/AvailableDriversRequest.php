@@ -7,8 +7,9 @@ use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 /**
- * Validates the available-drivers query: a required `mode` that must be one of
- * the App\Enums\DeliveryMode values (trucking, driving, walking).
+ * Validates the available-drivers query: a required `mode` (one of the
+ * App\Enums\DeliveryMode values) and a required `date` (the tour's day). The
+ * weekday is deduced server-side from `date`; no weekday is accepted from the client.
  */
 class AvailableDriversRequest extends FormRequest
 {
@@ -24,6 +25,7 @@ class AvailableDriversRequest extends FormRequest
     {
         return [
             'mode' => ['required', Rule::enum(DeliveryModeEnum::class)],
+            'date' => ['required', 'date'],
         ];
     }
 
@@ -34,6 +36,7 @@ class AvailableDriversRequest extends FormRequest
     {
         return [
             'mode' => 'Mode must be one of: trucking, driving, walking.',
+            'date' => 'A valid tour date is required.',
         ];
     }
 }

@@ -1,5 +1,9 @@
 # Contract: Driver Availability
 
+> **Superseded (feature 011)**: `GET /api/tour/drivers` now also requires a `date`
+> query param and filters by the driver's weekly schedule (weekday of the date).
+> See `specs/011-weekday-label/contracts/driver-availability.md` for the current contract.
+
 ## HTTP — `GET /api/tour/drivers`
 
 Auth: required (session cookie, `auth` group — same as the other tour endpoints). Throttled.

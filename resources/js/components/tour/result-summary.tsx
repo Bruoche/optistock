@@ -3,6 +3,7 @@
 // holds the available-driver list for the tour's mode (feature 006).
 import { ActionButton } from '@/components/action-button';
 import { DriverList } from '@/components/tour/driver-list';
+import { TourDateField } from '@/components/tour/tour-date-field';
 import type { DeliveryMode, TourResult } from '@/types/tour';
 
 type ResultSummaryProps = {
@@ -16,6 +17,9 @@ type ResultSummaryProps = {
     waitTimeS: number;
     /** The mode the shown tour was optimized with — drives the available-driver list. */
     mode: DeliveryMode;
+    /** The selected tour date (YYYY-MM-DD); its weekday narrows the driver list (011). */
+    date: string;
+    onDateChange: (date: string) => void;
     onReset: () => void;
 };
 
@@ -49,6 +53,8 @@ export function ResultSummary({
     roadMetrics,
     waitTimeS,
     mode,
+    date,
+    onDateChange,
     onReset,
 }: ResultSummaryProps) {
     // Prefer the road-accurate duration once available; otherwise the initial estimate.
@@ -72,7 +78,9 @@ export function ResultSummary({
                 <ActionButton onClick={onReset}>New tour</ActionButton>
             </div>
 
-            <DriverList mode={mode} />
+            <TourDateField date={date} onDateChange={onDateChange} />
+
+            <DriverList mode={mode} date={date} />
         </div>
     );
 }

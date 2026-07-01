@@ -11,6 +11,7 @@ import { TourControlBar } from '@/components/tour/tour-control-bar';
 import { TourMap } from '@/components/tour/tour-map';
 import { useTourGeometry } from '@/hooks/use-tour-geometry';
 import { useTourOptimization } from '@/hooks/use-tour-optimization';
+import { todayDate } from '@/types/tour';
 import type { DeliveryMode } from '@/types/tour';
 
 const MIN_STOPS = 2;
@@ -31,6 +32,8 @@ export default function TourOptimize() {
     // Defaults apply on first load and are retained across a reset (reset clears the tour, not these).
     const [mode, setMode] = useState<DeliveryMode>('trucking');
     const [loop, setLoop] = useState<boolean>(true);
+    // Presentation-phase tour date (011); defaults to today and persists across resets.
+    const [tourDate, setTourDate] = useState<string>(todayDate);
 
     const isPending =
         state.status === 'submitting' || state.status === 'pending';
@@ -72,6 +75,8 @@ export default function TourOptimize() {
                             roadMetrics={geometry.metrics}
                             waitTimeS={waitTimeS}
                             mode={state.mode}
+                            date={tourDate}
+                            onDateChange={setTourDate}
                             onReset={reset}
                         />
                     ) : (

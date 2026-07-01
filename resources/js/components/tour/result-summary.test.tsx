@@ -6,8 +6,11 @@ import type { TourResult } from '@/types/tour';
 const mockUseTourDrivers = vi.fn();
 
 vi.mock('@/hooks/use-tour-drivers', () => ({
-    useTourDrivers: (mode: string) => mockUseTourDrivers(mode),
+    useTourDrivers: (mode: string, date: string) =>
+        mockUseTourDrivers(mode, date),
 }));
+
+const DATE = '2026-07-06';
 
 const result: TourResult = {
     ordered_stops: [
@@ -27,12 +30,14 @@ describe('ResultSummary', () => {
                 result={result}
                 waitTimeS={0}
                 mode="driving"
+                date={DATE}
+                onDateChange={() => {}}
                 onReset={() => {}}
             />,
         );
 
-        // ResultSummary mounts DriverList (empty state proves it rendered) for the mode.
-        expect(mockUseTourDrivers).toHaveBeenCalledWith('driving');
+        // ResultSummary mounts DriverList (empty state proves it rendered) for the mode + date.
+        expect(mockUseTourDrivers).toHaveBeenCalledWith('driving', DATE);
         expect(
             screen.getByText('No one available for this delivery.'),
         ).toBeInTheDocument();
@@ -55,6 +60,8 @@ describe('ResultSummary', () => {
                 result={result}
                 waitTimeS={2400}
                 mode="driving"
+                date={DATE}
+                onDateChange={() => {}}
                 onReset={() => {}}
             />,
         );
@@ -72,6 +79,8 @@ describe('ResultSummary', () => {
                 result={noMetrics}
                 waitTimeS={1500}
                 mode="driving"
+                date={DATE}
+                onDateChange={() => {}}
                 onReset={() => {}}
             />,
         );
@@ -90,6 +99,8 @@ describe('ResultSummary', () => {
                 roadMetrics={{ distance_m: 5000, duration_s: 1200 }}
                 waitTimeS={1500}
                 mode="driving"
+                date={DATE}
+                onDateChange={() => {}}
                 onReset={() => {}}
             />,
         );

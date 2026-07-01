@@ -1,6 +1,7 @@
-// Fetches the drivers available for an optimized tour's mode (feature 006).
-// A plain authenticated GET, mirroring the status-poll fetch pattern; re-fetches
-// whenever the mode changes (e.g. a new tour optimized for a different mode).
+// Fetches the drivers available for an optimized tour's mode + date (features 006,
+// 011). A plain authenticated GET, mirroring the status-poll fetch pattern;
+// re-fetches whenever the mode or date changes so the list always matches the
+// tour's mode and the selected date's weekday.
 import { useEffect, useState } from 'react';
 import type { DeliveryMode, Driver } from '@/types/tour';
 
@@ -15,16 +16,21 @@ type ApiDriver = {
 
 type FetchState = {
     mode: DeliveryMode;
+    date: string;
     drivers: Driver[];
     status: DriversStatus;
 };
 
-export function useTourDrivers(mode: DeliveryMode): {
+export function useTourDrivers(
+    mode: DeliveryMode,
+    date: string,
+): {
     drivers: Driver[];
     status: DriversStatus;
 } {
     const [state, setState] = useState<FetchState>({
         mode,
+        date,
         drivers: [],
         status: 'loading',
     });
@@ -32,7 +38,9 @@ export function useTourDrivers(mode: DeliveryMode): {
     useEffect(() => {
         let cancelled = false;
 
-        fetch(`/api/tour/drivers?mode=${encodeURIComponent(mode)}`, {
+        const query = `mode=${encodeURIComponent(mode)}&date=${encodeURIComponent(date)}`;
+
+        fetch(`/api/tour/drivers?${query}`, {
             credentials: 'same-origin',
             headers: { Accept: 'application/json' },
         })
@@ -53,21 +61,21 @@ export function useTourDrivers(mode: DeliveryMode): {
                     imageUrl: driver.image_url,
                     modes: driver.modes,
                 }));
-                setState({ mode, drivers, status: 'ready' });
+                setState({ mode, date, drivers, status: 'ready' });
             })
             .catch(() => {
                 if (!cancelled) {
-                    setState({ mode, drivers: [], status: 'error' });
+                    setState({ mode, date, drivers: [], status: 'error' });
                 }
             });
 
         return () => {
             cancelled = true;
         };
-    }, [mode]);
+    }, [mode, date]);
 
-    // Until the fetch for the current mode resolves, report loading (no stale list).
-    if (state.mode !== mode) {
+    // Until the fetch for the current mode+date resolves, report loading (no stale list).
+    if (state.mode !== mode || state.date !== date) {
         return { drivers: [], status: 'loading' };
     }
 

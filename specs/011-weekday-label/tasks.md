@@ -27,7 +27,7 @@ Web app (Laravel + React SPA): backend under `app/`, `database/`, `routes/`, `te
 
 **Purpose**: Confirm prerequisites; no new dependencies expected (Laravel 12, React 19, shadcn/ui, lucide-react already present).
 
-- [ ] T001 Confirm the shadcn `Input` primitive exists at `resources/js/components/ui/input.tsx` (used by the date field); if absent, add it via the project's shadcn setup. No other new dependencies.
+- [x] T001 Confirm the shadcn `Input` primitive exists at `resources/js/components/ui/input.tsx` (used by the date field); if absent, add it via the project's shadcn setup. No other new dependencies.
 
 ---
 
@@ -37,14 +37,14 @@ Web app (Laravel + React SPA): backend under `app/`, `database/`, `routes/`, `te
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete.
 
-- [ ] T002 [P] Create `App\Enums\WeekDay` in `app/Enums/WeekDay.php` — seven string-backed cases (`monday`…`sunday`) plus `public static function fromDate(\Carbon\CarbonInterface $date): self` mapping `$date->dayOfWeekIso` (1=Monday…7=Sunday) to a case (mirrors `App\Enums\DeliveryMode`).
-- [ ] T003 Create migration `database/migrations/2026_07_01_000001_create_week_day_tables.php` — `week_days` (`id`, `label` unique) and `driver_week_day` pivot (`id`, `driver_id` FK cascadeOnDelete, `week_day_id` FK cascadeOnDelete, unique composite `(driver_id, week_day_id)`); `down()` drops pivot then `week_days` (mirrors `create_driver_tables.php`).
-- [ ] T004 [P] Create `App\Models\WeekDay` in `app/Models/WeekDay.php` — `#[Fillable(['label'])]`, `$timestamps = false`, `drivers(): belongsToMany(Driver::class, 'driver_week_day')` (mirrors `App\Models\DeliveryMode`).
-- [ ] T005 [US-shared] Add `weekDays(): BelongsToMany` relation to `app/Models/Driver.php` — `belongsToMany(WeekDay::class, 'driver_week_day')` (alongside the existing `deliveryModes`).
-- [ ] T006 [P] Create `database/seeders/WeekDaySeeder.php` — idempotent `WeekDay::updateOrCreate(['label' => $day->value])` over `WeekDayEnum::cases()` (mirrors `DeliveryModeSeeder`).
-- [ ] T007 Register the seeder in `database/seeders/DatabaseSeeder.php` — `$this->call(WeekDaySeeder::class)` before the demo seeder.
-- [ ] T008 [P] Extend `database/factories/DriverFactory.php` — in `configure()` also `afterCreating` sync a random **non-empty** subset (1–7) of week days; add `withDays(array $labels): static` for deterministic fixtures (mirrors the mode `withModes`/`modeIds` helpers, resolving day labels to `week_days` ids).
-- [ ] T009 [P] Extend `database/seeders/DriverDemoSeeder.php` — add a `days` schedule per demo driver spanning the variety in spec 010 (Mon–Fri, weekend-only, a 4-day week, all-week) and sync them after create.
+- [x] T002 [P] Create `App\Enums\WeekDay` in `app/Enums/WeekDay.php` — seven string-backed cases (`monday`…`sunday`) plus `public static function fromDate(\Carbon\CarbonInterface $date): self` mapping `$date->dayOfWeekIso` (1=Monday…7=Sunday) to a case (mirrors `App\Enums\DeliveryMode`).
+- [x] T003 Create migration `database/migrations/2026_07_01_000001_create_week_day_tables.php` — `week_days` (`id`, `label` unique) and `driver_week_day` pivot (`id`, `driver_id` FK cascadeOnDelete, `week_day_id` FK cascadeOnDelete, unique composite `(driver_id, week_day_id)`); `down()` drops pivot then `week_days` (mirrors `create_driver_tables.php`).
+- [x] T004 [P] Create `App\Models\WeekDay` in `app/Models/WeekDay.php` — `#[Fillable(['label'])]`, `$timestamps = false`, `drivers(): belongsToMany(Driver::class, 'driver_week_day')` (mirrors `App\Models\DeliveryMode`).
+- [x] T005 [US-shared] Add `weekDays(): BelongsToMany` relation to `app/Models/Driver.php` — `belongsToMany(WeekDay::class, 'driver_week_day')` (alongside the existing `deliveryModes`).
+- [x] T006 [P] Create `database/seeders/WeekDaySeeder.php` — idempotent `WeekDay::updateOrCreate(['label' => $day->value])` over `WeekDayEnum::cases()` (mirrors `DeliveryModeSeeder`).
+- [x] T007 Register the seeder in `database/seeders/DatabaseSeeder.php` — `$this->call(WeekDaySeeder::class)` before the demo seeder.
+- [x] T008 [P] Extend `database/factories/DriverFactory.php` — in `configure()` also `afterCreating` sync a random **non-empty** subset (1–7) of week days; add `withDays(array $labels): static` for deterministic fixtures (mirrors the mode `withModes`/`modeIds` helpers, resolving day labels to `week_days` ids).
+- [x] T009 [P] Extend `database/seeders/DriverDemoSeeder.php` — add a `days` schedule per demo driver spanning the variety in spec 010 (Mon–Fri, weekend-only, a 4-day week, all-week) and sync them after create.
 
 **Checkpoint**: DB has `week_days` + `driver_week_day`; drivers can be given schedules; foundation ready.
 
@@ -58,20 +58,20 @@ Web app (Laravel + React SPA): backend under `app/`, `database/`, `routes/`, `te
 
 ### Tests for User Story 1 ⚠️ (write first, ensure they FAIL)
 
-- [ ] T010 [P] [US1] `tests/Unit/WeekDayTest.php` — `WeekDay::fromDate` returns the correct case for a fixed date on each of the 7 weekdays; `week_days` seeded labels match `WeekDay::cases()` values (label↔enum parity).
-- [ ] T011 [P] [US1] Extend `tests/Feature/DriverAvailabilityTest.php` — `date` required (missing → 422; non-date → 422); with `mode`+`date`, only drivers matching mode AND the date's weekday returned; a fixed Saturday date returns only weekend-scheduled drivers; a weekday date excludes weekend-only drivers; empty schedule never listed; payload shape (`id`, `name`, `image_url`, `modes`) unchanged; still ordered by `name`; unauth → 401.
-- [ ] T012 [P] [US1] Extend `tests/Unit/DriverTest.php` — `Driver::available($mode, $day)` scope returns drivers matching both relations and excludes drivers missing either.
+- [x] T010 [P] [US1] `tests/Unit/WeekDayTest.php` — `WeekDay::fromDate` returns the correct case for a fixed date on each of the 7 weekdays; `week_days` seeded labels match `WeekDay::cases()` values (label↔enum parity).
+- [x] T011 [P] [US1] Extend `tests/Feature/DriverAvailabilityTest.php` — `date` required (missing → 422; non-date → 422); with `mode`+`date`, only drivers matching mode AND the date's weekday returned; a fixed Saturday date returns only weekend-scheduled drivers; a weekday date excludes weekend-only drivers; empty schedule never listed; payload shape (`id`, `name`, `image_url`, `modes`) unchanged; still ordered by `name`; unauth → 401.
+- [x] T012 [P] [US1] Extend `tests/Unit/DriverTest.php` — `Driver::available($mode, $day)` scope returns drivers matching both relations and excludes drivers missing either.
 
 ### Implementation for User Story 1
 
-- [ ] T013 [US1] Extend `scopeAvailable` in `app/Models/Driver.php` to `scopeAvailable(Builder $query, DeliveryModeEnum $mode, WeekDayEnum $day)` — add `->whereHas('weekDays', fn (Builder $days) => $days->where('label', $day->value))` to the existing mode `whereHas`; keep eager-load `deliveryModes` and `orderBy('name')`.
-- [ ] T014 [US1] Add `date` validation to `app/Http/Requests/AvailableDriversRequest.php` — `'date' => ['required', 'date']` (keep the `mode` enum rule); add a `date` message.
-- [ ] T015 [US1] Update `app/Http/Controllers/DriverController.php@available` — resolve `$day = WeekDayEnum::fromDate($request->date('date'))` and call `Driver::available($mode, $day)`; response mapping unchanged.
-- [ ] T016 [US1] Update `resources/js/hooks/use-tour-drivers.ts` — accept `date: string`, add `&date=${encodeURIComponent(date)}` to the fetch URL, key the effect + stale-guard on `(mode, date)` so no stale list is reported.
-- [ ] T017 [US1] Update `resources/js/components/tour/driver-list.tsx` — accept a `date` prop and pass it to `useTourDrivers(mode, date)` (rendering unchanged).
-- [ ] T018 [US1] Update `resources/js/components/tour/result-summary.tsx` — accept `date` and forward it to `<DriverList mode date />`.
-- [ ] T019 [US1] Update `resources/js/pages/tour/optimize.tsx` — add `const [tourDate, setTourDate] = useState(() => new Date().toLocaleDateString('sv-SE'))` beside `mode`/`loop` (retained across `reset`); `'sv-SE'` yields a **local** `YYYY-MM-DD` (no UTC off-by-one, matching the local-noon label parse in R7). Pass `date={tourDate}` to `<ResultSummary />`.
-- [ ] T019a [US1] Update `resources/js/components/tour/result-summary.test.tsx` — pass the new required `date` prop wherever `ResultSummary` is rendered so the existing suite stays green after T018 (`onDateChange` does not exist yet — added in US2). Assert the driver list still renders.
+- [x] T013 [US1] Extend `scopeAvailable` in `app/Models/Driver.php` to `scopeAvailable(Builder $query, DeliveryModeEnum $mode, WeekDayEnum $day)` — add `->whereHas('weekDays', fn (Builder $days) => $days->where('label', $day->value))` to the existing mode `whereHas`; keep eager-load `deliveryModes` and `orderBy('name')`.
+- [x] T014 [US1] Add `date` validation to `app/Http/Requests/AvailableDriversRequest.php` — `'date' => ['required', 'date']` (keep the `mode` enum rule); add a `date` message.
+- [x] T015 [US1] Update `app/Http/Controllers/DriverController.php@available` — resolve `$day = WeekDayEnum::fromDate($request->date('date'))` and call `Driver::available($mode, $day)`; response mapping unchanged.
+- [x] T016 [US1] Update `resources/js/hooks/use-tour-drivers.ts` — accept `date: string`, add `&date=${encodeURIComponent(date)}` to the fetch URL, key the effect + stale-guard on `(mode, date)` so no stale list is reported.
+- [x] T017 [US1] Update `resources/js/components/tour/driver-list.tsx` — accept a `date` prop and pass it to `useTourDrivers(mode, date)` (rendering unchanged).
+- [x] T018 [US1] Update `resources/js/components/tour/result-summary.tsx` — accept `date` and forward it to `<DriverList mode date />`.
+- [x] T019 [US1] Update `resources/js/pages/tour/optimize.tsx` — add `const [tourDate, setTourDate] = useState(() => new Date().toLocaleDateString('sv-SE'))` beside `mode`/`loop` (retained across `reset`); `'sv-SE'` yields a **local** `YYYY-MM-DD` (no UTC off-by-one, matching the local-noon label parse in R7). Pass `date={tourDate}` to `<ResultSummary />`.
+- [x] T019a [US1] Update `resources/js/components/tour/result-summary.test.tsx` — pass the new required `date` prop wherever `ResultSummary` is rendered so the existing suite stays green after T018 (`onDateChange` does not exist yet — added in US2). Assert the driver list still renders.
 
 **Checkpoint**: Endpoint filters by mode + weekday; results-page list reflects today's weekday; existing result-summary test green. US1 independently testable.
 
@@ -85,14 +85,14 @@ Web app (Laravel + React SPA): backend under `app/`, `database/`, `routes/`, `te
 
 ### Tests for User Story 2 ⚠️
 
-- [ ] T020 [P] [US2] `resources/js/components/tour/tour-date-field.test.tsx` — renders a date input defaulting to the given value; changing it calls `onDateChange` with the new `YYYY-MM-DD`.
-- [ ] T021 [P] [US2] Extend `resources/js/components/tour/driver-list.test.tsx` — mock `fetch`; changing the `date` prop triggers a re-fetch with the new `date` query param and re-renders without stale rows.
+- [x] T020 [P] [US2] `resources/js/components/tour/tour-date-field.test.tsx` — renders a date input defaulting to the given value; changing it calls `onDateChange` with the new `YYYY-MM-DD`.
+- [x] T021 [P] [US2] Extend `resources/js/components/tour/driver-list.test.tsx` — mock `fetch`; changing the `date` prop triggers a re-fetch with the new `date` query param and re-renders without stale rows.
 
 ### Implementation for User Story 2
 
-- [ ] T022 [US2] Create `resources/js/components/tour/tour-date-field.tsx` — a shadcn `Input type="date"` bound to `date`, calling `onDateChange(value)` on change; role-named color vars, no raw hex (constitution VI). (Weekday label added in US3.)
-- [ ] T023 [US2] Render `<TourDateField date={date} onDateChange={onDateChange} />` above `<DriverList />` in `resources/js/components/tour/result-summary.tsx`; add `onDateChange` to its props. Update `resources/js/components/tour/result-summary.test.tsx` to pass a (no-op or spy) `onDateChange` for the now-required prop.
-- [ ] T024 [US2] Wire `onDateChange` in `resources/js/pages/tour/optimize.tsx` to `setTourDate` and pass it to `<ResultSummary />`; confirm `reset()` does not clear `tourDate`.
+- [x] T022 [US2] Create `resources/js/components/tour/tour-date-field.tsx` — a shadcn `Input type="date"` bound to `date`, calling `onDateChange(value)` on change; role-named color vars, no raw hex (constitution VI). (Weekday label added in US3.)
+- [x] T023 [US2] Render `<TourDateField date={date} onDateChange={onDateChange} />` above `<DriverList />` in `resources/js/components/tour/result-summary.tsx`; add `onDateChange` to its props. Update `resources/js/components/tour/result-summary.test.tsx` to pass a (no-op or spy) `onDateChange` for the now-required prop.
+- [x] T024 [US2] Wire `onDateChange` in `resources/js/pages/tour/optimize.tsx` to `setTourDate` and pass it to `<ResultSummary />`; confirm `reset()` does not clear `tourDate`.
 
 **Checkpoint**: Date is editable on the presentation phase; the list refreshes on change; date persists across reset. US1 + US2 both work.
 
@@ -106,12 +106,12 @@ Web app (Laravel + React SPA): backend under `app/`, `database/`, `routes/`, `te
 
 ### Tests for User Story 3 ⚠️
 
-- [ ] T025 [P] [US3] Extend `resources/js/components/tour/tour-date-field.test.tsx` — the weekday label shows the correct day name for a fixed date, updates when the date changes, and is never empty; a date near a timezone boundary is not off-by-one.
+- [x] T025 [P] [US3] Extend `resources/js/components/tour/tour-date-field.test.tsx` — the weekday label shows the correct day name for a fixed date, updates when the date changes, and is never empty; a date near a timezone boundary is not off-by-one.
 
 ### Implementation for User Story 3
 
-- [ ] T026 [P] [US3] Add a `formatWeekday(date: string): string` helper (in `resources/js/types/tour.ts` or colocated in the component) — parse `YYYY-MM-DD` as a **local** calendar date (construct at local noon to avoid TZ rollover) and return `toLocaleDateString(undefined, { weekday: 'long' })`.
-- [ ] T027 [US3] Render the weekday label beside the input in `resources/js/components/tour/tour-date-field.tsx` using `formatWeekday(date)`, styled as muted-foreground read-only text; recomputes on every `date` change.
+- [x] T026 [P] [US3] Add a `formatWeekday(date: string): string` helper (in `resources/js/types/tour.ts` or colocated in the component) — parse `YYYY-MM-DD` as a **local** calendar date (construct at local noon to avoid TZ rollover) and return `toLocaleDateString(undefined, { weekday: 'long' })`.
+- [x] T027 [US3] Render the weekday label beside the input in `resources/js/components/tour/tour-date-field.tsx` using `formatWeekday(date)`, styled as muted-foreground read-only text; recomputes on every `date` change.
 
 **Checkpoint**: All three stories functional; the label's weekday matches the server's filtering weekday (spec 011 SC-004).
 
@@ -119,10 +119,10 @@ Web app (Laravel + React SPA): backend under `app/`, `database/`, `routes/`, `te
 
 ## Phase 6: Polish & Cross-Cutting Concerns
 
-- [ ] T028 [P] Update `specs/006-driver-assignment/contracts/driver-availability.md` reference note (or add a pointer) so the `date`-param change is discoverable; ensure `contracts/driver-availability.md` (011) is the current source.
-- [ ] T029 Run `php artisan test` and `npm run test` — all backend + frontend suites green.
-- [ ] T030 Run lint/format (`./vendor/bin/pint`, `npm run lint`, `npm run types`) and fix any issues.
-- [ ] T031 Execute `specs/011-weekday-label/quickstart.md` end-to-end (migrate:fresh --seed, optimize, default-today label, change to weekend/weekday, empty case).
+- [x] T028 [P] Update `specs/006-driver-assignment/contracts/driver-availability.md` reference note (or add a pointer) so the `date`-param change is discoverable; ensure `contracts/driver-availability.md` (011) is the current source.
+- [x] T029 Run `php artisan test` and `npm run test` — all backend + frontend suites green.
+- [x] T030 Run lint/format (`./vendor/bin/pint`, `npm run lint`, `npm run types`) and fix any issues.
+- [ ] T031 Execute `specs/011-weekday-label/quickstart.md` end-to-end (migrate:fresh --seed, optimize, default-today label, change to weekend/weekday, empty case). NOT RUN — manual browser walkthrough; automated equivalents (Feature/Unit/component tests) are green.
 
 ---
 

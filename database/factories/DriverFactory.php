@@ -3,8 +3,10 @@
 namespace Database\Factories;
 
 use App\Enums\DeliveryMode as DeliveryModeEnum;
+use App\Enums\WeekDay as WeekDayEnum;
 use App\Models\DeliveryMode;
 use App\Models\Driver;
+use App\Models\WeekDay;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -24,13 +26,15 @@ class DriverFactory extends Factory
     }
 
     /**
-     * Every factory driver gets a random valid mode set (1–3); withModes() overrides it.
+     * Every factory driver gets a random valid mode set (1–3) and a random
+     * non-empty schedule (1–7 weekdays); withModes()/withDays() override each.
      */
     public function configure(): static
     {
-        return $this->afterCreating(fn (Driver $driver) => $driver->deliveryModes()->sync(
-            $this->modeIds($this->randomModeLabels()),
-        ));
+        return $this->afterCreating(function (Driver $driver): void {
+            $driver->deliveryModes()->sync($this->modeIds($this->randomModeLabels()));
+            $driver->weekDays()->sync($this->dayIds($this->randomDayLabels()));
+        });
     }
 
     /**
@@ -46,6 +50,18 @@ class DriverFactory extends Factory
     }
 
     /**
+     * Force an exact weekday schedule (deterministic for tests).
+     *
+     * @param  array<int, string>  $labels
+     */
+    public function withDays(array $labels): static
+    {
+        return $this->afterCreating(
+            fn (Driver $driver) => $driver->weekDays()->sync($this->dayIds($labels)),
+        );
+    }
+
+    /**
      * @return array<int, string>
      */
     private function randomModeLabels(): array
@@ -53,6 +69,17 @@ class DriverFactory extends Factory
         return collect(DeliveryModeEnum::cases())
             ->map(fn (DeliveryModeEnum $mode): string => $mode->value)
             ->random(fake()->numberBetween(1, 3))
+            ->all();
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function randomDayLabels(): array
+    {
+        return collect(WeekDayEnum::cases())
+            ->map(fn (WeekDayEnum $day): string => $day->value)
+            ->random(fake()->numberBetween(1, 7))
             ->all();
     }
 
@@ -66,6 +93,19 @@ class DriverFactory extends Factory
     {
         return collect($labels)
             ->map(fn (string $label): int => DeliveryMode::firstOrCreate(['label' => $label])->id)
+            ->all();
+    }
+
+    /**
+     * Resolve weekday labels to their lookup-row ids, creating any missing rows.
+     *
+     * @param  array<int, string>  $labels
+     * @return array<int, int>
+     */
+    private function dayIds(array $labels): array
+    {
+        return collect($labels)
+            ->map(fn (string $label): int => WeekDay::firstOrCreate(['label' => $label])->id)
             ->all();
     }
 }

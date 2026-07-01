@@ -3,6 +3,7 @@
 namespace Tests\Unit;
 
 use App\Enums\DeliveryMode as DeliveryModeEnum;
+use App\Enums\WeekDay as WeekDayEnum;
 use App\Models\DeliveryMode;
 use App\Models\Driver;
 use Database\Seeders\DeliveryModeSeeder;
@@ -13,13 +14,15 @@ class DriverTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_available_scope_filters_and_orders_by_name(): void
+    public function test_available_scope_filters_by_mode_and_weekday_ordered_by_name(): void
     {
-        Driver::factory()->withModes(['driving'])->create(['name' => 'Bravo']);
-        Driver::factory()->withModes(['walking'])->create(['name' => 'Zulu']);
-        Driver::factory()->withModes(['driving'])->create(['name' => 'Alpha']);
+        Driver::factory()->withModes(['driving'])->withDays(['monday'])->create(['name' => 'Bravo']);
+        Driver::factory()->withModes(['walking'])->withDays(['monday'])->create(['name' => 'Zulu']);     // wrong mode
+        Driver::factory()->withModes(['driving'])->withDays(['tuesday'])->create(['name' => 'Charlie']); // wrong day
+        Driver::factory()->withModes(['driving'])->withDays(['monday'])->create(['name' => 'Alpha']);
 
-        $names = Driver::available(DeliveryModeEnum::Driving)->get()->pluck('name')->all();
+        $names = Driver::available(DeliveryModeEnum::Driving, WeekDayEnum::Monday)
+            ->get()->pluck('name')->all();
 
         $this->assertSame(['Alpha', 'Bravo'], $names);
     }
