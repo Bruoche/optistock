@@ -23,6 +23,8 @@ const MODE_LABEL = Object.fromEntries(
 type DriverListProps = {
     /** The mode the shown tour was optimized with. */
     mode: DeliveryMode;
+    /** The selected tour date (YYYY-MM-DD); its weekday narrows the list. */
+    date: string;
 };
 
 function StatusLine({
@@ -44,8 +46,8 @@ function StatusLine({
     );
 }
 
-export function DriverList({ mode }: DriverListProps) {
-    const { drivers, status } = useTourDrivers(mode);
+export function DriverList({ mode, date }: DriverListProps) {
+    const { drivers, status } = useTourDrivers(mode, date);
 
     if (status === 'loading') {
         return (

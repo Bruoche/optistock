@@ -1,8 +1,9 @@
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read the current plan:
-`specs/008-containerized-deployment/plan.md` (design artifacts: `research.md`,
-`data-model.md`, `contracts/images.md`, `contracts/compose-services.md`, `quickstart.md`). Prior features:
+`specs/011-weekday-label/plan.md` (driver schedule filtering & selected-weekday label;
+design artifacts: `research.md`, `data-model.md`, `contracts/driver-availability.md`, `quickstart.md`). Prior features:
+`specs/008-containerized-deployment/plan.md` (containerized deployment),
 `specs/007-stop-duration/plan.md` (per-stop delivery duration & tour duration total),
 `specs/006-driver-assignment/plan.md` (delivery driver assignment),
 `specs/005-header-theme-menu/plan.md` (header brand & theme menu),

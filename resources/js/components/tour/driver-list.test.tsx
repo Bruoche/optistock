@@ -5,7 +5,8 @@ import { DriverList } from './driver-list';
 const mockUseTourDrivers = vi.fn();
 
 vi.mock('@/hooks/use-tour-drivers', () => ({
-    useTourDrivers: (mode: string) => mockUseTourDrivers(mode),
+    useTourDrivers: (mode: string, date: string) =>
+        mockUseTourDrivers(mode, date),
 }));
 
 describe('DriverList', () => {
@@ -15,7 +16,7 @@ describe('DriverList', () => {
 
     it('shows the spinner + text while loading', () => {
         mockUseTourDrivers.mockReturnValue({ drivers: [], status: 'loading' });
-        render(<DriverList mode="driving" />);
+        render(<DriverList mode="driving" date="2026-07-06" />);
         expect(
             screen.getByText(/checking available drivers/i),
         ).toBeInTheDocument();
@@ -23,7 +24,44 @@ describe('DriverList', () => {
 
     it('shows the empty message when no driver matches', () => {
         mockUseTourDrivers.mockReturnValue({ drivers: [], status: 'ready' });
-        render(<DriverList mode="trucking" />);
+        render(<DriverList mode="trucking" date="2026-07-06" />);
+        expect(
+            screen.getByText('No one available for this delivery.'),
+        ).toBeInTheDocument();
+    });
+
+    it('queries by the given mode and date, and re-queries with no stale rows when the date changes', () => {
+        mockUseTourDrivers.mockImplementation((_mode: string, date: string) =>
+            date === '2026-07-06'
+                ? {
+                      status: 'ready',
+                      drivers: [
+                          {
+                              id: 1,
+                              name: 'Monday Mona',
+                              imageUrl: null,
+                              modes: ['driving'],
+                          },
+                      ],
+                  }
+                : { status: 'ready', drivers: [] },
+        );
+
+        const { rerender } = render(
+            <DriverList mode="driving" date="2026-07-06" />,
+        );
+        expect(mockUseTourDrivers).toHaveBeenLastCalledWith(
+            'driving',
+            '2026-07-06',
+        );
+        expect(screen.getByText('Monday Mona')).toBeInTheDocument();
+
+        rerender(<DriverList mode="driving" date="2026-07-04" />);
+        expect(mockUseTourDrivers).toHaveBeenLastCalledWith(
+            'driving',
+            '2026-07-04',
+        );
+        expect(screen.queryByText('Monday Mona')).not.toBeInTheDocument();
         expect(
             screen.getByText('No one available for this delivery.'),
         ).toBeInTheDocument();
@@ -48,7 +86,9 @@ describe('DriverList', () => {
             ],
         });
 
-        const { container } = render(<DriverList mode="driving" />);
+        const { container } = render(
+            <DriverList mode="driving" date="2026-07-06" />,
+        );
 
         const names = screen
             .getAllByText(/^(Amelie|Bruno)$/)

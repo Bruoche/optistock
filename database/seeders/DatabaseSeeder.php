@@ -14,6 +14,7 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         $this->call(DeliveryModeSeeder::class);
+        $this->call(WeekDaySeeder::class);
 
         // User::factory(10)->create();
 
