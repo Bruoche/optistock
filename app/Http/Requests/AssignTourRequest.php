@@ -39,7 +39,7 @@ class AssignTourRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'driver_id' => ['required', 'integer', $this->eligibleDriverRule()],
+            'driver_id' => ['bail', 'required', 'integer', $this->eligibleDriverRule()],
             'date' => ['required', 'date'],
         ];
     }

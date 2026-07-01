@@ -24,7 +24,7 @@ class DriverController extends Controller
     public function available(AvailableDriversRequest $request): JsonResponse
     {
         $mode = DeliveryModeEnum::from($request->validated('mode'));
-        $date = $request->validated('date');
+        $date = $request->date('date')->toDateString();
         $day = WeekDayEnum::fromDate($request->date('date'));
 
         $committedSeconds = Driver::committedSecondsForDate($date);

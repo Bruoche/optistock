@@ -17,7 +17,8 @@ class TourOptimizationController extends Controller
 {
     /**
      * POST /api/tour/optimize
-     *   - cache hit  → 200 with the tour
+     *   - cache hit  → 200 `done` with the persisted tour (id included)
+     *   - cache hit but the tour could not be saved → 200 `failed` (`persist_failed`)
      *   - cache miss → 202 with a `job_uuid`; the optimized tour arrives later via
      *                  the `TourOptimized` broadcast (or the status endpoint below).
      */
