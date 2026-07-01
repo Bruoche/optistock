@@ -1,8 +1,9 @@
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read the current plan:
-`specs/011-weekday-label/plan.md` (driver schedule filtering & selected-weekday label;
-design artifacts: `research.md`, `data-model.md`, `contracts/driver-availability.md`, `quickstart.md`). Prior features:
+`specs/012-tour-driver-assignment/plan.md` (assign tours to drivers + persist tours/stops;
+design artifacts: `research.md`, `data-model.md`, `contracts/tour-persistence.md`, `contracts/tour-assignment.md`, `quickstart.md`). Prior features:
+`specs/011-weekday-label/plan.md` (driver schedule filtering & selected-weekday label),
 `specs/008-containerized-deployment/plan.md` (containerized deployment),
 `specs/007-stop-duration/plan.md` (per-stop delivery duration & tour duration total),
 `specs/006-driver-assignment/plan.md` (delivery driver assignment),
