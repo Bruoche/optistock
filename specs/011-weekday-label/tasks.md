@@ -70,9 +70,10 @@ Web app (Laravel + React SPA): backend under `app/`, `database/`, `routes/`, `te
 - [ ] T016 [US1] Update `resources/js/hooks/use-tour-drivers.ts` — accept `date: string`, add `&date=${encodeURIComponent(date)}` to the fetch URL, key the effect + stale-guard on `(mode, date)` so no stale list is reported.
 - [ ] T017 [US1] Update `resources/js/components/tour/driver-list.tsx` — accept a `date` prop and pass it to `useTourDrivers(mode, date)` (rendering unchanged).
 - [ ] T018 [US1] Update `resources/js/components/tour/result-summary.tsx` — accept `date` and forward it to `<DriverList mode date />`.
-- [ ] T019 [US1] Update `resources/js/pages/tour/optimize.tsx` — add `const [tourDate, setTourDate] = useState(<local today YYYY-MM-DD>)` beside `mode`/`loop` (retained across `reset`), and pass `date={tourDate}` to `<ResultSummary />`.
+- [ ] T019 [US1] Update `resources/js/pages/tour/optimize.tsx` — add `const [tourDate, setTourDate] = useState(() => new Date().toLocaleDateString('sv-SE'))` beside `mode`/`loop` (retained across `reset`); `'sv-SE'` yields a **local** `YYYY-MM-DD` (no UTC off-by-one, matching the local-noon label parse in R7). Pass `date={tourDate}` to `<ResultSummary />`.
+- [ ] T019a [US1] Update `resources/js/components/tour/result-summary.test.tsx` — pass the new required `date` prop wherever `ResultSummary` is rendered so the existing suite stays green after T018 (`onDateChange` does not exist yet — added in US2). Assert the driver list still renders.
 
-**Checkpoint**: Endpoint filters by mode + weekday; results-page list reflects today's weekday. US1 independently testable.
+**Checkpoint**: Endpoint filters by mode + weekday; results-page list reflects today's weekday; existing result-summary test green. US1 independently testable.
 
 ---
 
@@ -90,7 +91,7 @@ Web app (Laravel + React SPA): backend under `app/`, `database/`, `routes/`, `te
 ### Implementation for User Story 2
 
 - [ ] T022 [US2] Create `resources/js/components/tour/tour-date-field.tsx` — a shadcn `Input type="date"` bound to `date`, calling `onDateChange(value)` on change; role-named color vars, no raw hex (constitution VI). (Weekday label added in US3.)
-- [ ] T023 [US2] Render `<TourDateField date={date} onDateChange={onDateChange} />` above `<DriverList />` in `resources/js/components/tour/result-summary.tsx`; add `onDateChange` to its props.
+- [ ] T023 [US2] Render `<TourDateField date={date} onDateChange={onDateChange} />` above `<DriverList />` in `resources/js/components/tour/result-summary.tsx`; add `onDateChange` to its props. Update `resources/js/components/tour/result-summary.test.tsx` to pass a (no-op or spy) `onDateChange` for the now-required prop.
 - [ ] T024 [US2] Wire `onDateChange` in `resources/js/pages/tour/optimize.tsx` to `setTourDate` and pass it to `<ResultSummary />`; confirm `reset()` does not clear `tourDate`.
 
 **Checkpoint**: Date is editable on the presentation phase; the list refreshes on change; date persists across reset. US1 + US2 both work.
