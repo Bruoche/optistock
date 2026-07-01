@@ -1,7 +1,5 @@
-// Feature 011 (+009): the tour's date — an editable day-only field, styled to sit
-// in the orange bar. `TourDateInput` is the shared styled control; `TourDateField`
-// is the compact editing-view control-bar version (input + weekday inline). The
-// results view composes `TourDateInput` into a labelled figure of its own.
+// Feature 011 (+009): the tour date. `TourDateInput` is the shared styled field;
+// `TourDateField` pairs it with the weekday for the editing control bar.
 import { Input } from '@/components/ui/input';
 import { formatWeekday } from '@/types/tour';
 

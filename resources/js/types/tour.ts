@@ -23,7 +23,7 @@ export type Driver = {
     modes: DeliveryMode[];
 };
 
-/** The weekday name of a YYYY-MM-DD date, for the presentation-phase label (011).
+/** The weekday name of a YYYY-MM-DD date, for the tour date's weekday label (011).
  *  Parsed as a LOCAL calendar date (noon) so the label's weekday matches the
  *  server's date→weekday deduction and never rolls over a timezone boundary.
  *  Rendered in English (`en-US`) to match the app's English UI regardless of the
@@ -35,7 +35,7 @@ export function formatWeekday(date: string): string {
     return local.toLocaleDateString('en-US', { weekday: 'long' });
 }
 
-/** Today's date as a LOCAL YYYY-MM-DD (default for the presentation-phase date). */
+/** Today's date as a LOCAL YYYY-MM-DD (the default tour date). */
 export function todayDate(): string {
     return new Date().toLocaleDateString('sv-SE');
 }

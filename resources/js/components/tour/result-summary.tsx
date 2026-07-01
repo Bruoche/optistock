@@ -25,9 +25,8 @@ type ResultSummaryProps = {
     onReset: () => void;
 };
 
-// A header cell whose label and value snap to the two shared rows of the
-// surrounding subgrid, so every figure's label and value stay aligned even when a
-// value (the date input) is taller than the plain-text ones.
+// Subgrid cell: label and value snap to the header's two shared rows, so all
+// figures stay aligned even though the date input is taller than the text values.
 function Figure({ label, children }: { label: string; children: ReactNode }) {
     return (
         <div className="row-span-2 grid grid-rows-subgrid">

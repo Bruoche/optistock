@@ -32,7 +32,7 @@ export default function TourOptimize() {
     // Defaults apply on first load and are retained across a reset (reset clears the tour, not these).
     const [mode, setMode] = useState<DeliveryMode>('trucking');
     const [loop, setLoop] = useState<boolean>(true);
-    // Presentation-phase tour date (011); defaults to today and persists across resets.
+    // Tour date (011); defaults to today and persists across resets, like mode/loop.
     const [tourDate, setTourDate] = useState<string>(todayDate);
 
     const isPending =
