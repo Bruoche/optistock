@@ -86,3 +86,7 @@ Same rendering as 006 (name prominent, mode icons beneath, image/placeholder,
 loading / error / empty states, empty message **"No one available for this
 delivery."**). The only change: it takes `date` in addition to `mode` and passes both
 to `use-tour-drivers`, so the shown set reflects the selected date's weekday.
+
+---
+
+> **Superseded/extended by feature 012**: `GET /api/tour/drivers` now also returns `assigned_seconds` per driver (committed load for the queried date), and the driver list became actionable via `POST /api/tour/{tour}/assign`. See `specs/012-tour-driver-assignment/contracts/`.

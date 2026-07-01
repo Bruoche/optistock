@@ -21,7 +21,32 @@ export type Driver = {
     name: string;
     imageUrl: string | null;
     modes: DeliveryMode[];
+    /** Committed working seconds already assigned to this driver for the selected
+     *  date (feature 012); 0 when none. */
+    assignedSeconds: number;
 };
+
+/** A driver's projected working seconds if given the current tour (feature 012):
+ *  their committed load for the date plus this tour's total (road + wait). */
+export function projectedSeconds(
+    assignedSeconds: number,
+    currentTourTotalS: number,
+): number {
+    return assignedSeconds + currentTourTotalS;
+}
+
+/** Format a duration in seconds as a human-readable `h min` string, matching the
+ *  tour-duration figure on the presentation phase. */
+export function formatDurationHm(totalSeconds: number): string {
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.round((totalSeconds % 3600) / 60);
+
+    if (hours > 0) {
+        return `${hours} h ${minutes.toString().padStart(2, '0')} min`;
+    }
+
+    return `${minutes} min`;
+}
 
 /** The weekday name of a YYYY-MM-DD date, for the tour date's weekday label (011).
  *  Parsed as a LOCAL calendar date (noon) so the label's weekday matches the
@@ -66,14 +91,23 @@ export type OptimizedStop = {
 /** Success payload `data`. Metrics are null for a 2-point tour (no routing call
  *  yet — pending the /route/ endpoint). */
 export type TourResult = {
+    /** The persisted tour id (feature 012) — the handle the geometry update and the
+     *  assignment target need. */
+    id: number;
     ordered_stops: OptimizedStop[];
     total_distance_m: number | null;
     total_duration_s: number | null;
 };
 
-/** Failure payload `error`. */
+/** Failure payload `error`. `persist_failed` = the route was optimized but could not
+ *  be saved (feature 012); it is surfaced and never offered for assignment. */
 export type TourError = {
-    code: 'api_error' | 'timeout' | 'invalid_response' | 'job_failed';
+    code:
+        | 'api_error'
+        | 'timeout'
+        | 'invalid_response'
+        | 'job_failed'
+        | 'persist_failed';
     message: string;
 };
 

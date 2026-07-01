@@ -27,10 +27,11 @@ class TourOptimized implements ShouldBroadcast
 
     /**
      * @param  array{
+     *     id: int,
      *     ordered_stops: array<int, array{lat: float, lng: float, order: int}>,
      *     total_distance_m: int,
      *     total_duration_s: int
-     * }  $data
+     * }  $data  The persisted tour id + optimized result the frontend threads onward.
      */
     public function __construct(
         public readonly int $userId,

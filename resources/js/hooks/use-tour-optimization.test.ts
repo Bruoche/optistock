@@ -315,7 +315,7 @@ describe('useTourOptimization', () => {
         expect(result.current.waitTimeS).toBe(900); // (5 + 10) * 60
     });
 
-    it('does not send durations in the optimize request body (frontend-only)', async () => {
+    it('sends stops with per-stop durations in the optimize request body (feature 012)', async () => {
         (fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
             jsonResponse(200, { status: 'done', data: RESULT }),
         );
@@ -328,11 +328,27 @@ describe('useTourOptimization', () => {
 
         const [, options] = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
         const body = JSON.parse((options as RequestInit).body as string);
-        expect(body).not.toHaveProperty('durations');
-        expect(Object.keys(body).sort()).toEqual([
-            'coordinates',
-            'loop',
-            'mode',
-        ]);
+        expect(Object.keys(body).sort()).toEqual(['loop', 'mode', 'stops']);
+        // Each stop carries lat/lng + its delivery duration in seconds (minutes × 60).
+        expect(body.stops[0]).toHaveProperty('lat');
+        expect(body.stops[0]).toHaveProperty('lng');
+        expect(body.stops[0]).toHaveProperty('duration_s', 600);
+    });
+
+    it('surfaces a cache-hit persist failure without entering the done state (FR-014)', async () => {
+        (fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
+            jsonResponse(200, {
+                status: 'failed',
+                error: { code: 'persist_failed', message: 'nope' },
+            }),
+        );
+        const { result } = renderHook(() => useTourOptimization(7));
+        await addTwoStops(result);
+
+        await act(async () => {
+            await result.current.optimize('trucking', true);
+        });
+
+        expect(result.current.state.status).toBe('failed');
     });
 });

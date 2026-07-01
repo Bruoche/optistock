@@ -13,6 +13,7 @@ vi.mock('@/hooks/use-tour-drivers', () => ({
 const DATE = '2026-07-06';
 
 const result: TourResult = {
+    id: 42,
     ordered_stops: [
         { lat: 1, lng: 2, order: 0 },
         { lat: 3, lng: 4, order: 1 },
@@ -33,6 +34,7 @@ describe('ResultSummary', () => {
                 date={DATE}
                 onDateChange={() => {}}
                 onReset={() => {}}
+                onAssigned={() => {}}
             />,
         );
 
@@ -63,6 +65,7 @@ describe('ResultSummary', () => {
                 date={DATE}
                 onDateChange={() => {}}
                 onReset={() => {}}
+                onAssigned={() => {}}
             />,
         );
 
@@ -82,6 +85,7 @@ describe('ResultSummary', () => {
                 date={DATE}
                 onDateChange={() => {}}
                 onReset={() => {}}
+                onAssigned={() => {}}
             />,
         );
 
@@ -102,6 +106,7 @@ describe('ResultSummary', () => {
                 date={DATE}
                 onDateChange={() => {}}
                 onReset={() => {}}
+                onAssigned={() => {}}
             />,
         );
 

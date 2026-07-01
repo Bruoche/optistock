@@ -87,7 +87,9 @@ export function useTourGeometry(
         (async () => {
             try {
                 // Same mode + loop the tour was optimized with, so the drawn route matches (FR-007).
+                // tour_id lets the server finalize this tour's road totals (feature 012).
                 const response = await postJson('/api/tour/geometry', {
+                    tour_id: result.id,
                     stops,
                     mode,
                     loop,

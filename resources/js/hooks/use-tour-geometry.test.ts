@@ -4,6 +4,7 @@ import { useTourGeometry } from './use-tour-geometry';
 import type { TourGeometry, TourResult } from '@/types/tour';
 
 const RESULT: TourResult = {
+    id: 7,
     ordered_stops: [
         { lat: 1, lng: 1, order: 0 },
         { lat: 2, lng: 2, order: 1 },
@@ -172,6 +173,7 @@ describe('useTourGeometry', () => {
 
     it('ignores a late response for a superseded result (FR-010)', async () => {
         const resultB: TourResult = {
+            id: 8,
             ordered_stops: [
                 { lat: 9, lng: 9, order: 0 },
                 { lat: 8, lng: 8, order: 1 },

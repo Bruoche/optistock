@@ -9,6 +9,21 @@ vi.mock('@/hooks/use-tour-drivers', () => ({
         mockUseTourDrivers(mode, date),
 }));
 
+function renderList(
+    props: Partial<React.ComponentProps<typeof DriverList>> = {},
+) {
+    return render(
+        <DriverList
+            mode="driving"
+            date="2026-07-06"
+            tourId={42}
+            currentTourTotalS={0}
+            onAssigned={() => {}}
+            {...props}
+        />,
+    );
+}
+
 describe('DriverList', () => {
     beforeEach(() => {
         mockUseTourDrivers.mockReset();
@@ -16,7 +31,7 @@ describe('DriverList', () => {
 
     it('shows the spinner + text while loading', () => {
         mockUseTourDrivers.mockReturnValue({ drivers: [], status: 'loading' });
-        render(<DriverList mode="driving" date="2026-07-06" />);
+        renderList();
         expect(
             screen.getByText(/checking available drivers/i),
         ).toBeInTheDocument();
@@ -24,7 +39,7 @@ describe('DriverList', () => {
 
     it('shows the empty message when no driver matches', () => {
         mockUseTourDrivers.mockReturnValue({ drivers: [], status: 'ready' });
-        render(<DriverList mode="trucking" date="2026-07-06" />);
+        renderList({ mode: 'trucking' });
         expect(
             screen.getByText('No one available for this delivery.'),
         ).toBeInTheDocument();
@@ -41,22 +56,29 @@ describe('DriverList', () => {
                               name: 'Monday Mona',
                               imageUrl: null,
                               modes: ['driving'],
+                              assignedSeconds: 0,
                           },
                       ],
                   }
                 : { status: 'ready', drivers: [] },
         );
 
-        const { rerender } = render(
-            <DriverList mode="driving" date="2026-07-06" />,
-        );
+        const { rerender } = renderList();
         expect(mockUseTourDrivers).toHaveBeenLastCalledWith(
             'driving',
             '2026-07-06',
         );
         expect(screen.getByText('Monday Mona')).toBeInTheDocument();
 
-        rerender(<DriverList mode="driving" date="2026-07-04" />);
+        rerender(
+            <DriverList
+                mode="driving"
+                date="2026-07-04"
+                tourId={42}
+                currentTourTotalS={0}
+                onAssigned={() => {}}
+            />,
+        );
         expect(mockUseTourDrivers).toHaveBeenLastCalledWith(
             'driving',
             '2026-07-04',
@@ -76,19 +98,19 @@ describe('DriverList', () => {
                     name: 'Amelie',
                     imageUrl: null,
                     modes: ['driving', 'walking'],
+                    assignedSeconds: 0,
                 },
                 {
                     id: 2,
                     name: 'Bruno',
                     imageUrl: '/storage/drivers/b.jpg',
                     modes: ['driving'],
+                    assignedSeconds: 0,
                 },
             ],
         });
 
-        const { container } = render(
-            <DriverList mode="driving" date="2026-07-06" />,
-        );
+        const { container } = renderList();
 
         const names = screen
             .getAllByText(/^(Amelie|Bruno)$/)
@@ -103,5 +125,55 @@ describe('DriverList', () => {
         const images = container.querySelectorAll('img');
         expect(images).toHaveLength(1);
         expect(images[0]).toHaveAttribute('src', '/storage/drivers/b.jpg');
+    });
+
+    it('shows projected hours = committed + current tour total, and just the tour for a fresh driver', () => {
+        mockUseTourDrivers.mockReturnValue({
+            status: 'ready',
+            drivers: [
+                {
+                    id: 1,
+                    name: 'Loaded Lena',
+                    imageUrl: null,
+                    modes: ['driving'],
+                    assignedSeconds: 3600,
+                },
+                {
+                    id: 2,
+                    name: 'Fresh Fred',
+                    imageUrl: null,
+                    modes: ['driving'],
+                    assignedSeconds: 0,
+                },
+            ],
+        });
+
+        // Current tour total 1800 s (30 min).
+        renderList({ currentTourTotalS: 1800 });
+
+        // Lena: 3600 + 1800 = 5400 s → 1 h 30 min.
+        expect(screen.getByText('1 h 30 min')).toBeInTheDocument();
+        // Fred: 0 + 1800 = 1800 s → 30 min.
+        expect(screen.getByText('30 min')).toBeInTheDocument();
+    });
+
+    it('rows are buttons (keyboard-focusable, clickable to assign)', () => {
+        mockUseTourDrivers.mockReturnValue({
+            status: 'ready',
+            drivers: [
+                {
+                    id: 1,
+                    name: 'Amelie',
+                    imageUrl: null,
+                    modes: ['driving'],
+                    assignedSeconds: 0,
+                },
+            ],
+        });
+
+        renderList();
+        expect(
+            screen.getByRole('button', { name: /Amelie/ }),
+        ).toBeInTheDocument();
     });
 });

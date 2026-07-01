@@ -68,6 +68,7 @@ describe('TourOptimize control bar visibility (003)', () => {
         mocks.state = {
             status: 'done',
             result: {
+                id: 1,
                 ordered_stops: [],
                 total_distance_m: 100,
                 total_duration_s: 600,
