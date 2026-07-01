@@ -16,7 +16,13 @@ export function TourDateInput({ date, onDateChange }: TourDateProps) {
         <Input
             type="date"
             value={date}
-            onChange={(event) => onDateChange(event.target.value)}
+            // The native clear (×) yields an empty value; ignore it so the tour
+            // always keeps a valid date (spec FR-004 — the label is never blank).
+            onChange={(event) => {
+                if (event.target.value) {
+                    onDateChange(event.target.value);
+                }
+            }}
             aria-label="Date"
             className="w-auto border-text-on-color bg-primary text-text-on-color hover:bg-secondary [&::-webkit-calendar-picker-indicator]:invert"
         />

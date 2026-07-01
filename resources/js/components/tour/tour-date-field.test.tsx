@@ -21,6 +21,17 @@ describe('TourDateField', () => {
         expect(onDateChange).toHaveBeenCalledWith('2026-07-04');
     });
 
+    it('ignores an empty value (native clear) so the date is never blank', () => {
+        const onDateChange = vi.fn();
+        render(<TourDateField date="2026-07-06" onDateChange={onDateChange} />);
+
+        fireEvent.change(screen.getByLabelText('Date'), {
+            target: { value: '' },
+        });
+
+        expect(onDateChange).not.toHaveBeenCalled();
+    });
+
     it('updates the weekday label when the date changes (Saturday), no off-by-one', () => {
         const { rerender } = render(
             <TourDateField date="2026-07-06" onDateChange={() => {}} />,
