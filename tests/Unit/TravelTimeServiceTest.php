@@ -93,6 +93,20 @@ class TravelTimeServiceTest extends TestCase
         Log::shouldHaveReceived('warning')->once();
     }
 
+    public function test_a_connection_error_is_null_and_logged_without_crashing(): void
+    {
+        Http::fake(['*' => Http::failedConnection()]);
+        Log::spy();
+        $a = new Coordinate(1.0, 1.0);
+        $b = new Coordinate(2.0, 2.0);
+
+        $service = $this->service();
+        $service->preload([[$a, $b]], 'trucking');
+
+        $this->assertNull($service->durationBetween($a, $b, 'trucking'));
+        Log::shouldHaveReceived('warning')->once();
+    }
+
     public function test_a_successful_connection_returns_its_duration(): void
     {
         Http::fake(['*' => Http::response($this->okResponse(345))]);

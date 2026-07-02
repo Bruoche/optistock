@@ -4,6 +4,7 @@ namespace App\Services;
 
 use Illuminate\Http\Client\Factory as HttpFactory;
 use Illuminate\Http\Client\Pool;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Log;
 
 /** Road travel duration between points, de-duplicated and fetched in capped concurrent batches. */
@@ -76,12 +77,21 @@ class TravelTimeService
         });
 
         foreach ($batch as $key => [$from, $to]) {
-            $duration = $this->client->durationFromResponse($responses[$key]);
+            // The pool yields a ConnectionException instead of a Response when a
+            // request cannot connect or times out — same outcome: duration unknown.
+            $response = $responses[$key];
+            $duration = $response instanceof Response
+                ? $this->client->durationFromResponse($response)
+                : null;
+
             if ($duration === null) {
                 Log::warning('Inter-tour connection could not be routed', [
                     'origin' => $from->toQueryValue(),
                     'destination' => $to->toQueryValue(),
                     'mode' => $mode,
+                    'error' => $response instanceof Response
+                        ? "HTTP {$response->status()}"
+                        : $response->getMessage(),
                 ]);
             }
             $this->durationByConnection[$key] = $duration;
