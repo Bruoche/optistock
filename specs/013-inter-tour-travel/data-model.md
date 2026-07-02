@@ -16,14 +16,13 @@ New table `warehouses`; a mandatory `drivers.warehouse_id`; new start/end coordi
 | `longitude`  | decimal(10,7)   |                                                   |
 | timestamps   |                 |                                                   |
 
-Seeded with a **"Default warehouse"** row inside the migration (used to backfill existing
-drivers and as demo data).
+Demo warehouses are created by the seeder (`DriverDemoSeeder`), not the migration.
 
 ## `drivers` (change)
 
 | Column         | Type       | Notes                                                        |
 |----------------|------------|--------------------------------------------------------------|
-| `warehouse_id` | bigint FK  | **Mandatory** (FR-001), `restrictOnDelete`. Added defaulting to the seeded default warehouse so the already-shipped table migrates with the column NOT NULL; the DB default is a legacy-row convenience only — app paths always set it explicitly. |
+| `warehouse_id` | bigint FK  | **Mandatory** (FR-001), **NOT NULL, no DB default**, `restrictOnDelete`. Every driver-create path (factory, seeder, any future form) sets it explicitly, so a missing one fails loudly (constitution IV). No prod data exists, so a fresh migrate is expected — no backfill/default crutch. |
 
 - Relationship: `Driver belongsTo Warehouse`; `Warehouse hasMany Driver` (many-to-one).
 - `DriverFactory` + `DriverDemoSeeder` set `warehouse_id` explicitly (factory: a
@@ -33,16 +32,16 @@ drivers and as demo data).
 
 | Column            | Type            | Notes                                                             |
 |-------------------|-----------------|-------------------------------------------------------------------|
-| `start_latitude`  | decimal(10,7)   | The chosen start stop's coordinate for this assignment.           |
-| `start_longitude` | decimal(10,7)   |                                                                   |
-| `end_latitude`    | decimal(10,7)   | The deduced end stop's coordinate (loop = start; one-way = other endpoint). |
-| `end_longitude`   | decimal(10,7)   |                                                                   |
-| `sequence`        | unsignedInteger | The driver's ordering of the day's tours; max per (driver,date) = current latest. Default `0`; existing rows backfilled per (driver,date) by `id`. |
+| `start_latitude`  | decimal(10,7) NOT NULL | The chosen start stop's coordinate for this assignment.    |
+| `start_longitude` | decimal(10,7) NOT NULL |                                                            |
+| `end_latitude`    | decimal(10,7) NOT NULL | The deduced end stop's coordinate (loop = start; one-way = other endpoint). |
+| `end_longitude`   | decimal(10,7) NOT NULL |                                                            |
+| `sequence`        | unsignedInteger NOT NULL | The driver's ordering of the day's tours; max per (driver,date) = current latest. |
 
-- The four coordinate columns are **nullable at the DB level solely for migration safety**
-  on a possibly-populated `driver_tour` (no source to backfill a historical start/end). The
-  **assign path always populates them**; the estimator treats a null (legacy) row's connecting
-  legs as unknown rather than failing.
+- All five columns are **NOT NULL** — the assign path always sets them, and there is no
+  production data to backfill (fresh migrate pre-release). So the estimator can rely on every
+  assigned tour having concrete start/end coordinates + a sequence; **no defensive null-coord
+  branch** is needed.
 - Existing `(driver_id, date)` index unchanged — serves the ordered per-day lookup.
 - Pivot access via `Driver::tours()` / `Tour::drivers()` gains
   `->withPivot('date', 'start_latitude', 'start_longitude', 'end_latitude', 'end_longitude', 'sequence')`.

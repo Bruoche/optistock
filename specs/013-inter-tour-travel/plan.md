@@ -76,9 +76,10 @@ is a handful of drivers, ≤10 stops/tour, few prior tours/day.
   **flagged `projected_incomplete`** so the manager is told it may understate travel (FR-009/
   FR-015) — never a silent exact 0; genuine zero (coincident points) kept distinct (FR-010);
   `start_index` is server-selected but **still validated** as a legal start on assign;
-  drivers/assign both enforce **tour ownership** (404). Migration adds columns safely on the
-  already-shipped `drivers`/`driver_tour` tables (default warehouse backfill;
-  nullable-for-migration coords the app always populates). PASS.
+  drivers/assign both enforce **tour ownership** (404). Schema is clean NOT-NULL
+  (`warehouse_id`, `driver_tour` start/end + sequence) — no prod data, so a missing
+  `warehouse_id` fails loudly rather than defaulting silently, and the estimator relies on
+  concrete coords (no defensive null branch). PASS.
 - **V. Performance with Clarity** — the routing load is bounded by **deduplicating the distinct
   leg set** and fetching it in a **capped concurrent `Http::pool` batch** (FR-014), reusing the
   route client's response parsing (no duplicated logic); the cap prevents flooding /
@@ -94,13 +95,15 @@ No violations. (Complexity Tracking omitted.)
 Full rationale + alternatives in [research.md](research.md); condensed:
 
 - **D1 — `warehouses` + mandatory `drivers.warehouse_id`.** Multiple warehouses, each driver
-  exactly one (FR-001), `restrictOnDelete`. Migration seeds a default and adds the column
-  defaulting to it so the shipped `drivers` table migrates NOT NULL; the DB default is a
-  legacy-row convenience — app paths set it explicitly. `Driver belongsTo Warehouse`. (R1)
-- **D2 — `driver_tour` gains `start_*`/`end_*` coordinates + `sequence`.** Coordinates (not a
-  stop FK) keep the association self-contained + edit-proof; `sequence` orders the day
-  (max = latest) for future re-ordering. Coords nullable **only** for migration safety; the
-  assign path always sets them. (R2)
+  exactly one (FR-001), `restrictOnDelete`. `warehouse_id` is **NOT NULL with no DB default**
+  and no backfill — pre-release with no production data, so a clean fresh migrate is used and
+  every driver-create path sets it explicitly (a missing one fails loudly, constitution IV).
+  Demo warehouses come from the seeder. `Driver belongsTo Warehouse`. (R1)
+- **D2 — `driver_tour` gains `start_*`/`end_*` coordinates + `sequence`, all NOT NULL.**
+  Coordinates (not a stop FK) keep the association self-contained + edit-proof; `sequence`
+  orders the day (max = latest) for future re-ordering. No prod data → NOT NULL, no
+  nullable-for-migration compromise, so the estimator relies on concrete coords (no defensive
+  null branch). (R2)
 - **D3 — `Tour::startCandidates()` + `endStopForStart()`.** Loop → all stops, end = start;
   one-way → the two endpoint positions, end = the opposite endpoint. The "Route returns its
   valid points" the user asked for; reused by drivers (selection) + assign (deduction). (R3)
@@ -140,8 +143,8 @@ Full rationale + alternatives in [research.md](research.md); condensed:
 
 Backend — **new**:
 - `database/migrations/2026_07_02_000001_add_warehouses_and_assignment_geometry.php` —
-  create `warehouses` (+ seed default), add `drivers.warehouse_id`, add `driver_tour`
-  `start_*`/`end_*`/`sequence` (+ backfill).
+  create `warehouses`, add `drivers.warehouse_id` (NOT NULL, no default), add `driver_tour`
+  `start_*`/`end_*`/`sequence` (all NOT NULL). No backfill — fresh migrate pre-release.
 - `app/Models/Warehouse.php` — `#[Fillable(['name','latitude','longitude'])]`, float casts,
   `drivers(): HasMany`.
 - `app/Services/TravelTimeService.php` — collects the distinct leg set, fetches it via a

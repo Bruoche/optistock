@@ -32,16 +32,17 @@ start/end-stop anchoring the chain needs.
 - **`drivers.warehouse_id`** foreign key, **mandatory** (spec FR-001: a driver can never
   have zero warehouses), `restrictOnDelete` (a warehouse with drivers cannot be deleted).
   Relationship: `Driver belongsTo Warehouse`, `Warehouse hasMany Driver` (many-to-one).
-- **Migration safety on the already-shipped `drivers` table** (012 is merged): the
-  migration (a) creates `warehouses`, (b) inserts a **"Default warehouse"** row, (c) adds
-  `warehouse_id` **defaulting to that row's id** so existing driver rows become valid and
-  the column is NOT NULL, (d) adds the FK. The DB default is a **migration convenience for
-  legacy rows only** — every application driver-creation path (factory, demo seeder, any
-  future driver form) sets `warehouse_id` explicitly, so a real missing assignment is never
-  silently masked (constitution IV).
+- **Clean schema, no migration crutch** (pre-release, no production data at risk): the
+  migration creates `warehouses` and adds `warehouse_id` as **NOT NULL with no DB default**
+  and no backfill row. Demo warehouses are created by the seeder. A developer runs
+  `migrate:fresh --seed`. Every driver-create path (factory, seeder, any future form) sets
+  `warehouse_id` explicitly, so a missing assignment **fails loudly** rather than being masked
+  by a default (constitution IV) — the best end-state for production, chosen because there is
+  no legacy data forcing a softer path.
 - **Alternatives**: single global warehouse (rejected — clarification chose multiple, each
   driver one); nullable link with graceful degrade (rejected — clarification made it
-  mandatory). See spec Clarifications 2026-07-02.
+  mandatory); a defaulted/backfilled column (rejected — no prod data, so a clean NOT-NULL
+  column is better than a runtime default that could mask a bug). See spec Clarifications 2026-07-02.
 
 ### R2 — `driver_tour` gains start/end coordinates + a sequence
 
@@ -50,12 +51,11 @@ start/end-stop anchoring the chain needs.
   the max sequence for a driver+date is their current latest tour; a future re-ordering
   feature rewrites `sequence`). The existing `(driver_id, date)` index already serves the
   per-day ordered lookup.
-- **Nullability**: the four coordinate columns are added **nullable** *purely* so the
-  migration is safe on a `driver_tour` table that may already hold dev rows (no source
-  exists to backfill a historical start/end). Going forward the **assign path always sets
-  them**; the workday estimator treats a theoretical null (a pre-013 legacy row) defensively
-  as an unknown leg rather than crashing. `sequence` is added with a default of `0` and
-  existing rows are backfilled per driver+date by `id` order.
+- **All NOT NULL** (pre-release, no production data): the assign path always sets the start/end
+  coordinates + sequence, so there is no reason to soften the columns to nullable. The estimator
+  can therefore **rely on every assigned tour having concrete start/end coordinates** — no
+  defensive null-coord branch (which existed only to tolerate hypothetical legacy rows). A
+  developer runs `migrate:fresh` for the added columns.
 - **Coordinates, not a stop FK**: the user asked the association to "hold the start and end
   coordinate." Storing coordinates (not a `stop_id`) keeps the assignment self-contained for
   chain math (no join to `stops`) and independent of later stop edits. (research R5 chain

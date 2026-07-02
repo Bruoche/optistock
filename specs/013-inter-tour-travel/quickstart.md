@@ -7,9 +7,10 @@ behave per spec.
 
 ## Setup
 
-1. `php artisan migrate` — creates `warehouses`, seeds a default, adds mandatory
-   `drivers.warehouse_id`, adds `driver_tour` start/end + `sequence`.
-2. `php artisan db:seed --class=DriverDemoSeeder` — demo drivers now carry warehouses.
+1. `php artisan migrate:fresh --seed` — creates `warehouses`, adds mandatory NOT-NULL
+   `drivers.warehouse_id` + `driver_tour` start/end + `sequence` (no prod data → clean fresh
+   migrate, no backfill).
+2. `DriverDemoSeeder` creates demo warehouses and gives each demo driver one.
 3. `Http::fake()` the OpenStreet `/route` endpoint in tests with per-leg durations.
 
 ## Warehouse link (FR-001)
