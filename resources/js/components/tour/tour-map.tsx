@@ -5,12 +5,12 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 
 import { useCallback } from 'react';
 import { Map, Marker } from 'react-map-gl/maplibre';
+import type { Stop } from '@/types/tour';
 import type { ReactNode } from 'react';
 import type {
     MapLayerMouseEvent,
     StyleSpecification,
 } from 'react-map-gl/maplibre';
-import type { Stop } from '@/types/tour';
 
 // Raster OSM style — no API token required.
 const OSM_STYLE: StyleSpecification = {

@@ -12,9 +12,9 @@ import { AssignDriverDialog } from '@/components/tour/assign-driver-dialog';
 import { useTourDrivers } from '@/hooks/use-tour-drivers';
 import { cn } from '@/lib/utils';
 import { DELIVERY_MODES, formatDurationHm } from '@/types/tour';
+import type { DeliveryMode, Driver } from '@/types/tour';
 import type { LucideIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
-import type { DeliveryMode, Driver } from '@/types/tour';
 
 const MODE_ICON: Record<DeliveryMode, LucideIcon> = {
     walking: PersonStanding,

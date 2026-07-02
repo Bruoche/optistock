@@ -5,8 +5,8 @@ import { ActionButton } from '@/components/action-button';
 import { DriverList } from '@/components/tour/driver-list';
 import { TourDateInput } from '@/components/tour/tour-date-field';
 import { formatDurationHm, formatWeekday } from '@/types/tour';
-import type { ReactNode } from 'react';
 import type { DeliveryMode, TourResult } from '@/types/tour';
+import type { ReactNode } from 'react';
 
 type ResultSummaryProps = {
     result: TourResult;

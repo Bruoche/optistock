@@ -6,8 +6,8 @@ import {
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
 import { toUrl } from '@/lib/utils';
-import type { ComponentPropsWithoutRef } from 'react';
 import type { NavItem } from '@/types';
+import type { ComponentPropsWithoutRef } from 'react';
 
 export function NavFooter({
     items,
