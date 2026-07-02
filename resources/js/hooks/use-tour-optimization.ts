@@ -174,13 +174,26 @@ export function useTourOptimization(userId: number) {
 
             try {
                 const response = await postJson('/api/tour/optimize', {
-                    coordinates: stops.map((stop) => [stop.lat, stop.lng]),
+                    stops: stops.map((stop) => ({
+                        lat: stop.lat,
+                        lng: stop.lng,
+                        duration_s: stop.durationMinutes * 60,
+                    })),
                     mode,
                     loop,
                 });
 
                 if (response.status === 200) {
                     const payload = await response.json();
+
+                    // A cache hit that could not be saved is surfaced, not shown as an
+                    // unsaved route (FR-014).
+                    if (payload.status === 'failed') {
+                        settleFailed(payload.error as TourError);
+
+                        return;
+                    }
+
                     setState({
                         status: 'done',
                         result: payload.data as TourResult,

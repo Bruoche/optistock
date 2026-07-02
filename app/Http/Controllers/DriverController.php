@@ -24,13 +24,17 @@ class DriverController extends Controller
     public function available(AvailableDriversRequest $request): JsonResponse
     {
         $mode = DeliveryModeEnum::from($request->validated('mode'));
+        $date = $request->date('date')->toDateString();
         $day = WeekDayEnum::fromDate($request->date('date'));
+
+        $committedSeconds = Driver::committedSecondsForDate($date);
 
         $drivers = Driver::available($mode, $day)->get()->map(static fn (Driver $driver): array => [
             'id' => $driver->id,
             'name' => $driver->name,
             'image_url' => $driver->image_url,
             'modes' => $driver->deliveryModes->pluck('label')->all(),
+            'assigned_seconds' => $committedSeconds[$driver->id] ?? 0,
         ]);
 
         return response()->json(['data' => $drivers]);

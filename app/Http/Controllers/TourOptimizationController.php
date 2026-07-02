@@ -17,7 +17,8 @@ class TourOptimizationController extends Controller
 {
     /**
      * POST /api/tour/optimize
-     *   - cache hit  → 200 with the tour
+     *   - cache hit  → 200 `done` with the persisted tour (id included)
+     *   - cache hit but the tour could not be saved → 200 `failed` (`persist_failed`)
      *   - cache miss → 202 with a `job_uuid`; the optimized tour arrives later via
      *                  the `TourOptimized` broadcast (or the status endpoint below).
      */
@@ -29,10 +30,16 @@ class TourOptimizationController extends Controller
         // No loop in the request → default to a closed tour (return to origin).
         $loop = $request->boolean('loop', true);
 
-        $result = $tours->optimize($userId, $request->validated('coordinates'), $mode, $loop);
+        $result = $tours->optimize($userId, $request->validated('stops'), $mode, $loop);
 
         if ($result->isReady) {
             return response()->json(['status' => 'done', 'data' => $result->tour()]);
+        }
+
+        // Cache-hit persistence failure: surfaced to the client (same shape as the
+        // poll/broadcast settle) rather than a raw 500 (D10/FR-014).
+        if ($result->isFailed()) {
+            return response()->json(['status' => 'failed', 'error' => $result->error()]);
         }
 
         return response()->json(['status' => 'pending', 'job_uuid' => $result->jobUuid()], 202);

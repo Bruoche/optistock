@@ -3,6 +3,8 @@
 namespace Tests\Feature;
 
 use App\Models\Driver;
+use App\Models\Stop;
+use App\Models\Tour;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -102,5 +104,58 @@ class DriverAvailabilityTest extends TestCase
             ->getJson(route('api.tour.drivers', ['mode' => 'driving', 'date' => self::MONDAY]))
             ->assertOk()
             ->assertExactJson(['data' => []]);
+    }
+
+    public function test_assigned_seconds_sums_that_dates_committed_tours(): void
+    {
+        $user = User::factory()->create();
+        $driver = Driver::factory()->withModes(['driving'])->withDays(['monday'])->create(['name' => 'Amelie']);
+
+        // Two tours assigned for the queried date: travel 600 + stops (300+120) = 1020, and travel 300 + stop 180 = 480.
+        $tourA = Tour::factory()->withMode('driving')->create(['travel_duration_s' => 600]);
+        Stop::factory()->for($tourA)->create(['duration_s' => 300, 'position' => 0]);
+        Stop::factory()->for($tourA)->create(['duration_s' => 120, 'position' => 1]);
+        $tourA->drivers()->attach($driver, ['date' => self::MONDAY]);
+
+        $tourB = Tour::factory()->withMode('driving')->create(['travel_duration_s' => 300]);
+        Stop::factory()->for($tourB)->create(['duration_s' => 180, 'position' => 0]);
+        $tourB->drivers()->attach($driver, ['date' => self::MONDAY]);
+
+        // A tour on a different date must not count.
+        $tourOther = Tour::factory()->withMode('driving')->create(['travel_duration_s' => 9999]);
+        $tourOther->drivers()->attach($driver, ['date' => '2026-07-13']);
+
+        $response = $this->actingAs($user)
+            ->getJson(route('api.tour.drivers', ['mode' => 'driving', 'date' => self::MONDAY]));
+
+        $response->assertOk()
+            ->assertJsonPath('data.0.assigned_seconds', 1500);
+    }
+
+    public function test_assigned_seconds_is_zero_with_no_assignments(): void
+    {
+        $user = User::factory()->create();
+        Driver::factory()->withModes(['driving'])->withDays(['monday'])->create(['name' => 'Amelie']);
+
+        $this->actingAs($user)
+            ->getJson(route('api.tour.drivers', ['mode' => 'driving', 'date' => self::MONDAY]))
+            ->assertOk()
+            ->assertJsonPath('data.0.assigned_seconds', 0);
+    }
+
+    public function test_assigned_seconds_counts_unknown_travel_as_zero(): void
+    {
+        $user = User::factory()->create();
+        $driver = Driver::factory()->withModes(['driving'])->withDays(['monday'])->create(['name' => 'Amelie']);
+
+        // Unknown travel (null) → only the stop time counts; the sum stays numeric.
+        $tour = Tour::factory()->withMode('driving')->withUnknownTravelDuration()->create();
+        Stop::factory()->for($tour)->create(['duration_s' => 240, 'position' => 0]);
+        $tour->drivers()->attach($driver, ['date' => self::MONDAY]);
+
+        $this->actingAs($user)
+            ->getJson(route('api.tour.drivers', ['mode' => 'driving', 'date' => self::MONDAY]))
+            ->assertOk()
+            ->assertJsonPath('data.0.assigned_seconds', 240);
     }
 }

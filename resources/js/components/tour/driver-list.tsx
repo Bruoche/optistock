@@ -1,13 +1,20 @@
-// Feature 006: lists the drivers available for the optimized tour, in the region
-// the stop list held on the edit page. Name is prominent; supported-mode icons
-// (walking figure / car / truck) sit beneath it. Empty → a clear message.
+// Feature 006/011: lists the drivers available for the optimized tour's mode + date.
+// Feature 012: each row is a button that opens a confirmation to assign the tour to
+// that driver, and shows the driver's projected working hours for the date (their
+// committed load plus this tour).
 import { Car, Loader2, PersonStanding, Truck, UserRound } from 'lucide-react';
+import { useState } from 'react';
+import { AssignDriverDialog } from '@/components/tour/assign-driver-dialog';
 import { useTourDrivers } from '@/hooks/use-tour-drivers';
 import { cn } from '@/lib/utils';
-import { DELIVERY_MODES } from '@/types/tour';
+import {
+    DELIVERY_MODES,
+    formatDurationHm,
+    projectedSeconds,
+} from '@/types/tour';
 import type { LucideIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
-import type { DeliveryMode } from '@/types/tour';
+import type { DeliveryMode, Driver } from '@/types/tour';
 
 const MODE_ICON: Record<DeliveryMode, LucideIcon> = {
     walking: PersonStanding,
@@ -25,6 +32,13 @@ type DriverListProps = {
     mode: DeliveryMode;
     /** The selected tour date (YYYY-MM-DD); its weekday narrows the list. */
     date: string;
+    /** The persisted tour to assign when a driver is picked. */
+    tourId: number;
+    /** The current tour's total duration in seconds (road + wait) — added to each
+     *  driver's committed load for the projected-hours figure. */
+    currentTourTotalS: number;
+    /** Called after a successful assignment (clears the tour + returns to creation). */
+    onAssigned: () => void;
 };
 
 function StatusLine({
@@ -46,8 +60,15 @@ function StatusLine({
     );
 }
 
-export function DriverList({ mode, date }: DriverListProps) {
+export function DriverList({
+    mode,
+    date,
+    tourId,
+    currentTourTotalS,
+    onAssigned,
+}: DriverListProps) {
     const { drivers, status } = useTourDrivers(mode, date);
+    const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null);
 
     if (status === 'loading') {
         return (
@@ -71,42 +92,77 @@ export function DriverList({ mode, date }: DriverListProps) {
     }
 
     return (
-        <ul className="flex-1 space-y-1 overflow-y-auto">
-            {drivers.map((driver) => (
-                <li
-                    key={driver.id}
-                    className="flex items-center gap-3 rounded-md border border-border px-3 py-2"
-                >
-                    {driver.imageUrl ? (
-                        <img
-                            src={driver.imageUrl}
-                            alt=""
-                            className="size-10 shrink-0 rounded-full object-cover"
-                        />
-                    ) : (
-                        <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
-                            <UserRound className="size-5" />
-                        </span>
-                    )}
+        <>
+            <ul className="flex-1 space-y-1 overflow-y-auto">
+                {drivers.map((driver) => (
+                    <li key={driver.id}>
+                        <button
+                            type="button"
+                            onClick={() => setSelectedDriver(driver)}
+                            className="flex w-full items-center gap-3 rounded-md border border-border px-3 py-2 text-left transition-colors hover:bg-secondary hover:text-secondary-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-hidden"
+                        >
+                            {driver.imageUrl ? (
+                                <img
+                                    src={driver.imageUrl}
+                                    alt=""
+                                    className="size-10 shrink-0 rounded-full object-cover"
+                                />
+                            ) : (
+                                <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                                    <UserRound className="size-5" />
+                                </span>
+                            )}
 
-                    <div className="min-w-0">
-                        <p className="truncate font-semibold">{driver.name}</p>
-                        <div className="mt-0.5 flex items-center gap-1.5 text-muted-foreground">
-                            {driver.modes.map((driverMode) => {
-                                const Icon = MODE_ICON[driverMode];
+                            <div className="min-w-0">
+                                <p className="truncate font-semibold">
+                                    {driver.name}
+                                </p>
+                                <div className="mt-0.5 flex items-center gap-1.5 text-muted-foreground">
+                                    {driver.modes.map((driverMode) => {
+                                        const Icon = MODE_ICON[driverMode];
 
-                                return (
-                                    <Icon
-                                        key={driverMode}
-                                        className="size-4"
-                                        aria-label={MODE_LABEL[driverMode]}
-                                    />
-                                );
-                            })}
-                        </div>
-                    </div>
-                </li>
-            ))}
-        </ul>
+                                        return (
+                                            <Icon
+                                                key={driverMode}
+                                                className="size-4"
+                                                aria-label={
+                                                    MODE_LABEL[driverMode]
+                                                }
+                                            />
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
+                            <div className="ml-auto shrink-0 text-right">
+                                <p className="text-xs tracking-wide text-muted-foreground uppercase">
+                                    Projected
+                                </p>
+                                <p className="font-semibold">
+                                    {formatDurationHm(
+                                        projectedSeconds(
+                                            driver.assignedSeconds,
+                                            currentTourTotalS,
+                                        ),
+                                    )}
+                                </p>
+                            </div>
+                        </button>
+                    </li>
+                ))}
+            </ul>
+
+            <AssignDriverDialog
+                driver={selectedDriver}
+                tourId={tourId}
+                date={date}
+                onOpenChange={(open) => {
+                    if (!open) {
+                        setSelectedDriver(null);
+                    }
+                }}
+                onAssigned={onAssigned}
+            />
+        </>
     );
 }

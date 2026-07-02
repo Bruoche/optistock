@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\DriverController;
+use App\Http\Controllers\TourAssignmentController;
 use App\Http\Controllers\TourGeometryController;
 use App\Http\Controllers\TourOptimizationController;
 use Illuminate\Support\Facades\Route;
@@ -32,4 +33,10 @@ Route::middleware('auth')->group(function (): void {
     Route::get('tour/drivers', [DriverController::class, 'available'])
         ->middleware('throttle:tour-read')
         ->name('tour.drivers');
+
+    // Assign a persisted tour to a driver (feature 012): records the driver_tour
+    // association for the selected date. Trivial write; reuses the read limiter.
+    Route::post('tour/{tour}/assign', [TourAssignmentController::class, 'assign'])
+        ->middleware('throttle:tour-read')
+        ->name('tour.assign');
 });

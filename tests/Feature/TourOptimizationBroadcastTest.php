@@ -5,8 +5,10 @@ namespace Tests\Feature;
 use App\Events\TourOptimizationFailed;
 use App\Events\TourOptimized;
 use App\Jobs\OptimizeTourJob;
+use App\Models\User;
 use App\Services\OpenStreetTspClient;
 use App\Services\TourCache;
+use App\Services\TourRecorder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Http;
@@ -16,6 +18,14 @@ use Tests\TestCase;
 class TourOptimizationBroadcastTest extends TestCase
 {
     use RefreshDatabase;
+
+    private User $user;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->user = User::factory()->create();
+    }
 
     /**
      * @return array<int, array{lat: float, lng: float}>
@@ -29,9 +39,41 @@ class TourOptimizationBroadcastTest extends TestCase
         ];
     }
 
-    private function makeJob(string $uuid = 'job-1', int $userId = 42): OptimizeTourJob
+    /**
+     * @param  array<int, array{lat: float, lng: float}>  $coordinates
+     * @return array<string, list<int>>
+     */
+    private function durationByCoord(array $coordinates): array
     {
-        return new OptimizeTourJob($uuid, $userId, 'hash-1', $this->coordinates(), 'trucking', true);
+        $map = [];
+        foreach ($coordinates as $coordinate) {
+            $map[TourRecorder::coordinateKey($coordinate['lat'], $coordinate['lng'])][] = 600;
+        }
+
+        return $map;
+    }
+
+    /**
+     * @param  array<int, array{lat: float, lng: float}>|null  $coordinates
+     */
+    private function makeJob(string $uuid = 'job-1', ?array $coordinates = null): OptimizeTourJob
+    {
+        $coordinates ??= $this->coordinates();
+
+        return new OptimizeTourJob(
+            $uuid,
+            $this->user->id,
+            'hash-1',
+            $coordinates,
+            $this->durationByCoord($coordinates),
+            'trucking',
+            true,
+        );
+    }
+
+    private function runJob(OptimizeTourJob $job): void
+    {
+        $job->handle(app(OpenStreetTspClient::class), app(TourCache::class), app(TourRecorder::class));
     }
 
     public function test_successful_job_broadcasts_tour_optimized(): void
@@ -47,13 +89,13 @@ class TourOptimizationBroadcastTest extends TestCase
             ]),
         ]);
 
-        $job = $this->makeJob();
-        $job->handle(app(OpenStreetTspClient::class), app(TourCache::class));
+        $this->runJob($this->makeJob());
 
         Event::assertDispatched(TourOptimized::class, function (TourOptimized $event): bool {
             return $event->jobUuid === 'job-1'
-                && $event->userId === 42
-                && $event->data['total_distance_m'] === 1000;
+                && $event->userId === $this->user->id
+                && $event->data['total_distance_m'] === 1000
+                && is_int($event->data['id']);
         });
         Event::assertNotDispatched(TourOptimizationFailed::class);
 
@@ -72,8 +114,16 @@ class TourOptimizationBroadcastTest extends TestCase
         ])]);
 
         // loop=false → the job maps it to tour=open and the client forwards it (004).
-        (new OptimizeTourJob('job-open', 42, 'hash-open', $this->coordinates(), 'trucking', false))
-            ->handle(app(OpenStreetTspClient::class), app(TourCache::class));
+        $coordinates = $this->coordinates();
+        $this->runJob(new OptimizeTourJob(
+            'job-open',
+            $this->user->id,
+            'hash-open',
+            $coordinates,
+            $this->durationByCoord($coordinates),
+            'trucking',
+            false,
+        ));
 
         Http::assertSent(fn ($request): bool => str_contains($request->url(), 'tour=open'));
     }
@@ -87,7 +137,7 @@ class TourOptimizationBroadcastTest extends TestCase
             'STEPS_DURATIONS' => ['TOTAL' => 1],
         ])]);
 
-        $this->makeJob()->handle(app(OpenStreetTspClient::class), app(TourCache::class));
+        $this->runJob($this->makeJob());
 
         Http::assertSent(fn ($request): bool => str_contains($request->url(), 'tour=closed'));
     }
@@ -101,8 +151,15 @@ class TourOptimizationBroadcastTest extends TestCase
             ['lat' => 49.89988, 'lng' => 2.30028],
             ['lat' => 48.78300, 'lng' => 2.33316],
         ];
-        (new OptimizeTourJob('job-2pt', 42, 'hash-2pt', $twoPoints, 'trucking', true))
-            ->handle(app(OpenStreetTspClient::class), app(TourCache::class));
+        $this->runJob(new OptimizeTourJob(
+            'job-2pt',
+            $this->user->id,
+            'hash-2pt',
+            $twoPoints,
+            $this->durationByCoord($twoPoints),
+            'trucking',
+            true,
+        ));
 
         Http::assertNothingSent();
         Event::assertDispatched(TourOptimized::class, function (TourOptimized $event): bool {
@@ -124,10 +181,12 @@ class TourOptimizationBroadcastTest extends TestCase
             '*' => Http::response(['OPTIMIZATION' => [], 'STEPS_DISTANCES' => ['TOTAL' => 1000], 'STEPS_DURATIONS' => ['TOTAL' => 120]]),
         ]);
 
-        $this->makeJob()->handle(app(OpenStreetTspClient::class), app(TourCache::class));
+        $this->runJob($this->makeJob());
 
         $cachedTour = app(TourCache::class)->getTour('trucking', true, 'hash-1');
         $this->assertSame(1000, $cachedTour['total_distance_m']);
+        // The cached tour is the pure result — the per-user persisted id is NOT baked in.
+        $this->assertArrayNotHasKey('id', $cachedTour);
     }
 
     public function test_api_failure_broadcasts_failure_event(): void
@@ -135,7 +194,7 @@ class TourOptimizationBroadcastTest extends TestCase
         Event::fake([TourOptimized::class, TourOptimizationFailed::class]);
         Http::fake(['*' => Http::response('', 500)]);
 
-        $this->makeJob()->handle(app(OpenStreetTspClient::class), app(TourCache::class));
+        $this->runJob($this->makeJob());
 
         Event::assertDispatched(TourOptimizationFailed::class, function (TourOptimizationFailed $event): bool {
             return $event->jobUuid === 'job-1' && $event->error['code'] === 'api_error';
@@ -150,7 +209,7 @@ class TourOptimizationBroadcastTest extends TestCase
         Event::fake([TourOptimized::class, TourOptimizationFailed::class]);
         Http::fake(['*' => Http::response(['status' => 'error', 'message' => 'No tour'])]);
 
-        $this->makeJob()->handle(app(OpenStreetTspClient::class), app(TourCache::class));
+        $this->runJob($this->makeJob());
 
         Event::assertDispatched(TourOptimizationFailed::class, function (TourOptimizationFailed $event): bool {
             return $event->error['code'] === 'invalid_response';
@@ -176,12 +235,12 @@ class TourOptimizationBroadcastTest extends TestCase
         Http::fake(['*' => Http::response(['OPTIMIZATION' => [0, 1], 'STEPS_DISTANCES' => ['TOTAL' => 1], 'STEPS_DURATIONS' => ['TOTAL' => 1]])]);
 
         $cache = app(TourCache::class);
-        $cache->claimActiveJob(42, 'trucking', true, 'hash-1', 'job-1');
+        $cache->claimActiveJob($this->user->id, 'trucking', true, 'hash-1', 'job-1');
 
-        $this->makeJob()->handle(app(OpenStreetTspClient::class), $cache);
+        $this->runJob($this->makeJob());
 
         // Lock cleared so a later identical request is served from cache / re-dispatches.
-        $this->assertNull($cache->getActiveJob(42, 'trucking', true, 'hash-1'));
+        $this->assertNull($cache->getActiveJob($this->user->id, 'trucking', true, 'hash-1'));
     }
 
     public function test_job_releases_active_job_lock_on_failure(): void
@@ -190,11 +249,11 @@ class TourOptimizationBroadcastTest extends TestCase
         Http::fake(['*' => Http::response('', 500)]);
 
         $cache = app(TourCache::class);
-        $cache->claimActiveJob(42, 'trucking', true, 'hash-1', 'job-1');
+        $cache->claimActiveJob($this->user->id, 'trucking', true, 'hash-1', 'job-1');
 
-        $this->makeJob()->handle(app(OpenStreetTspClient::class), $cache);
+        $this->runJob($this->makeJob());
 
-        $this->assertNull($cache->getActiveJob(42, 'trucking', true, 'hash-1'));
+        $this->assertNull($cache->getActiveJob($this->user->id, 'trucking', true, 'hash-1'));
     }
 
     public function test_crash_callback_releases_active_job_lock(): void
@@ -202,10 +261,10 @@ class TourOptimizationBroadcastTest extends TestCase
         Event::fake();
 
         $cache = app(TourCache::class);
-        $cache->claimActiveJob(42, 'trucking', true, 'hash-1', 'job-1');
+        $cache->claimActiveJob($this->user->id, 'trucking', true, 'hash-1', 'job-1');
 
         $this->makeJob()->failed(new RuntimeException('worker crashed'));
 
-        $this->assertNull($cache->getActiveJob(42, 'trucking', true, 'hash-1'));
+        $this->assertNull($cache->getActiveJob($this->user->id, 'trucking', true, 'hash-1'));
     }
 }

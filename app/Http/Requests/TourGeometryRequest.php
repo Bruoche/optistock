@@ -30,6 +30,10 @@ class TourGeometryRequest extends FormRequest
             'stops.*.1' => ['required', 'numeric', 'between:-180,180'],
             'mode' => ['sometimes', Rule::enum(DeliveryMode::class)],
             'loop' => ['sometimes', 'boolean'],
+            // Optional: the persisted tour whose road totals this trace should finalize.
+            // Deliberately NOT `exists` — an unknown/foreign id is ignored, never a 422
+            // that would fail the (display-critical) trace.
+            'tour_id' => ['sometimes', 'integer'],
         ];
     }
 

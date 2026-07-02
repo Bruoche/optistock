@@ -78,6 +78,7 @@ export default function TourOptimize() {
                             date={tourDate}
                             onDateChange={setTourDate}
                             onReset={reset}
+                            onAssigned={reset}
                         />
                     ) : (
                         <>

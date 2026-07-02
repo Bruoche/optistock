@@ -74,3 +74,7 @@ Rendered inside `ResultSummary`, in the region the stop list occupied on the edi
 - **Error**: an inline error/retry line (never a silent blank); the server logs the failure on its side.
 - **No time-related info** is shown (FR-010).
 - Styling: role-named color variables + shared primitives only (constitution VI); mirrors `stop-list.tsx`.
+
+---
+
+> **Superseded/extended by feature 012**: `GET /api/tour/drivers` now also returns `assigned_seconds` per driver (committed load for the queried date), and the driver list became actionable via `POST /api/tour/{tour}/assign`. See `specs/012-tour-driver-assignment/contracts/`.

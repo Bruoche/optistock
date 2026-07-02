@@ -4,7 +4,7 @@
 import { ActionButton } from '@/components/action-button';
 import { DriverList } from '@/components/tour/driver-list';
 import { TourDateInput } from '@/components/tour/tour-date-field';
-import { formatWeekday } from '@/types/tour';
+import { formatDurationHm, formatWeekday } from '@/types/tour';
 import type { ReactNode } from 'react';
 import type { DeliveryMode, TourResult } from '@/types/tour';
 
@@ -23,6 +23,8 @@ type ResultSummaryProps = {
     date: string;
     onDateChange: (date: string) => void;
     onReset: () => void;
+    /** Called after the tour is assigned to a driver (feature 012) → clears the tour. */
+    onAssigned: () => void;
 };
 
 // Subgrid cell: label and value snap to the header's two shared rows, so all
@@ -39,19 +41,13 @@ function Figure({ label, children }: { label: string; children: ReactNode }) {
 }
 
 function formatDuration(totalSeconds: number | null): string {
-    // 2-point tours have no metrics yet (pending the /route/ endpoint).
+    // A null road time is undetermined (no routing call / API failure) — shown as
+    // unavailable rather than a misleading zero (FR-012).
     if (totalSeconds === null) {
         return 'Unavailable';
     }
 
-    const hours = Math.floor(totalSeconds / 3600);
-    const minutes = Math.round((totalSeconds % 3600) / 60);
-
-    if (hours > 0) {
-        return `${hours} h ${minutes.toString().padStart(2, '0')} min`;
-    }
-
-    return `${minutes} min`;
+    return formatDurationHm(totalSeconds);
 }
 
 export function ResultSummary({
@@ -62,6 +58,7 @@ export function ResultSummary({
     date,
     onDateChange,
     onReset,
+    onAssigned,
 }: ResultSummaryProps) {
     // Prefer the road-accurate duration once available; otherwise the initial estimate.
     const durationS = roadMetrics?.duration_s ?? result.total_duration_s;
@@ -89,7 +86,13 @@ export function ResultSummary({
                 <ActionButton onClick={onReset}>New tour</ActionButton>
             </div>
 
-            <DriverList mode={mode} date={date} />
+            <DriverList
+                mode={mode}
+                date={date}
+                tourId={result.id}
+                currentTourTotalS={tourDurationS}
+                onAssigned={onAssigned}
+            />
         </div>
     );
 }

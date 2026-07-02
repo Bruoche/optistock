@@ -12,6 +12,7 @@ type ApiDriver = {
     name: string;
     image_url: string | null;
     modes: DeliveryMode[];
+    assigned_seconds: number;
 };
 
 type FetchState = {
@@ -60,6 +61,7 @@ export function useTourDrivers(
                     name: driver.name,
                     imageUrl: driver.image_url,
                     modes: driver.modes,
+                    assignedSeconds: driver.assigned_seconds,
                 }));
                 setState({ mode, date, drivers, status: 'ready' });
             })

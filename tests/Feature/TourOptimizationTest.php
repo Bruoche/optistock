@@ -26,20 +26,34 @@ class TourOptimizationTest extends TestCase
         ];
     }
 
+    /**
+     * The request-shape equivalent of {@see validCoordinates()} — each stop carries a
+     * per-stop delivery duration (007).
+     *
+     * @return array<int, array{lat: float, lng: float, duration_s: int}>
+     */
+    private function validStops(): array
+    {
+        return array_map(
+            static fn (array $pair): array => ['lat' => $pair[0], 'lng' => $pair[1], 'duration_s' => 600],
+            $this->validCoordinates(),
+        );
+    }
+
     public function test_unauthenticated_request_is_rejected(): void
     {
-        $this->postJson(route('api.tour.optimize'), ['coordinates' => $this->validCoordinates()])
+        $this->postJson(route('api.tour.optimize'), ['stops' => $this->validStops()])
             ->assertUnauthorized();
     }
 
-    public function test_it_requires_at_least_two_coordinates(): void
+    public function test_it_requires_at_least_two_stops(): void
     {
         $user = User::factory()->create();
 
         $this->actingAs($user)
-            ->postJson(route('api.tour.optimize'), ['coordinates' => [[49.89988, 2.30028]]])
+            ->postJson(route('api.tour.optimize'), ['stops' => [['lat' => 49.89988, 'lng' => 2.30028, 'duration_s' => 600]]])
             ->assertStatus(422)
-            ->assertJsonValidationErrors('coordinates');
+            ->assertJsonValidationErrors('stops');
     }
 
     public function test_it_rejects_out_of_range_coordinates(): void
@@ -47,36 +61,44 @@ class TourOptimizationTest extends TestCase
         $user = User::factory()->create();
 
         $this->actingAs($user)
-            ->postJson(route('api.tour.optimize'), ['coordinates' => [[200, 2.30028], [48.45101, 6.74833]]])
+            ->postJson(route('api.tour.optimize'), ['stops' => [
+                ['lat' => 200, 'lng' => 2.30028, 'duration_s' => 600],
+                ['lat' => 48.45101, 'lng' => 6.74833, 'duration_s' => 600],
+            ]])
             ->assertStatus(422)
-            ->assertJsonValidationErrors('coordinates.0.0');
+            ->assertJsonValidationErrors('stops.0.lat');
     }
 
-    public function test_it_rejects_more_than_ten_coordinates(): void
+    public function test_it_rejects_more_than_ten_stops(): void
     {
         $user = User::factory()->create();
 
         $this->actingAs($user)
-            ->postJson(route('api.tour.optimize'), ['coordinates' => array_fill(0, 11, [48.0, 2.0])])
+            ->postJson(route('api.tour.optimize'), [
+                'stops' => array_fill(0, 11, ['lat' => 48.0, 'lng' => 2.0, 'duration_s' => 600]),
+            ])
             ->assertStatus(422)
-            ->assertJsonValidationErrors('coordinates');
+            ->assertJsonValidationErrors('stops');
     }
 
-    public function test_each_coordinate_must_be_a_lat_lng_pair(): void
+    public function test_each_stop_requires_lat_lng_and_duration(): void
     {
         $user = User::factory()->create();
 
         $this->actingAs($user)
-            ->postJson(route('api.tour.optimize'), ['coordinates' => [[48.0], [2.0, 3.0]]])
+            ->postJson(route('api.tour.optimize'), ['stops' => [
+                ['lat' => 48.0],
+                ['lat' => 2.0, 'lng' => 3.0, 'duration_s' => 600],
+            ]])
             ->assertStatus(422)
-            ->assertJsonValidationErrors('coordinates.0');
+            ->assertJsonValidationErrors(['stops.0.lng', 'stops.0.duration_s']);
     }
 
     public function test_optimize_requests_are_rate_limited_per_user(): void
     {
         Queue::fake();
         $user = User::factory()->create();
-        $payload = ['coordinates' => $this->validCoordinates()];
+        $payload = ['stops' => $this->validStops()];
 
         for ($i = 0; $i < 10; $i++) {
             $this->actingAs($user)
@@ -95,7 +117,7 @@ class TourOptimizationTest extends TestCase
         $user = User::factory()->create();
 
         $response = $this->actingAs($user)
-            ->postJson(route('api.tour.optimize'), ['coordinates' => $this->validCoordinates()]);
+            ->postJson(route('api.tour.optimize'), ['stops' => $this->validStops()]);
 
         $response->assertStatus(202)
             ->assertJson(['status' => 'pending'])
@@ -106,6 +128,7 @@ class TourOptimizationTest extends TestCase
                 && $job->jobUuid !== ''
                 && $job->coordinatesHash !== ''
                 && count($job->coordinates) === 3
+                && count($job->durationByCoord) === 3
                 // No mode/loop in the request → defaults to trucking + closed loop.
                 && $job->mode === 'trucking'
                 && $job->loop === true;
@@ -118,7 +141,7 @@ class TourOptimizationTest extends TestCase
 
         $this->actingAs($user)
             ->postJson(route('api.tour.optimize'), [
-                'coordinates' => $this->validCoordinates(),
+                'stops' => $this->validStops(),
                 'mode' => 'flying',
             ])
             ->assertStatus(422)
@@ -132,7 +155,7 @@ class TourOptimizationTest extends TestCase
 
         $this->actingAs($user)
             ->postJson(route('api.tour.optimize'), [
-                'coordinates' => $this->validCoordinates(),
+                'stops' => $this->validStops(),
                 'mode' => 'walking',
             ])
             ->assertStatus(202);
@@ -154,7 +177,7 @@ class TourOptimizationTest extends TestCase
 
         // …must NOT be served to a walking request: it queues a fresh job instead.
         $this->actingAs($user)
-            ->postJson(route('api.tour.optimize'), ['coordinates' => $coordinates, 'mode' => 'walking'])
+            ->postJson(route('api.tour.optimize'), ['stops' => $this->validStops(), 'mode' => 'walking'])
             ->assertStatus(202);
 
         Queue::assertPushed(OptimizeTourJob::class, fn (OptimizeTourJob $job): bool => $job->mode === 'walking');
@@ -166,7 +189,7 @@ class TourOptimizationTest extends TestCase
 
         $this->actingAs($user)
             ->postJson(route('api.tour.optimize'), [
-                'coordinates' => $this->validCoordinates(),
+                'stops' => $this->validStops(),
                 'loop' => 'maybe',
             ])
             ->assertStatus(422)
@@ -180,7 +203,7 @@ class TourOptimizationTest extends TestCase
 
         $this->actingAs($user)
             ->postJson(route('api.tour.optimize'), [
-                'coordinates' => $this->validCoordinates(),
+                'stops' => $this->validStops(),
                 'loop' => false,
             ])
             ->assertStatus(202);
@@ -202,7 +225,7 @@ class TourOptimizationTest extends TestCase
 
         // …must NOT be served to an open (loop=false) request: it queues a fresh job.
         $this->actingAs($user)
-            ->postJson(route('api.tour.optimize'), ['coordinates' => $coordinates, 'loop' => false])
+            ->postJson(route('api.tour.optimize'), ['stops' => $this->validStops(), 'loop' => false])
             ->assertStatus(202);
 
         Queue::assertPushed(OptimizeTourJob::class, fn (OptimizeTourJob $job): bool => $job->loop === false);
@@ -212,7 +235,7 @@ class TourOptimizationTest extends TestCase
     {
         Queue::fake();
         $user = User::factory()->create();
-        $payload = ['coordinates' => $this->validCoordinates()];
+        $payload = ['stops' => $this->validStops()];
 
         $first = $this->actingAs($user)->postJson(route('api.tour.optimize'), $payload);
         $second = $this->actingAs($user)->postJson(route('api.tour.optimize'), $payload);
@@ -225,7 +248,7 @@ class TourOptimizationTest extends TestCase
         Queue::assertPushed(OptimizeTourJob::class, 1);
     }
 
-    public function test_cache_hit_returns_200_with_tour(): void
+    public function test_cache_hit_returns_200_with_tour_and_id(): void
     {
         $user = User::factory()->create();
         $coordinates = $this->validCoordinates();
@@ -236,25 +259,29 @@ class TourOptimizationTest extends TestCase
         app(TourCache::class)->putTour('trucking', true, $coordinatesHash, $tour);
 
         $this->actingAs($user)
-            ->postJson(route('api.tour.optimize'), ['coordinates' => $coordinates])
+            ->postJson(route('api.tour.optimize'), ['stops' => $this->validStops()])
             ->assertStatus(200)
-            ->assertJson(['status' => 'done', 'data' => $tour]);
+            ->assertJson(['status' => 'done', 'data' => $tour])
+            ->assertJsonPath('data.id', fn ($id): bool => is_int($id));
+
+        // The cache hit persisted a tour for this user.
+        $this->assertDatabaseCount('tours', 1);
     }
 
     public function test_reordered_coordinates_hit_the_same_cache(): void
     {
         Queue::fake();
         $user = User::factory()->create();
-        $coordinates = $this->validCoordinates();
+        $stops = $this->validStops();
 
-        $normalized = app(CoordinateNormalizer::class)->normalize($coordinates);
+        $normalized = app(CoordinateNormalizer::class)->normalize($this->validCoordinates());
         $coordinatesHash = hash('sha256', (string) json_encode($normalized));
         $tour = ['ordered_stops' => [], 'total_distance_m' => 4200, 'total_duration_s' => 360];
         app(TourCache::class)->putTour('trucking', true, $coordinatesHash, $tour);
 
         // Same stops, reversed input order, must resolve to the same cache entry.
         $this->actingAs($user)
-            ->postJson(route('api.tour.optimize'), ['coordinates' => array_reverse($coordinates)])
+            ->postJson(route('api.tour.optimize'), ['stops' => array_reverse($stops)])
             ->assertStatus(200)
             ->assertJson(['status' => 'done', 'data' => $tour]);
 
@@ -275,7 +302,7 @@ class TourOptimizationTest extends TestCase
     public function test_status_endpoint_returns_done_with_data(): void
     {
         $user = User::factory()->create();
-        $tour = ['ordered_stops' => [], 'total_distance_m' => 10, 'total_duration_s' => 5];
+        $tour = ['id' => 7, 'ordered_stops' => [], 'total_distance_m' => 10, 'total_duration_s' => 5];
         app(TourCache::class)->markDone('job-done', $tour);
 
         $this->actingAs($user)
