@@ -22,10 +22,10 @@ class DriverAvailabilityTest extends TestCase
     private const SATURDAY = '2026-07-04';
 
     /**
-     * Every /route leg costs `$seconds`, so the endpoint's projection never hits the
-     * network. Called per test (Http::fake merges, so a single call keeps overrides clean).
+     * Every routed connection costs `$seconds`, so the endpoint's projection never hits
+     * the network. Called per test (Http::fake merges, so a single call keeps overrides clean).
      */
-    private function fakeEveryLeg(int $seconds): void
+    private function fakeEveryConnection(int $seconds): void
     {
         Http::fake(['*' => Http::response(['status' => 'OK', 'total_time' => $seconds, 'total_distance' => 1000])]);
     }
@@ -86,7 +86,7 @@ class DriverAvailabilityTest extends TestCase
 
     public function test_it_returns_only_drivers_matching_mode_and_weekday_alphabetically(): void
     {
-        $this->fakeEveryLeg(60);
+        $this->fakeEveryConnection(60);
         $user = User::factory()->create();
         $tour = $this->candidateTour($user);
         Driver::factory()->withModes(['driving', 'walking'])->withDays(['monday'])->create(['name' => 'Bruno']);
@@ -103,7 +103,7 @@ class DriverAvailabilityTest extends TestCase
 
     public function test_it_exposes_warehouse_name_and_shape(): void
     {
-        $this->fakeEveryLeg(60);
+        $this->fakeEveryConnection(60);
         $user = User::factory()->create();
         $tour = $this->candidateTour($user);
         $warehouse = Warehouse::factory()->create(['name' => 'North Depot']);
@@ -150,14 +150,14 @@ class DriverAvailabilityTest extends TestCase
             ->assertExactJson(['data' => []]);
     }
 
-    public function test_projected_day_chains_warehouse_legs_and_tour_duration(): void
+    public function test_projected_day_chains_warehouse_connections_and_tour_duration(): void
     {
-        $this->fakeEveryLeg(60);
+        $this->fakeEveryConnection(60);
         $user = User::factory()->create();
         $tour = $this->candidateTour($user, loop: true, travelS: 300); // total = 300 + 100 + 200 = 600
         Driver::factory()->withModes(['driving'])->withDays(['monday'])->create(['name' => 'Amelie']);
 
-        // Every leg = 60 s. No prior tours → 2 connecting legs (W→start, end→W).
+        // Every connection = 60 s. No prior tours → 2 connections (W→start, end→W).
         $response = $this->actingAs($user)
             ->getJson($this->driversRoute('driving', self::MONDAY, $tour->id));
 
@@ -168,7 +168,7 @@ class DriverAvailabilityTest extends TestCase
 
     public function test_projected_day_includes_prior_assigned_tours(): void
     {
-        $this->fakeEveryLeg(60);
+        $this->fakeEveryConnection(60);
         $user = User::factory()->create();
         $tour = $this->candidateTour($user, loop: true, travelS: 300); // total 600
         $driver = Driver::factory()->withModes(['driving'])->withDays(['monday'])->create(['name' => 'Amelie']);
@@ -178,7 +178,7 @@ class DriverAvailabilityTest extends TestCase
             ->create(['travel_duration_s' => 500]);
         $prior->stops()->update(['duration_s' => 100]);
 
-        // Chain W→p.start, p.end→c.start, c.end→W = 3 legs × 60 = 180; tours 600 + 600.
+        // Chain W→p.start, p.end→c.start, c.end→W = 3 connections × 60 = 180; tours 600 + 600.
         $response = $this->actingAs($user)
             ->getJson($this->driversRoute('driving', self::MONDAY, $tour->id));
 
@@ -186,9 +186,9 @@ class DriverAvailabilityTest extends TestCase
             ->assertJsonPath('data.0.projected_seconds', 1380); // 600 + 600 + 3×60
     }
 
-    public function test_a_failed_leg_makes_the_projection_incomplete(): void
+    public function test_a_failed_connection_makes_the_projection_incomplete(): void
     {
-        Http::fake(['*' => Http::response('', 500)]); // every leg fails
+        Http::fake(['*' => Http::response('', 500)]); // every routing call fails
         $user = User::factory()->create();
         $tour = $this->candidateTour($user, loop: true, travelS: 300); // total 600
         Driver::factory()->withModes(['driving'])->withDays(['monday'])->create(['name' => 'Amelie']);
@@ -196,7 +196,7 @@ class DriverAvailabilityTest extends TestCase
         $response = $this->actingAs($user)
             ->getJson($this->driversRoute('driving', self::MONDAY, $tour->id));
 
-        // Legs unknown → count 0; only the tour's own duration remains, flagged.
+        // Connections unknown → count 0; only the tour's own duration remains, flagged.
         $response->assertOk()
             ->assertJsonPath('data.0.projected_seconds', 600)
             ->assertJsonPath('data.0.projected_incomplete', true);
@@ -204,7 +204,7 @@ class DriverAvailabilityTest extends TestCase
 
     public function test_a_prior_tour_with_unknown_travel_flags_incomplete(): void
     {
-        $this->fakeEveryLeg(60);
+        $this->fakeEveryConnection(60);
         $user = User::factory()->create();
         $tour = $this->candidateTour($user, loop: true, travelS: 300);
         $driver = Driver::factory()->withModes(['driving'])->withDays(['monday'])->create(['name' => 'Amelie']);
@@ -221,7 +221,7 @@ class DriverAvailabilityTest extends TestCase
 
     public function test_start_index_is_the_nearest_valid_candidate(): void
     {
-        // Per-leg duration by destination latitude: the pos-1 stop (48.86) is far,
+        // Per-connection duration by destination latitude: the pos-1 stop (48.86) is far,
         // the pos-0 stop (48.85) is near, so a one-way tour starts at position 0.
         Http::fake(function (Request $request) {
             $far = str_contains($request->url(), 'destination=48.86');
@@ -239,13 +239,13 @@ class DriverAvailabilityTest extends TestCase
             ->assertJsonPath('data.0.start_index', 0);
     }
 
-    public function test_shared_legs_are_not_requested_more_than_once(): void
+    public function test_shared_connections_are_not_requested_more_than_once(): void
     {
-        $this->fakeEveryLeg(60);
+        $this->fakeEveryConnection(60);
         $user = User::factory()->create();
         $tour = $this->candidateTour($user);
         $warehouse = Warehouse::factory()->create();
-        // Two drivers sharing a warehouse + no prior tours → identical W↔candidate legs.
+        // Two drivers sharing a warehouse + no prior tours → identical W↔candidate connections.
         Driver::factory()->for($warehouse)->withModes(['driving'])->withDays(['monday'])->create(['name' => 'Amelie']);
         Driver::factory()->for($warehouse)->withModes(['driving'])->withDays(['monday'])->create(['name' => 'Bruno']);
 
@@ -253,7 +253,7 @@ class DriverAvailabilityTest extends TestCase
             ->getJson($this->driversRoute('driving', self::MONDAY, $tour->id))
             ->assertOk();
 
-        // Distinct legs: W→stop0, W→stop1 (selection) + chosen start→W (return, loop so
+        // Distinct connections: W→stop0, W→stop1 (selection) + chosen start→W (return, loop so
         // end = start). Both drivers share the same warehouse, so 3 requests, never 6.
         Http::assertSentCount(3);
     }

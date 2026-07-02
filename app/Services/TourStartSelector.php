@@ -7,27 +7,27 @@ use App\Models\Tour;
 /** Chooses a tour's start stop as the closest valid one to a caller-supplied incoming point. */
 class TourStartSelector
 {
-    public function __construct(private readonly TravelTimeService $travel) {}
+    public function __construct(private readonly TravelTimeService $travelTime) {}
 
-    /** Pick the nearest known start candidate to the incoming point and deduce its end. */
-    public function select(Coordinate $incoming, Tour $candidate, ?string $mode = null): TourStart
+    /** Pick the start candidate closest to the incoming point (lowest position when unknown) and deduce its end. */
+    public function select(Coordinate $incoming, Tour $tour, ?string $mode = null): TourStart
     {
-        $candidates = $candidate->startCandidates();
+        $startCandidates = $tour->startCandidates();
 
-        $chosen = null;
-        $shortest = null;
-        foreach ($candidates as $stop) {
-            $duration = $this->travel->durationBetween($incoming, $stop->coordinate, $mode);
-            if ($duration !== null && ($shortest === null || $duration < $shortest)) {
-                $shortest = $duration;
-                $chosen = $stop;
+        $closestStop = null;
+        $closestDuration = null;
+        foreach ($startCandidates as $stop) {
+            $duration = $this->travelTime->durationBetween($incoming, $stop->coordinate, $mode);
+            if ($duration !== null && ($closestDuration === null || $duration < $closestDuration)) {
+                $closestDuration = $duration;
+                $closestStop = $stop;
             }
         }
 
-        $chosen ??= $candidates->first();
+        $closestStop ??= $startCandidates->first();
 
-        $end = $candidate->endStopForStart($chosen);
+        $endStop = $tour->endStopForStart($closestStop);
 
-        return new TourStart($chosen->position, $chosen->coordinate, $end->coordinate);
+        return new TourStart($closestStop->position, $closestStop->coordinate, $endStop->coordinate);
     }
 }

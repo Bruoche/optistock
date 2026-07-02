@@ -1,7 +1,3 @@
-// Feature 006/011: lists the drivers available for the optimized tour's mode + date.
-// Feature 012: each row is a button that opens a confirmation to assign the tour to
-// that driver, and shows the driver's projected working hours for the date (their
-// committed load plus this tour).
 import {
     Car,
     Loader2,

@@ -14,8 +14,8 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import type { PropsWithChildren } from 'react';
 import { store } from '@/routes/teams';
+import type { PropsWithChildren } from 'react';
 
 export default function CreateTeamModal({ children }: PropsWithChildren) {
     const [open, setOpen] = useState(false);

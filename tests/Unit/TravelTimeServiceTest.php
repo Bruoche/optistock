@@ -26,14 +26,14 @@ class TravelTimeServiceTest extends TestCase
         return ['status' => 'OK', 'total_time' => $seconds, 'total_distance' => 1000];
     }
 
-    public function test_a_distinct_leg_is_requested_at_most_once(): void
+    public function test_a_distinct_connection_is_requested_at_most_once(): void
     {
         Http::fake(['*' => Http::response($this->okResponse(120))]);
         $a = new Coordinate(1.0, 1.0);
         $b = new Coordinate(2.0, 2.0);
 
-        // The same leg listed three times must resolve to a single request.
-        $this->service()->prime([[$a, $b], [$a, $b], [$a, $b]], 'trucking');
+        // The same connection listed three times must resolve to a single request.
+        $this->service()->preload([[$a, $b], [$a, $b], [$a, $b]], 'trucking');
 
         Http::assertSentCount(1);
     }
@@ -45,27 +45,27 @@ class TravelTimeServiceTest extends TestCase
         $b = new Coordinate(2.0, 2.0);
         $c = new Coordinate(3.0, 3.0);
 
-        // Distinct legs: a→b, b→c, a→c (a→b repeated).
-        $this->service()->prime([[$a, $b], [$b, $c], [$a, $b], [$a, $c]], 'trucking');
+        // Distinct connections: a→b, b→c, a→c (a→b repeated).
+        $this->service()->preload([[$a, $b], [$b, $c], [$a, $b], [$a, $c]], 'trucking');
 
         Http::assertSentCount(3);
     }
 
-    public function test_all_legs_resolve_even_when_chunked_below_the_cap(): void
+    public function test_all_connections_resolve_even_when_chunked_below_the_cap(): void
     {
         Http::fake(['*' => Http::response($this->okResponse(200))]);
         $points = [];
         for ($i = 1; $i <= 4; $i++) {
             $points[] = new Coordinate((float) $i, 0.0);
         }
-        $legs = [[$points[0], $points[1]], [$points[1], $points[2]], [$points[2], $points[3]], [$points[0], $points[3]]];
+        $connections = [[$points[0], $points[1]], [$points[1], $points[2]], [$points[2], $points[3]], [$points[0], $points[3]]];
 
-        // cap = 2 → the 4 distinct legs are fetched in two capped batches.
+        // cap = 2 → the 4 distinct connections are fetched in two capped batches.
         $service = $this->service(poolCap: 2);
-        $service->prime($legs, 'trucking');
+        $service->preload($connections, 'trucking');
 
         Http::assertSentCount(4);
-        foreach ($legs as [$from, $to]) {
+        foreach ($connections as [$from, $to]) {
             $this->assertSame(200, $service->durationBetween($from, $to, 'trucking'));
         }
     }
@@ -79,7 +79,7 @@ class TravelTimeServiceTest extends TestCase
         Http::assertNothingSent();
     }
 
-    public function test_a_failed_leg_is_null_and_logged(): void
+    public function test_a_failed_connection_is_null_and_logged(): void
     {
         Http::fake(['*' => Http::response('', 500)]);
         Log::spy();
@@ -87,13 +87,13 @@ class TravelTimeServiceTest extends TestCase
         $b = new Coordinate(2.0, 2.0);
 
         $service = $this->service();
-        $service->prime([[$a, $b]], 'trucking');
+        $service->preload([[$a, $b]], 'trucking');
 
         $this->assertNull($service->durationBetween($a, $b, 'trucking'));
         Log::shouldHaveReceived('warning')->once();
     }
 
-    public function test_a_successful_leg_returns_its_duration(): void
+    public function test_a_successful_connection_returns_its_duration(): void
     {
         Http::fake(['*' => Http::response($this->okResponse(345))]);
         $a = new Coordinate(1.0, 1.0);

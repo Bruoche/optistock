@@ -1,7 +1,5 @@
-// Fetches the drivers available for an optimized tour's mode + date (features 006,
-// 011). A plain authenticated GET, mirroring the status-poll fetch pattern;
-// re-fetches whenever the mode or date changes so the list always matches the
-// tour's mode and the selected date's weekday.
+// Fetches the drivers available for an optimized tour, with each one's projected
+// working day; re-fetches whenever the mode, date, or tour changes.
 import { useEffect, useState } from 'react';
 import type { DeliveryMode, Driver } from '@/types/tour';
 

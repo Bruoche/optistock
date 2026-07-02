@@ -9,8 +9,8 @@ use Illuminate\Support\Facades\Log;
 /** Road travel duration between points, de-duplicated and fetched in capped concurrent batches. */
 class TravelTimeService
 {
-    /** @var array<string, int|null> legKey → duration seconds (null = unknown) */
-    private array $durations = [];
+    /** @var array<string, int|null> connectionKey → duration seconds (null = unroutable) */
+    private array $durationByConnection = [];
 
     public function __construct(
         private readonly HttpFactory $http,
@@ -19,27 +19,27 @@ class TravelTimeService
     ) {}
 
     /**
-     * Fetch the distinct, not-yet-known legs into the duration map (capped concurrent batches).
+     * Fetch the distinct, not-yet-fetched connections into the duration map (capped concurrent batches).
      *
-     * @param  array<int, array{0: Coordinate, 1: Coordinate}>  $legs
+     * @param  array<int, array{0: Coordinate, 1: Coordinate}>  $connections
      */
-    public function prime(array $legs, ?string $mode = null): void
+    public function preload(array $connections, ?string $mode = null): void
     {
-        $pending = [];
-        foreach ($legs as [$from, $to]) {
-            $key = $this->legKey($from, $to, $mode);
-            if (array_key_exists($key, $this->durations) || isset($pending[$key])) {
+        $connectionsToFetch = [];
+        foreach ($connections as [$from, $to]) {
+            $key = $this->connectionKey($from, $to, $mode);
+            if (array_key_exists($key, $this->durationByConnection) || isset($connectionsToFetch[$key])) {
                 continue;
             }
             if ($from->isSameAs($to)) {
-                $this->durations[$key] = 0;
+                $this->durationByConnection[$key] = 0;
 
                 continue;
             }
-            $pending[$key] = [$from, $to];
+            $connectionsToFetch[$key] = [$from, $to];
         }
 
-        foreach (array_chunk($pending, max(1, $this->poolCap), true) as $batch) {
+        foreach (array_chunk($connectionsToFetch, max(1, $this->poolCap), true) as $batch) {
             $this->fetchBatch($batch, $mode);
         }
     }
@@ -51,12 +51,12 @@ class TravelTimeService
             return 0;
         }
 
-        $key = $this->legKey($from, $to, $mode);
-        if (! array_key_exists($key, $this->durations)) {
-            $this->prime([[$from, $to]], $mode);
+        $key = $this->connectionKey($from, $to, $mode);
+        if (! array_key_exists($key, $this->durationByConnection)) {
+            $this->preload([[$from, $to]], $mode);
         }
 
-        return $this->durations[$key];
+        return $this->durationByConnection[$key];
     }
 
     /**
@@ -78,17 +78,17 @@ class TravelTimeService
         foreach ($batch as $key => [$from, $to]) {
             $duration = $this->client->durationFromResponse($responses[$key]);
             if ($duration === null) {
-                Log::warning('Inter-tour travel leg failed', [
+                Log::warning('Inter-tour connection could not be routed', [
                     'origin' => $from->toQueryValue(),
                     'destination' => $to->toQueryValue(),
                     'mode' => $mode,
                 ]);
             }
-            $this->durations[$key] = $duration;
+            $this->durationByConnection[$key] = $duration;
         }
     }
 
-    private function legKey(Coordinate $from, Coordinate $to, ?string $mode): string
+    private function connectionKey(Coordinate $from, Coordinate $to, ?string $mode): string
     {
         return $from->key().'>'.$to->key().'@'.($mode ?? '');
     }

@@ -140,9 +140,7 @@ describe('DriverList', () => {
         });
 
         renderList();
-        expect(
-            screen.getByLabelText(/approximate/i),
-        ).toBeInTheDocument();
+        expect(screen.getByLabelText(/approximate/i)).toBeInTheDocument();
         expect(screen.getByText(/≥/)).toBeInTheDocument();
     });
 

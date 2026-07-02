@@ -22,8 +22,8 @@ class TourStartSelectorTest extends TestCase
         $far = Stop::factory()->for($tour)->create(['latitude' => 0.0, 'longitude' => 1.0, 'position' => 3]);
 
         $selector = new TourStartSelector($this->fakeTravel([
-            $this->leg($incoming, $near->coordinate) => 90,
-            $this->leg($incoming, $far->coordinate) => 20,
+            $this->connection($incoming, $near->coordinate) => 90,
+            $this->connection($incoming, $far->coordinate) => 20,
         ]));
 
         $start = $selector->select($incoming, $tour, 'trucking');
@@ -42,9 +42,9 @@ class TourStartSelectorTest extends TestCase
         $s2 = Stop::factory()->for($tour)->create(['latitude' => 3.0, 'longitude' => 0.0, 'position' => 2]);
 
         $selector = new TourStartSelector($this->fakeTravel([
-            $this->leg($incoming, $s0->coordinate) => 80,
-            $this->leg($incoming, $s1->coordinate) => 15,
-            $this->leg($incoming, $s2->coordinate) => 40,
+            $this->connection($incoming, $s0->coordinate) => 80,
+            $this->connection($incoming, $s1->coordinate) => 15,
+            $this->connection($incoming, $s2->coordinate) => 40,
         ]));
 
         $start = $selector->select($incoming, $tour, 'trucking');
@@ -63,8 +63,8 @@ class TourStartSelectorTest extends TestCase
         // reaches for nothing itself; the caller decides the incoming point.
         $priorEnd = new Coordinate(9.0, 9.0);
         $selector = new TourStartSelector($this->fakeTravel([
-            $this->leg($priorEnd, $s0->coordinate) => 5,
-            $this->leg($priorEnd, $s1->coordinate) => 50,
+            $this->connection($priorEnd, $s0->coordinate) => 5,
+            $this->connection($priorEnd, $s1->coordinate) => 50,
         ]));
 
         $this->assertSame(0, $selector->select($priorEnd, $tour, 'trucking')->startIndex);
@@ -78,21 +78,21 @@ class TourStartSelectorTest extends TestCase
         $s1 = Stop::factory()->for($tour)->create(['latitude' => 2.0, 'longitude' => 0.0, 'position' => 1]);
 
         $selector = new TourStartSelector($this->fakeTravel([
-            $this->leg($incoming, $s0->coordinate) => 30,
-            $this->leg($incoming, $s1->coordinate) => 30,
+            $this->connection($incoming, $s0->coordinate) => 30,
+            $this->connection($incoming, $s1->coordinate) => 30,
         ]));
 
         $this->assertSame(0, $selector->select($incoming, $tour, 'trucking')->startIndex);
     }
 
-    public function test_all_unknown_legs_fall_back_to_the_lowest_position(): void
+    public function test_all_unknown_connections_fall_back_to_the_lowest_position(): void
     {
         $incoming = new Coordinate(0.0, 0.0);
         $tour = Tour::factory()->create(['loop' => false]);
         Stop::factory()->for($tour)->create(['latitude' => 1.0, 'longitude' => 0.0, 'position' => 0]);
         Stop::factory()->for($tour)->create(['latitude' => 2.0, 'longitude' => 0.0, 'position' => 5]);
 
-        // No legs mapped → every candidate is unknown.
+        // No connections mapped → every candidate is unknown.
         $selector = new TourStartSelector($this->fakeTravel([]));
 
         $this->assertSame(0, $selector->select($incoming, $tour, 'trucking')->startIndex);
@@ -113,11 +113,11 @@ class TourStartSelectorTest extends TestCase
                 return $this->map[$from->key().'>'.$to->key()] ?? null;
             }
 
-            public function prime(array $legs, ?string $mode = null): void {}
+            public function preload(array $connections, ?string $mode = null): void {}
         };
     }
 
-    private function leg(Coordinate $from, Coordinate $to): string
+    private function connection(Coordinate $from, Coordinate $to): string
     {
         return $from->key().'>'.$to->key();
     }

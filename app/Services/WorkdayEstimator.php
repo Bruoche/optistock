@@ -5,43 +5,43 @@ namespace App\Services;
 /** Totals a driver's day from its resolved segments (warehouse → tours → warehouse), no start selection. */
 class WorkdayEstimator
 {
-    public function __construct(private readonly TravelTimeService $travel) {}
+    public function __construct(private readonly TravelTimeService $travelTime) {}
 
     /**
-     * Sum the connecting legs and tour durations; any unknown value counts 0 and flags the estimate incomplete.
+     * Best-effort day total: every unknown duration counts 0 and flags the estimate incomplete.
      *
      * @param  array<int, TourSegment>  $segments
      */
     public function total(Coordinate $warehouse, array $segments, ?string $mode = null): WorkdayEstimate
     {
-        $totalSeconds = 0;
-        $incomplete = false;
+        $durations = $this->chainedDurations($warehouse, $segments, $mode);
+
+        $knownSeconds = (int) array_sum(array_filter($durations, is_int(...)));
+        $hasUnknownDuration = in_array(null, $durations, true);
+
+        return new WorkdayEstimate($knownSeconds, $hasUnknownDuration);
+    }
+
+    /**
+     * Every duration of the chained day in order — connection, tour, connection, tour, …,
+     * return connection — where null marks an unknown value.
+     *
+     * @param  array<int, TourSegment>  $segments
+     * @return array<int, int|null>
+     */
+    private function chainedDurations(Coordinate $warehouse, array $segments, ?string $mode): array
+    {
+        $durations = [];
         $previous = $warehouse;
 
         foreach ($segments as $segment) {
-            $leg = $this->travel->durationBetween($previous, $segment->start, $mode);
-            if ($leg === null) {
-                $incomplete = true;
-            } else {
-                $totalSeconds += $leg;
-            }
-
-            if ($segment->durationS === null) {
-                $incomplete = true;
-            } else {
-                $totalSeconds += $segment->durationS;
-            }
-
+            $durations[] = $this->travelTime->durationBetween($previous, $segment->start, $mode);
+            $durations[] = $segment->durationS;
             $previous = $segment->end;
         }
 
-        $returnLeg = $this->travel->durationBetween($previous, $warehouse, $mode);
-        if ($returnLeg === null) {
-            $incomplete = true;
-        } else {
-            $totalSeconds += $returnLeg;
-        }
+        $durations[] = $this->travelTime->durationBetween($previous, $warehouse, $mode);
 
-        return new WorkdayEstimate($totalSeconds, $incomplete);
+        return $durations;
     }
 }

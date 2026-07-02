@@ -26,8 +26,8 @@ export type Driver = {
     /** The driver's projected working day if given the current tour (feature 013):
      *  warehouse → first tour → … → warehouse, a best-effort total. */
     projectedSeconds: number;
-    /** True when a value feeding the projection was unknown (a connecting leg could
-     *  not be routed, or a tour's own duration is unknown) — the figure is then a
+    /** True when a value feeding the projection was unknown (a connection could not
+     *  be routed, or a tour's own duration is unknown) — the figure is then a
      *  lower bound shown as approximate (feature 013). */
     projectedIncomplete: boolean;
     /** The stop position chosen as this driver's start for the current tour — sent

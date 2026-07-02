@@ -62,7 +62,9 @@ describe('AssignDriverDialog', () => {
         renderDialog({ onAssigned });
         fireEvent.click(screen.getByRole('button', { name: /confirm/i }));
 
-        await waitFor(() => expect(mockAssign).toHaveBeenCalledWith(12, DATE, 3));
+        await waitFor(() =>
+            expect(mockAssign).toHaveBeenCalledWith(12, DATE, 3),
+        );
         expect(capturedTourId).toBe(42);
         await waitFor(() => expect(onAssigned).toHaveBeenCalledTimes(1));
     });

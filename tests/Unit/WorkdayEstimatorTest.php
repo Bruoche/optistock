@@ -30,11 +30,11 @@ class WorkdayEstimatorTest extends TestCase
         $this->d = new Coordinate(4.0, 4.0);
     }
 
-    public function test_it_sums_warehouse_legs_tour_duration_and_return(): void
+    public function test_it_sums_warehouse_connections_tour_duration_and_return(): void
     {
         $estimator = new WorkdayEstimator($this->fakeTravel([
-            $this->leg($this->warehouse, $this->a) => 10,
-            $this->leg($this->b, $this->warehouse) => 20,
+            $this->connection($this->warehouse, $this->a) => 10,
+            $this->connection($this->b, $this->warehouse) => 20,
         ]));
 
         $estimate = $estimator->total($this->warehouse, [
@@ -48,9 +48,9 @@ class WorkdayEstimatorTest extends TestCase
     public function test_it_chains_between_tours(): void
     {
         $estimator = new WorkdayEstimator($this->fakeTravel([
-            $this->leg($this->warehouse, $this->a) => 10, // W → tour1 start
-            $this->leg($this->b, $this->c) => 30,         // tour1 end → tour2 start
-            $this->leg($this->d, $this->warehouse) => 20, // tour2 end → W
+            $this->connection($this->warehouse, $this->a) => 10, // W → tour1 start
+            $this->connection($this->b, $this->c) => 30,         // tour1 end → tour2 start
+            $this->connection($this->d, $this->warehouse) => 20, // tour2 end → W
         ]));
 
         $estimate = $estimator->total($this->warehouse, [
@@ -63,18 +63,18 @@ class WorkdayEstimatorTest extends TestCase
         $this->assertFalse($estimate->incomplete);
     }
 
-    public function test_a_failed_connecting_leg_counts_zero_and_flags_incomplete(): void
+    public function test_a_failed_connection_counts_zero_and_flags_incomplete(): void
     {
         $estimator = new WorkdayEstimator($this->fakeTravel([
-            $this->leg($this->warehouse, $this->a) => null, // routing failed
-            $this->leg($this->b, $this->warehouse) => 20,
+            $this->connection($this->warehouse, $this->a) => null, // routing failed
+            $this->connection($this->b, $this->warehouse) => 20,
         ]));
 
         $estimate = $estimator->total($this->warehouse, [
             new TourSegment($this->a, $this->b, 100),
         ]);
 
-        // Failed leg contributes 0: 0 + 100 + 20.
+        // Failed connection contributes 0: 0 + 100 + 20.
         $this->assertSame(120, $estimate->projectedDurationS);
         $this->assertTrue($estimate->incomplete);
     }
@@ -82,8 +82,8 @@ class WorkdayEstimatorTest extends TestCase
     public function test_a_null_tour_duration_counts_zero_and_flags_incomplete(): void
     {
         $estimator = new WorkdayEstimator($this->fakeTravel([
-            $this->leg($this->warehouse, $this->a) => 10,
-            $this->leg($this->b, $this->warehouse) => 20,
+            $this->connection($this->warehouse, $this->a) => 10,
+            $this->connection($this->b, $this->warehouse) => 20,
         ]));
 
         $estimate = $estimator->total($this->warehouse, [
@@ -98,8 +98,8 @@ class WorkdayEstimatorTest extends TestCase
     public function test_it_is_at_least_the_plain_sum_of_tour_durations(): void
     {
         $estimator = new WorkdayEstimator($this->fakeTravel([
-            $this->leg($this->warehouse, $this->a) => 10,
-            $this->leg($this->b, $this->warehouse) => 20,
+            $this->connection($this->warehouse, $this->a) => 10,
+            $this->connection($this->b, $this->warehouse) => 20,
         ]));
 
         $estimate = $estimator->total($this->warehouse, [
@@ -110,7 +110,7 @@ class WorkdayEstimatorTest extends TestCase
     }
 
     /**
-     * @param  array<string, int|null>  $map  legKey → duration
+     * @param  array<string, int|null>  $map  connectionKey → duration
      */
     private function fakeTravel(array $map): TravelTimeService
     {
@@ -124,11 +124,11 @@ class WorkdayEstimatorTest extends TestCase
                 return $this->map[$from->key().'>'.$to->key()] ?? null;
             }
 
-            public function prime(array $legs, ?string $mode = null): void {}
+            public function preload(array $connections, ?string $mode = null): void {}
         };
     }
 
-    private function leg(Coordinate $from, Coordinate $to): string
+    private function connection(Coordinate $from, Coordinate $to): string
     {
         return $from->key().'>'.$to->key();
     }

@@ -6,6 +6,7 @@ use App\Enums\DeliveryMode as DeliveryModeEnum;
 use App\Enums\WeekDay as WeekDayEnum;
 use App\Http\Requests\AvailableDriversRequest;
 use App\Models\Driver;
+use App\Models\Stop;
 use App\Models\Tour;
 use App\Services\Coordinate;
 use App\Services\TourSegment;
@@ -22,38 +23,41 @@ class DriverController extends Controller
     /** GET /api/tour/drivers — available drivers plus their chained projected day and chosen start. */
     public function available(
         AvailableDriversRequest $request,
-        TravelTimeService $travel,
-        TourStartSelector $selector,
-        WorkdayEstimator $estimator,
+        TravelTimeService $travelTime,
+        TourStartSelector $startSelector,
+        WorkdayEstimator $workdayEstimator,
     ): JsonResponse {
         $mode = DeliveryModeEnum::from($request->validated('mode'));
         $date = $request->date('date')->toDateString();
-        $day = WeekDayEnum::fromDate($request->date('date'));
-        $candidate = Tour::with('stops')->findOrFail($request->integer('tour'));
+        $weekday = WeekDayEnum::fromDate($request->date('date'));
+        $candidateTour = Tour::with('stops')->findOrFail($request->integer('tour'));
 
-        $drivers = Driver::available($mode, $day)->get();
-        $priorSegments = $this->priorSegmentsByDriver($date, $drivers->pluck('id')->all());
+        $drivers = Driver::available($mode, $weekday)->get();
+        $priorSegmentsByDriver = $this->priorSegmentsByDriver($date, $drivers->pluck('id')->all());
 
-        $travel->prime($this->selectionLegs($drivers, $priorSegments, $candidate), $mode->value);
+        $travelTime->preload($this->connectionsToStartCandidates($drivers, $priorSegmentsByDriver, $candidateTour), $mode->value);
 
-        $candidateDurationS = $candidate->total_duration_s;
-        $rows = $drivers->map(function (Driver $driver) use ($priorSegments, $candidate, $candidateDurationS, $selector, $mode): array {
-            $priors = $priorSegments->get($driver->id, collect())->all();
-            $incoming = empty($priors) ? $driver->warehouse->coordinate : end($priors)->end;
-            $start = $selector->select($incoming, $candidate, $mode->value);
+        $workdays = $drivers->map(function (Driver $driver) use ($priorSegmentsByDriver, $candidateTour, $startSelector, $mode): array {
+            $priorSegments = $priorSegmentsByDriver->get($driver->id, collect());
+            $incoming = $this->incomingPoint($driver, $priorSegments);
+            $start = $startSelector->select($incoming, $candidateTour, $mode->value);
+            $candidateSegment = new TourSegment($start->start, $start->end, $candidateTour->total_duration_s);
 
             return [
                 'driver' => $driver,
-                'segments' => [...$priors, new TourSegment($start->start, $start->end, $candidateDurationS)],
+                'segments' => [...$priorSegments->all(), $candidateSegment],
                 'start_index' => $start->startIndex,
             ];
         });
 
-        $travel->prime($rows->flatMap(fn (array $row): array => $this->chainLegs($row['driver']->warehouse->coordinate, $row['segments']))->all(), $mode->value);
+        $chainConnections = $workdays->flatMap(
+            fn (array $workday): array => $this->connectionsAlongChain($workday['driver']->warehouse->coordinate, $workday['segments'])
+        );
+        $travelTime->preload($chainConnections->all(), $mode->value);
 
-        $data = $rows->map(function (array $row) use ($estimator, $mode): array {
-            $driver = $row['driver'];
-            $estimate = $estimator->total($driver->warehouse->coordinate, $row['segments'], $mode->value);
+        $driverRows = $workdays->map(function (array $workday) use ($workdayEstimator, $mode): array {
+            $driver = $workday['driver'];
+            $estimate = $workdayEstimator->total($driver->warehouse->coordinate, $workday['segments'], $mode->value);
 
             return [
                 'id' => $driver->id,
@@ -63,11 +67,11 @@ class DriverController extends Controller
                 'warehouse_name' => $driver->warehouse->name,
                 'projected_seconds' => $estimate->projectedDurationS,
                 'projected_incomplete' => $estimate->incomplete,
-                'start_index' => $row['start_index'],
+                'start_index' => $workday['start_index'],
             ];
         });
 
-        return response()->json(['data' => $data->values()]);
+        return response()->json(['data' => $driverRows->values()]);
     }
 
     /**
@@ -96,7 +100,7 @@ class DriverController extends Controller
                 'tours.travel_duration_s',
             ]);
 
-        $stopSeconds = DB::table('stops')
+        $stopSecondsByTour = DB::table('stops')
             ->whereIn('tour_id', $assignments->pluck('tour_id')->unique())
             ->groupBy('tour_id')
             ->selectRaw('tour_id, SUM(duration_s) as seconds')
@@ -104,50 +108,75 @@ class DriverController extends Controller
 
         return $assignments
             ->groupBy('driver_id')
-            ->map(fn (Collection $rows): Collection => $rows->map(fn (object $row): TourSegment => new TourSegment(
-                new Coordinate((float) $row->start_latitude, (float) $row->start_longitude),
-                new Coordinate((float) $row->end_latitude, (float) $row->end_longitude),
-                $row->travel_duration_s === null
-                    ? null
-                    : (int) $row->travel_duration_s + (int) ($stopSeconds[$row->tour_id] ?? 0),
-            )));
+            ->map(fn (Collection $driverAssignments): Collection => $driverAssignments->map(
+                fn (object $assignment): TourSegment => $this->segmentFromAssignment($assignment, $stopSecondsByTour)
+            ));
     }
 
     /**
-     * The legs from each driver's incoming point to every valid start of the candidate tour.
+     * One assignment row reduced to a segment; its duration mirrors `Tour::total_duration_s`
+     * (null travel time propagates as unknown, never coerced to 0).
+     *
+     * @param  Collection<int, mixed>  $stopSecondsByTour
+     */
+    private function segmentFromAssignment(object $assignment, Collection $stopSecondsByTour): TourSegment
+    {
+        $tourDurationS = $assignment->travel_duration_s === null
+            ? null
+            : (int) $assignment->travel_duration_s + (int) ($stopSecondsByTour[$assignment->tour_id] ?? 0);
+
+        return new TourSegment(
+            new Coordinate((float) $assignment->start_latitude, (float) $assignment->start_longitude),
+            new Coordinate((float) $assignment->end_latitude, (float) $assignment->end_longitude),
+            $tourDurationS,
+        );
+    }
+
+    /**
+     * Where the driver arrives at the candidate tour from: the end of their last
+     * prior tour, or their warehouse when the day is empty.
+     *
+     * @param  Collection<int, TourSegment>  $priorSegments
+     */
+    private function incomingPoint(Driver $driver, Collection $priorSegments): Coordinate
+    {
+        return $priorSegments->last()?->end ?? $driver->warehouse->coordinate;
+    }
+
+    /**
+     * The connections from each driver's incoming point to every valid start of the candidate tour.
      *
      * @param  Collection<int, Driver>  $drivers
-     * @param  Collection<int, Collection<int, TourSegment>>  $priorSegments
+     * @param  Collection<int, Collection<int, TourSegment>>  $priorSegmentsByDriver
      * @return array<int, array{0: Coordinate, 1: Coordinate}>
      */
-    private function selectionLegs(Collection $drivers, Collection $priorSegments, Tour $candidate): array
+    private function connectionsToStartCandidates(Collection $drivers, Collection $priorSegmentsByDriver, Tour $candidateTour): array
     {
-        $starts = $candidate->startCandidates()->map(fn ($stop): Coordinate => $stop->coordinate);
+        $startPoints = $candidateTour->startCandidates()->map(fn (Stop $stop): Coordinate => $stop->coordinate);
 
-        return $drivers->flatMap(function (Driver $driver) use ($priorSegments, $starts): array {
-            $priors = $priorSegments->get($driver->id, collect());
-            $incoming = $priors->isEmpty() ? $driver->warehouse->coordinate : $priors->last()->end;
+        return $drivers->flatMap(function (Driver $driver) use ($priorSegmentsByDriver, $startPoints): array {
+            $incoming = $this->incomingPoint($driver, $priorSegmentsByDriver->get($driver->id, collect()));
 
-            return $starts->map(fn (Coordinate $start): array => [$incoming, $start])->all();
+            return $startPoints->map(fn (Coordinate $startPoint): array => [$incoming, $startPoint])->all();
         })->all();
     }
 
     /**
-     * Every connecting leg of a warehouse → segments → warehouse chain.
+     * Every connection of a warehouse → segments → warehouse chain.
      *
      * @param  array<int, TourSegment>  $segments
      * @return array<int, array{0: Coordinate, 1: Coordinate}>
      */
-    private function chainLegs(Coordinate $warehouse, array $segments): array
+    private function connectionsAlongChain(Coordinate $warehouse, array $segments): array
     {
-        $legs = [];
+        $connections = [];
         $previous = $warehouse;
         foreach ($segments as $segment) {
-            $legs[] = [$previous, $segment->start];
+            $connections[] = [$previous, $segment->start];
             $previous = $segment->end;
         }
-        $legs[] = [$previous, $warehouse];
+        $connections[] = [$previous, $warehouse];
 
-        return $legs;
+        return $connections;
     }
 }
