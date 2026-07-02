@@ -12,12 +12,16 @@ type ApiDriver = {
     name: string;
     image_url: string | null;
     modes: DeliveryMode[];
-    assigned_seconds: number;
+    warehouse_name: string;
+    projected_seconds: number;
+    projected_incomplete: boolean;
+    start_index: number;
 };
 
 type FetchState = {
     mode: DeliveryMode;
     date: string;
+    tourId: number;
     drivers: Driver[];
     status: DriversStatus;
 };
@@ -25,6 +29,7 @@ type FetchState = {
 export function useTourDrivers(
     mode: DeliveryMode,
     date: string,
+    tourId: number,
 ): {
     drivers: Driver[];
     status: DriversStatus;
@@ -32,6 +37,7 @@ export function useTourDrivers(
     const [state, setState] = useState<FetchState>({
         mode,
         date,
+        tourId,
         drivers: [],
         status: 'loading',
     });
@@ -39,7 +45,7 @@ export function useTourDrivers(
     useEffect(() => {
         let cancelled = false;
 
-        const query = `mode=${encodeURIComponent(mode)}&date=${encodeURIComponent(date)}`;
+        const query = `mode=${encodeURIComponent(mode)}&date=${encodeURIComponent(date)}&tour=${encodeURIComponent(tourId)}`;
 
         fetch(`/api/tour/drivers?${query}`, {
             credentials: 'same-origin',
@@ -61,23 +67,32 @@ export function useTourDrivers(
                     name: driver.name,
                     imageUrl: driver.image_url,
                     modes: driver.modes,
-                    assignedSeconds: driver.assigned_seconds,
+                    warehouseName: driver.warehouse_name,
+                    projectedSeconds: driver.projected_seconds,
+                    projectedIncomplete: driver.projected_incomplete,
+                    startIndex: driver.start_index,
                 }));
-                setState({ mode, date, drivers, status: 'ready' });
+                setState({ mode, date, tourId, drivers, status: 'ready' });
             })
             .catch(() => {
                 if (!cancelled) {
-                    setState({ mode, date, drivers: [], status: 'error' });
+                    setState({
+                        mode,
+                        date,
+                        tourId,
+                        drivers: [],
+                        status: 'error',
+                    });
                 }
             });
 
         return () => {
             cancelled = true;
         };
-    }, [mode, date]);
+    }, [mode, date, tourId]);
 
-    // Until the fetch for the current mode+date resolves, report loading (no stale list).
-    if (state.mode !== mode || state.date !== date) {
+    // Until the fetch for the current mode+date+tour resolves, report loading (no stale list).
+    if (state.mode !== mode || state.date !== date || state.tourId !== tourId) {
         return { drivers: [], status: 'loading' };
     }
 

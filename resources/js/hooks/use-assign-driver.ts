@@ -7,11 +7,16 @@ import { postJson } from '@/lib/http';
 
 export function useAssignDriver(tourId: number) {
     const assign = useCallback(
-        async (driverId: number, date: string): Promise<boolean> => {
+        async (
+            driverId: number,
+            date: string,
+            startIndex: number,
+        ): Promise<boolean> => {
             try {
                 const response = await postJson(`/api/tour/${tourId}/assign`, {
                     driver_id: driverId,
                     date,
+                    start_index: startIndex,
                 });
 
                 if (!response.ok) {

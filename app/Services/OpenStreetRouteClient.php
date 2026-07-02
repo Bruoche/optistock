@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Exceptions\TourGeometryException;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Factory as HttpFactory;
+use Illuminate\Http\Client\Response;
 
 /**
  * Thin client for the OpenStreet /route endpoint — the road path of ONE leg.
@@ -47,12 +48,7 @@ class OpenStreetRouteClient
         try {
             $response = $this->http
                 ->timeout($this->timeout)
-                ->get($this->baseUrl, [
-                    'origin' => $origin->toQueryValue(),
-                    'destination' => $destination->toQueryValue(),
-                    'mode' => $mode ?? $this->mode,
-                    'key' => $this->apiKey,
-                ]);
+                ->get($this->baseUrl, $this->queryParams($origin, $destination, $mode));
         } catch (ConnectionException $e) {
             throw TourGeometryException::timeout($this->timeout, $e);
         }
@@ -61,6 +57,57 @@ class OpenStreetRouteClient
         }
 
         return $this->mapToLeg($response->json());
+    }
+
+    /**
+     * The /route endpoint + read timeout, exposed so a batched (pooled) caller can build
+     * requests identical to {@see traceLeg} without duplicating this configuration
+     * (feature 013 — {@see TravelTimeService}).
+     */
+    public function baseUrl(): string
+    {
+        return $this->baseUrl;
+    }
+
+    public function timeout(): int
+    {
+        return $this->timeout;
+    }
+
+    /**
+     * The query string for one origin → destination leg — the single source shared by
+     * the synchronous {@see traceLeg} and the pooled travel-time path.
+     *
+     * @return array{origin: string, destination: string, mode: string, key: string|null}
+     */
+    public function queryParams(Coordinate $origin, Coordinate $destination, ?string $mode = null): array
+    {
+        return [
+            'origin' => $origin->toQueryValue(),
+            'destination' => $destination->toQueryValue(),
+            'mode' => $mode ?? $this->mode,
+            'key' => $this->apiKey,
+        ];
+    }
+
+    /**
+     * The road duration (seconds) of a single leg from a raw /route response, or **null**
+     * when the leg could not be determined (HTTP failure or an error status). Unlike
+     * {@see traceLeg} this never throws — the pooled path maps each response to a nullable
+     * duration and logs the misses itself (feature 013).
+     */
+    public function durationFromResponse(Response $response): ?int
+    {
+        if ($response->failed()) {
+            return null;
+        }
+
+        $body = $response->json();
+        if (! is_array($body) || ! $this->isSuccess($body['status'] ?? null)) {
+            return null;
+        }
+
+        return (int) ($body['total_time'] ?? 0);
     }
 
     /**

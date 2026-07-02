@@ -31,4 +31,29 @@ final class Coordinate
     {
         return $this->lat.','.$this->lng;
     }
+
+    /**
+     * A stable identity key: both components rounded to the normalizer's precision, so
+     * two coordinates within ~1.1 m compare equal. The single source for de-duplicating
+     * travel legs (feature 013) and mapping stop durations (see {@see TourRecorder}).
+     */
+    public function key(): string
+    {
+        return self::keyFor($this->lat, $this->lng);
+    }
+
+    public static function keyFor(float $lat, float $lng): string
+    {
+        $precision = CoordinateNormalizer::PRECISION;
+
+        return sprintf('%.'.$precision.'f,%.'.$precision.'f', $lat, $lng);
+    }
+
+    /**
+     * Whether two coordinates resolve to the same rounded key (same point).
+     */
+    public function isSameAs(self $other): bool
+    {
+        return $this->key() === $other->key();
+    }
 }

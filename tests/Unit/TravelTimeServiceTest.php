@@ -1,0 +1,104 @@
+<?php
+
+namespace Tests\Unit;
+
+use App\Services\Coordinate;
+use App\Services\OpenStreetRouteClient;
+use App\Services\TravelTimeService;
+use Illuminate\Http\Client\Factory as HttpFactory;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
+use Tests\TestCase;
+
+class TravelTimeServiceTest extends TestCase
+{
+    private function service(int $poolCap = 5): TravelTimeService
+    {
+        return new TravelTimeService(
+            http: $this->app->make(HttpFactory::class),
+            client: $this->app->make(OpenStreetRouteClient::class),
+            poolCap: $poolCap,
+        );
+    }
+
+    private function okResponse(int $seconds): array
+    {
+        return ['status' => 'OK', 'total_time' => $seconds, 'total_distance' => 1000];
+    }
+
+    public function test_a_distinct_leg_is_requested_at_most_once(): void
+    {
+        Http::fake(['*' => Http::response($this->okResponse(120))]);
+        $a = new Coordinate(1.0, 1.0);
+        $b = new Coordinate(2.0, 2.0);
+
+        // The same leg listed three times must resolve to a single request.
+        $this->service()->prime([[$a, $b], [$a, $b], [$a, $b]], 'trucking');
+
+        Http::assertSentCount(1);
+    }
+
+    public function test_it_deduplicates_across_a_larger_set(): void
+    {
+        Http::fake(['*' => Http::response($this->okResponse(120))]);
+        $a = new Coordinate(1.0, 1.0);
+        $b = new Coordinate(2.0, 2.0);
+        $c = new Coordinate(3.0, 3.0);
+
+        // Distinct legs: a→b, b→c, a→c (a→b repeated).
+        $this->service()->prime([[$a, $b], [$b, $c], [$a, $b], [$a, $c]], 'trucking');
+
+        Http::assertSentCount(3);
+    }
+
+    public function test_all_legs_resolve_even_when_chunked_below_the_cap(): void
+    {
+        Http::fake(['*' => Http::response($this->okResponse(200))]);
+        $points = [];
+        for ($i = 1; $i <= 4; $i++) {
+            $points[] = new Coordinate((float) $i, 0.0);
+        }
+        $legs = [[$points[0], $points[1]], [$points[1], $points[2]], [$points[2], $points[3]], [$points[0], $points[3]]];
+
+        // cap = 2 → the 4 distinct legs are fetched in two capped batches.
+        $service = $this->service(poolCap: 2);
+        $service->prime($legs, 'trucking');
+
+        Http::assertSentCount(4);
+        foreach ($legs as [$from, $to]) {
+            $this->assertSame(200, $service->durationBetween($from, $to, 'trucking'));
+        }
+    }
+
+    public function test_coincident_points_are_zero_with_no_request(): void
+    {
+        Http::fake(['*' => Http::response($this->okResponse(120))]);
+        $a = new Coordinate(1.0, 1.0);
+
+        $this->assertSame(0, $this->service()->durationBetween($a, $a, 'trucking'));
+        Http::assertNothingSent();
+    }
+
+    public function test_a_failed_leg_is_null_and_logged(): void
+    {
+        Http::fake(['*' => Http::response('', 500)]);
+        Log::spy();
+        $a = new Coordinate(1.0, 1.0);
+        $b = new Coordinate(2.0, 2.0);
+
+        $service = $this->service();
+        $service->prime([[$a, $b]], 'trucking');
+
+        $this->assertNull($service->durationBetween($a, $b, 'trucking'));
+        Log::shouldHaveReceived('warning')->once();
+    }
+
+    public function test_a_successful_leg_returns_its_duration(): void
+    {
+        Http::fake(['*' => Http::response($this->okResponse(345))]);
+        $a = new Coordinate(1.0, 1.0);
+        $b = new Coordinate(2.0, 2.0);
+
+        $this->assertSame(345, $this->service()->durationBetween($a, $b, 'trucking'));
+    }
+}

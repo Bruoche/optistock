@@ -90,7 +90,6 @@ export function ResultSummary({
                 mode={mode}
                 date={date}
                 tourId={result.id}
-                currentTourTotalS={tourDurationS}
                 onAssigned={onAssigned}
             />
         </div>

@@ -65,12 +65,25 @@ class TourFactory extends Factory
     }
 
     /**
-     * Assign this tour to a driver for a date (writes the `driver_tour` pivot).
+     * Assign this tour to a driver for a date (writes the `driver_tour` pivot). The
+     * start/end coordinates default to the tour's first/last stop; `sequence` orders the
+     * driver's day (feature 013). Chain `withStops()` first so the stops exist.
      */
-    public function assignedTo(Driver $driver, string $date): static
+    public function assignedTo(Driver $driver, string $date, int $sequence = 0): static
     {
-        return $this->afterCreating(function (Tour $tour) use ($driver, $date): void {
-            $tour->drivers()->attach($driver, ['date' => $date]);
+        return $this->afterCreating(function (Tour $tour) use ($driver, $date, $sequence): void {
+            $stops = $tour->stops;
+            $start = $stops->first();
+            $end = $stops->last();
+
+            $tour->drivers()->attach($driver, [
+                'date' => $date,
+                'start_latitude' => $start?->latitude ?? 0,
+                'start_longitude' => $start?->longitude ?? 0,
+                'end_latitude' => $end?->latitude ?? 0,
+                'end_longitude' => $end?->longitude ?? 0,
+                'sequence' => $sequence,
+            ]);
         });
     }
 }

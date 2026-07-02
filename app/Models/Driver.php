@@ -10,16 +10,26 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
-use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
-#[Fillable(['name', 'image_path'])]
+#[Fillable(['name', 'image_path', 'warehouse_id'])]
 class Driver extends Model
 {
     /** @use HasFactory<DriverFactory> */
     use HasFactory;
+
+    /**
+     * The warehouse this driver departs from and returns to each day (feature 013;
+     * mandatory — exactly one).
+     *
+     * @return BelongsTo<Warehouse, $this>
+     */
+    public function warehouse(): BelongsTo
+    {
+        return $this->belongsTo(Warehouse::class);
+    }
 
     /**
      * The delivery modes this driver can run (one or more).
@@ -52,30 +62,6 @@ class Driver extends Model
     }
 
     /**
-     * Committed working seconds per driver for a given date — the sum, over each
-     * driver's tours assigned for that date, of `travel_duration_s + Σ stop.duration_s`.
-     * Unknown travel (null) counts as 0 so the total stays numeric (a tour still
-     * contributes its stop time). One grouped aggregate; keyed by driver id.
-     *
-     * @return Collection<int, int>
-     */
-    public static function committedSecondsForDate(string $date): Collection
-    {
-        $tourTotals = DB::table('tours')
-            ->leftJoin('stops', 'stops.tour_id', '=', 'tours.id')
-            ->groupBy('tours.id')
-            ->selectRaw('tours.id, COALESCE(tours.travel_duration_s, 0) + COALESCE(SUM(stops.duration_s), 0) as total_s');
-
-        return DB::table('driver_tour')
-            ->joinSub($tourTotals, 'tour_totals', 'tour_totals.id', '=', 'driver_tour.tour_id')
-            ->where('driver_tour.date', $date)
-            ->groupBy('driver_tour.driver_id')
-            ->selectRaw('driver_tour.driver_id, SUM(tour_totals.total_s) as assigned_seconds')
-            ->pluck('assigned_seconds', 'driver_tour.driver_id')
-            ->map(fn ($seconds): int => (int) $seconds);
-    }
-
-    /**
      * Public URL for the driver's image, or null when none is stored.
      *
      * @return Attribute<string|null, never>
@@ -99,7 +85,7 @@ class Driver extends Model
         return $query
             ->whereHas('deliveryModes', fn (Builder $modes) => $modes->where('label', $mode->value))
             ->whereHas('weekDays', fn (Builder $days) => $days->where('label', $day->value))
-            ->with('deliveryModes')
+            ->with(['deliveryModes', 'warehouse'])
             ->orderBy('name');
     }
 }

@@ -6,6 +6,7 @@ use App\Enums\DeliveryMode as DeliveryModeEnum;
 use App\Enums\WeekDay as WeekDayEnum;
 use App\Models\DeliveryMode;
 use App\Models\Driver;
+use App\Models\Warehouse;
 use App\Models\WeekDay;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
@@ -22,6 +23,7 @@ class DriverFactory extends Factory
         return [
             'name' => fake()->name(),
             'image_path' => fake()->boolean(70) ? 'drivers/'.fake()->uuid().'.jpg' : null,
+            'warehouse_id' => Warehouse::factory(),
         ];
     }
 

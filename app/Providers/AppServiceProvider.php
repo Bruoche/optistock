@@ -5,6 +5,7 @@ namespace App\Providers;
 use App\Services\OpenStreetRouteClient;
 use App\Services\OpenStreetTspClient;
 use App\Services\PolylineDecoder;
+use App\Services\TravelTimeService;
 use Carbon\CarbonImmutable;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Client\Factory as HttpFactory;
@@ -47,6 +48,14 @@ class AppServiceProvider extends ServiceProvider
                 mode: $config['mode'],
                 timeout: (int) $config['route_timeout'],
                 precision: (int) $config['route_precision'],
+            );
+        });
+
+        $this->app->singleton(TravelTimeService::class, function ($app): TravelTimeService {
+            return new TravelTimeService(
+                http: $app->make(HttpFactory::class),
+                client: $app->make(OpenStreetRouteClient::class),
+                poolCap: (int) $app['config']->get('services.openstreet.route_pool_cap'),
             );
         });
     }

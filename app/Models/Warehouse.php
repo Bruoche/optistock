@@ -3,21 +3,21 @@
 namespace App\Models;
 
 use App\Services\Coordinate;
-use Database\Factories\StopFactory;
+use Database\Factories\WarehouseFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
- * One stop in a persisted tour: its coordinate, per-stop delivery duration (007),
- * and 0-based position in the optimized visiting order.
+ * A place a driver departs from and returns to each day (feature 013). Its coordinate
+ * is the origin of a driver's first connecting drive and the destination of the last.
  */
-#[Fillable(['tour_id', 'latitude', 'longitude', 'duration_s', 'position'])]
-class Stop extends Model
+#[Fillable(['name', 'latitude', 'longitude'])]
+class Warehouse extends Model
 {
-    /** @use HasFactory<StopFactory> */
+    /** @use HasFactory<WarehouseFactory> */
     use HasFactory;
 
     /**
@@ -26,16 +26,14 @@ class Stop extends Model
     protected $casts = [
         'latitude' => 'float',
         'longitude' => 'float',
-        'duration_s' => 'integer',
-        'position' => 'integer',
     ];
 
     /**
-     * @return BelongsTo<Tour, $this>
+     * @return HasMany<Driver, $this>
      */
-    public function tour(): BelongsTo
+    public function drivers(): HasMany
     {
-        return $this->belongsTo(Tour::class);
+        return $this->hasMany(Driver::class);
     }
 
     /**

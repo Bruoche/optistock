@@ -24,12 +24,28 @@ class TourAssignmentController extends Controller
     {
         $driverId = (int) $request->validated('driver_id');
         $date = $request->date('date')->toDateString();
+        $startIndex = (int) $request->validated('start_index');
+
+        // The drivers payload already selected the start; here we only resolve it and
+        // deduce the end — no re-selection (feature 013).
+        $startStop = $tour->stops->firstWhere('position', $startIndex);
+        $endStop = $tour->endStopForStart($startStop);
+        $sequence = $this->nextSequence($driverId, $date);
+
+        $pivot = [
+            'date' => $date,
+            'start_latitude' => $startStop->latitude,
+            'start_longitude' => $startStop->longitude,
+            'end_latitude' => $endStop->latitude,
+            'end_longitude' => $endStop->longitude,
+            'sequence' => $sequence,
+        ];
 
         try {
             // sync detaches any prior driver + attaches this one; wrapped in a
             // transaction so a concurrent race that violates the unique tour_id can
             // roll back cleanly rather than leaving the tour half-detached.
-            DB::transaction(fn () => $tour->drivers()->sync([$driverId => ['date' => $date]]));
+            DB::transaction(fn () => $tour->drivers()->sync([$driverId => $pivot]));
         } catch (QueryException $e) {
             // A concurrent double-assign raced the unique tour_id constraint; the row
             // it collided with is the same assignment, so treat it as success.
@@ -42,7 +58,23 @@ class TourAssignmentController extends Controller
             'tour_id' => $tour->id,
             'driver_id' => $driverId,
             'date' => $date,
+            'start_index' => $startIndex,
+            'sequence' => $sequence,
         ]]);
+    }
+
+    /**
+     * The next day-ordering value for a driver on a date: one past their current latest
+     * assigned tour (0 when they have none yet).
+     */
+    private function nextSequence(int $driverId, string $date): int
+    {
+        $current = DB::table('driver_tour')
+            ->where('driver_id', $driverId)
+            ->where('date', $date)
+            ->max('sequence');
+
+        return $current === null ? 0 : (int) $current + 1;
     }
 
     private function isUniqueViolation(QueryException $e): bool

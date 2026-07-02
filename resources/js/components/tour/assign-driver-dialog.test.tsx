@@ -20,7 +20,10 @@ const driver: Driver = {
     name: 'Amelie Durand',
     imageUrl: null,
     modes: ['driving'],
-    assignedSeconds: 0,
+    warehouseName: 'North Depot',
+    projectedSeconds: 0,
+    projectedIncomplete: false,
+    startIndex: 3,
 };
 
 const DATE = '2026-07-06';
@@ -33,6 +36,7 @@ function renderDialog(
             driver={driver}
             tourId={42}
             date={DATE}
+            startIndex={3}
             onOpenChange={() => {}}
             onAssigned={() => {}}
             {...props}
@@ -58,7 +62,7 @@ describe('AssignDriverDialog', () => {
         renderDialog({ onAssigned });
         fireEvent.click(screen.getByRole('button', { name: /confirm/i }));
 
-        await waitFor(() => expect(mockAssign).toHaveBeenCalledWith(12, DATE));
+        await waitFor(() => expect(mockAssign).toHaveBeenCalledWith(12, DATE, 3));
         expect(capturedTourId).toBe(42);
         await waitFor(() => expect(onAssigned).toHaveBeenCalledTimes(1));
     });

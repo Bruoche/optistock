@@ -21,6 +21,9 @@ type AssignDriverDialogProps = {
     tourId: number;
     /** The selected date the tour is assigned for (YYYY-MM-DD). */
     date: string;
+    /** The stop position chosen as this driver's start (feature 013), sent so the
+     *  server records the start/end without recomputing the selection. */
+    startIndex: number;
     onOpenChange: (open: boolean) => void;
     /** Called after a successful assignment (clears the tour + returns to creation). */
     onAssigned: () => void;
@@ -30,6 +33,7 @@ export function AssignDriverDialog({
     driver,
     tourId,
     date,
+    startIndex,
     onOpenChange,
     onAssigned,
 }: AssignDriverDialogProps) {
@@ -42,7 +46,7 @@ export function AssignDriverDialog({
         }
 
         setPending(true);
-        const assigned = await assign(driver.id, date);
+        const assigned = await assign(driver.id, date, startIndex);
         setPending(false);
 
         // On failure the hook toasts and we stay open (FR-011); on success the tour

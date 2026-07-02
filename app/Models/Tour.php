@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Collection;
 
 /**
  * A persisted optimized tour: its travel mode, shape (004), road totals, and its
@@ -56,13 +57,51 @@ class Tour extends Model
     }
 
     /**
-     * The assigned drivers (at most one — the pivot's `tour_id` is unique).
+     * The assigned drivers (at most one — the pivot's `tour_id` is unique). The pivot
+     * carries the day (`date`), the chosen start/end stop coordinates, and the driver's
+     * day-ordering (`sequence`) — feature 013.
      *
      * @return BelongsToMany<Driver, $this>
      */
     public function drivers(): BelongsToMany
     {
-        return $this->belongsToMany(Driver::class, 'driver_tour')->withPivot('date')->withTimestamps();
+        return $this->belongsToMany(Driver::class, 'driver_tour')
+            ->withPivot('date', 'start_latitude', 'start_longitude', 'end_latitude', 'end_longitude', 'sequence')
+            ->withTimestamps();
+    }
+
+    /**
+     * The stops eligible as this tour's start/end (feature 013): a looping tour returns
+     * to its origin so any stop is valid, while a one-way trip may only be entered/left
+     * at its two endpoints (the first and last stops in the optimized order).
+     *
+     * @return Collection<int, Stop>
+     */
+    public function startCandidates(): Collection
+    {
+        $stops = $this->stops;
+
+        if ($this->loop || $stops->count() <= 1) {
+            return $stops;
+        }
+
+        return collect([$stops->first(), $stops->last()]);
+    }
+
+    /**
+     * The end stop implied by a chosen start (feature 013): a looping tour ends where it
+     * started, while choosing one endpoint of a one-way trip fixes the other as the end.
+     */
+    public function endStopForStart(Stop $start): Stop
+    {
+        if ($this->loop) {
+            return $start;
+        }
+
+        $stops = $this->stops;
+        $first = $stops->first();
+
+        return $start->is($first) ? $stops->last() : $first;
     }
 
     /**
