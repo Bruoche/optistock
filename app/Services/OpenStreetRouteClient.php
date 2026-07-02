@@ -59,11 +59,6 @@ class OpenStreetRouteClient
         return $this->mapToLeg($response->json());
     }
 
-    /**
-     * The /route endpoint + read timeout, exposed so a batched (pooled) caller can build
-     * requests identical to {@see traceLeg} without duplicating this configuration
-     * (feature 013 — {@see TravelTimeService}).
-     */
     public function baseUrl(): string
     {
         return $this->baseUrl;
@@ -75,8 +70,7 @@ class OpenStreetRouteClient
     }
 
     /**
-     * The query string for one origin → destination leg — the single source shared by
-     * the synchronous {@see traceLeg} and the pooled travel-time path.
+     * The query string for one origin → destination leg (shared by traceLeg and the pooled path).
      *
      * @return array{origin: string, destination: string, mode: string, key: string|null}
      */
@@ -91,10 +85,8 @@ class OpenStreetRouteClient
     }
 
     /**
-     * The road duration (seconds) of a single leg from a raw /route response, or **null**
-     * when the leg could not be determined (HTTP failure or an error status). Unlike
-     * {@see traceLeg} this never throws — the pooled path maps each response to a nullable
-     * duration and logs the misses itself (feature 013).
+     * Leg road duration (seconds), or null when unroutable. Never throws (the pooled
+     * caller maps many responses and logs its own misses).
      */
     public function durationFromResponse(Response $response): ?int
     {

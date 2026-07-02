@@ -26,8 +26,6 @@ class TourAssignmentController extends Controller
         $date = $request->date('date')->toDateString();
         $startIndex = (int) $request->validated('start_index');
 
-        // The drivers payload already selected the start; here we only resolve it and
-        // deduce the end — no re-selection (feature 013).
         $startStop = $tour->stops->firstWhere('position', $startIndex);
         $endStop = $tour->endStopForStart($startStop);
         $sequence = $this->nextSequence($driverId, $date);
@@ -63,10 +61,7 @@ class TourAssignmentController extends Controller
         ]]);
     }
 
-    /**
-     * The next day-ordering value for a driver on a date: one past their current latest
-     * assigned tour (0 when they have none yet).
-     */
+    /** One past the driver's current latest tour for the date (0 when they have none). */
     private function nextSequence(int $driverId, string $date): int
     {
         $current = DB::table('driver_tour')

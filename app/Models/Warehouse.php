@@ -10,10 +10,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-/**
- * A place a driver departs from and returns to each day (feature 013). Its coordinate
- * is the origin of a driver's first connecting drive and the destination of the last.
- */
+/** A place a driver departs from and returns to each day. */
 #[Fillable(['name', 'latitude', 'longitude'])]
 class Warehouse extends Model
 {

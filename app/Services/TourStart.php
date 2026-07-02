@@ -2,11 +2,7 @@
 
 namespace App\Services;
 
-/**
- * The start chosen for a tour (feature 013): the stop's position (its `start_index`,
- * sent to the client and echoed back on assignment), plus the resolved start and end
- * coordinates (the end deduced from the start per the tour's shape).
- */
+/** The start chosen for a tour: the stop's position plus the resolved start/end coordinates. */
 final class TourStart
 {
     public function __construct(

@@ -57,9 +57,7 @@ class Tour extends Model
     }
 
     /**
-     * The assigned drivers (at most one — the pivot's `tour_id` is unique). The pivot
-     * carries the day (`date`), the chosen start/end stop coordinates, and the driver's
-     * day-ordering (`sequence`) — feature 013.
+     * The assigned drivers (at most one — the pivot's `tour_id` is unique).
      *
      * @return BelongsToMany<Driver, $this>
      */
@@ -71,9 +69,8 @@ class Tour extends Model
     }
 
     /**
-     * The stops eligible as this tour's start/end (feature 013): a looping tour returns
-     * to its origin so any stop is valid, while a one-way trip may only be entered/left
-     * at its two endpoints (the first and last stops in the optimized order).
+     * The stops a driver may enter/leave the tour by: any stop on a loop, only the two
+     * endpoints on a one-way trip.
      *
      * @return Collection<int, Stop>
      */
@@ -88,10 +85,7 @@ class Tour extends Model
         return collect([$stops->first(), $stops->last()]);
     }
 
-    /**
-     * The end stop implied by a chosen start (feature 013): a looping tour ends where it
-     * started, while choosing one endpoint of a one-way trip fixes the other as the end.
-     */
+    /** The end stop implied by a chosen start (loop → same stop, one-way → opposite endpoint). */
     public function endStopForStart(Stop $start): Stop
     {
         if ($this->loop) {

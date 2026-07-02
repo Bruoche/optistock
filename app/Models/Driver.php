@@ -21,9 +21,6 @@ class Driver extends Model
     use HasFactory;
 
     /**
-     * The warehouse this driver departs from and returns to each day (feature 013;
-     * mandatory — exactly one).
-     *
      * @return BelongsTo<Warehouse, $this>
      */
     public function warehouse(): BelongsTo

@@ -16,22 +16,10 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
-/**
- * Lists the drivers able to run an optimized tour and, for each, their projected
- * working day if given it (feature 013): the drive from their warehouse to the first
- * tour, each tour's duration, the drives between tours, and the drive home. The chain
- * is assembled from the driver's already-assigned tours for the date plus the candidate
- * tour appended last (assignment order).
- *
- * The many road-time lookups are deduplicated and fetched in a capped concurrent batch
- * ({@see TravelTimeService}); the start of the candidate tour is chosen per driver by
- * {@see TourStartSelector} and the day is summed by {@see WorkdayEstimator}.
- */
+/** Lists the drivers available for a tour with each one's projected working day if given it. */
 class DriverController extends Controller
 {
-    /**
-     * GET /api/tour/drivers?mode=<trucking|driving|walking>&date=<YYYY-MM-DD>&tour=<id>
-     */
+    /** GET /api/tour/drivers — available drivers plus their chained projected day and chosen start. */
     public function available(
         AvailableDriversRequest $request,
         TravelTimeService $travel,
@@ -46,8 +34,6 @@ class DriverController extends Controller
         $drivers = Driver::available($mode, $day)->get();
         $priorSegments = $this->priorSegmentsByDriver($date, $drivers->pluck('id')->all());
 
-        // Prime the selection legs (each driver's incoming point → each valid start) so
-        // the closest-start choice reads a pre-fetched, deduplicated, capped batch.
         $travel->prime($this->selectionLegs($drivers, $priorSegments, $candidate), $mode->value);
 
         $candidateDurationS = $candidate->total_duration_s;
@@ -63,7 +49,6 @@ class DriverController extends Controller
             ];
         });
 
-        // Prime every connecting leg of the resolved chains, then total each day.
         $travel->prime($rows->flatMap(fn (array $row): array => $this->chainLegs($row['driver']->warehouse->coordinate, $row['segments']))->all(), $mode->value);
 
         $data = $rows->map(function (array $row) use ($estimator, $mode): array {
@@ -86,13 +71,10 @@ class DriverController extends Controller
     }
 
     /**
-     * The tours already assigned to each driver for the date, as ordered resolved
-     * segments. Two queries (assignments + grouped stop sums) — no N+1. A tour whose
-     * own travel time is unknown yields a null segment duration (an unknown that flags
-     * the day incomplete rather than silently counting 0).
+     * The tours already assigned to each driver for the date, as ordered resolved segments.
      *
      * @param  array<int, int>  $driverIds
-     * @return Collection<int, Collection<int, TourSegment>> keyed by driver id
+     * @return Collection<int, Collection<int, TourSegment>>
      */
     private function priorSegmentsByDriver(string $date, array $driverIds): Collection
     {
@@ -132,9 +114,7 @@ class DriverController extends Controller
     }
 
     /**
-     * The candidate-start selection legs across all drivers: from each driver's incoming
-     * point (last prior tour's end, or their warehouse) to every valid start of the
-     * candidate tour.
+     * The legs from each driver's incoming point to every valid start of the candidate tour.
      *
      * @param  Collection<int, Driver>  $drivers
      * @param  Collection<int, Collection<int, TourSegment>>  $priorSegments

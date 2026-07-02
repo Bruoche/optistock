@@ -6,25 +6,10 @@ use Illuminate\Http\Client\Factory as HttpFactory;
 use Illuminate\Http\Client\Pool;
 use Illuminate\Support\Facades\Log;
 
-/**
- * Road travel duration between two points, over the OpenStreet /route endpoint
- * (feature 013). Built for the driver-list load, which needs many inter-tour legs:
- *
- * 1. The caller {@see prime()}s the distinct set of legs it will need. Identical legs
- *    (shared warehouse/return/between legs across drivers) are requested at most once,
- *    and coincident points resolve to a genuine 0 with no call.
- * 2. Outstanding legs are fetched with a **capped, chunked** `Http::pool` — at most
- *    `poolCap` concurrent requests per batch — so the API is sped up without being
- *    flooded / rate-limited.
- * 3. {@see durationBetween()} is then a pure map lookup.
- *
- * A leg that cannot be routed is stored (and read back) as **null** — logged, never
- * silently coerced to 0. Request building and response parsing are reused from
- * {@see OpenStreetRouteClient} so neither is duplicated here.
- */
+/** Road travel duration between points, de-duplicated and fetched in capped concurrent batches. */
 class TravelTimeService
 {
-    /** @var array<string, int|null> legKey → duration seconds (null = unknown, 0 = coincident) */
+    /** @var array<string, int|null> legKey → duration seconds (null = unknown) */
     private array $durations = [];
 
     public function __construct(
@@ -34,7 +19,7 @@ class TravelTimeService
     ) {}
 
     /**
-     * Fetch every distinct, not-yet-known leg in `$legs` into the duration map.
+     * Fetch the distinct, not-yet-known legs into the duration map (capped concurrent batches).
      *
      * @param  array<int, array{0: Coordinate, 1: Coordinate}>  $legs
      */
@@ -59,10 +44,7 @@ class TravelTimeService
         }
     }
 
-    /**
-     * The road duration (seconds) between two points, or null when unknown. Coincident
-     * points are 0. Reads the primed map; an un-primed leg is fetched on demand.
-     */
+    /** Road seconds between two points (0 for coincident, null when unroutable). */
     public function durationBetween(Coordinate $from, Coordinate $to, ?string $mode = null): ?int
     {
         if ($from->isSameAs($to)) {

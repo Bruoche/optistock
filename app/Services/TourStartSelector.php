@@ -4,21 +4,12 @@ namespace App\Services;
 
 use App\Models\Tour;
 
-/**
- * Chooses the stop a driver enters a tour by (feature 013): the valid start with the
- * shortest road time from the **incoming point** — which the caller supplies (the
- * warehouse for the first tour of the day, the previous tour's end otherwise). This is
- * the only place a start is selected; the day total ({@see WorkdayEstimator}) consumes
- * the resolved start/end without re-selecting.
- *
- * Unknown legs are tolerated: the closest *known* candidate wins; if none can be routed
- * the lowest-position candidate is used (a deterministic fallback). The end is deduced
- * from the chosen start by the tour's shape.
- */
+/** Chooses a tour's start stop as the closest valid one to a caller-supplied incoming point. */
 class TourStartSelector
 {
     public function __construct(private readonly TravelTimeService $travel) {}
 
+    /** Pick the nearest known start candidate to the incoming point and deduce its end. */
     public function select(Coordinate $incoming, Tour $candidate, ?string $mode = null): TourStart
     {
         $candidates = $candidate->startCandidates();
@@ -33,7 +24,6 @@ class TourStartSelector
             }
         }
 
-        // Every candidate leg was unknown → keep the first (lowest-position) candidate.
         $chosen ??= $candidates->first();
 
         $end = $candidate->endStopForStart($chosen);

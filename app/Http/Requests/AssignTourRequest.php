@@ -45,12 +45,6 @@ class AssignTourRequest extends FormRequest
         ];
     }
 
-    /**
-     * The `start_index` must be a legal start position for the bound tour — a stop
-     * position from {@see Tour::startCandidates()} (looping → any stop; one-way → the
-     * two endpoints). Never trust the client-supplied index blindly even though the
-     * drivers payload selected it.
-     */
     private function legalStartRule(): callable
     {
         return function (string $attribute, mixed $value, callable $fail): void {

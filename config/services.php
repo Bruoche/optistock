@@ -54,8 +54,8 @@ return [
         // /route endpoint (road geometry per leg — feature 002). Fast + synchronous.
         'route_url' => env('OPENSTREET_ROUTE_URL', 'https://maps.open-street.com/api/route/'),
         'route_timeout' => (int) env('OPENSTREET_ROUTE_TIMEOUT', 15),
-        // Max concurrent /route requests per driver-list load (feature 013). Bounds the
-        // parallel pool so the many inter-tour legs never flood / rate-limit the API.
+        // Max concurrent /route requests per batch (feature 013), so inter-tour legs
+        // never flood the API.
         'route_pool_cap' => (int) env('OPENSTREET_ROUTE_POOL_CAP', 5),
         // Google encoded-polyline precision the /route endpoint uses (verified live: 6).
         'route_precision' => (int) env('OPENSTREET_ROUTE_PRECISION', 6),
