@@ -31,7 +31,6 @@ class DriverController extends Controller
         $date = $request->date('date')->toDateString();
         $weekday = WeekDayEnum::fromDate($request->date('date'));
         $candidateTour = Tour::with('stops')->findOrFail($request->integer('tour'));
-
         $drivers = Driver::available($mode, $weekday)->get();
         $priorSegmentsByDriver = $this->priorSegmentsByDriver($date, $drivers->pluck('id')->all());
 
