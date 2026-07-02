@@ -90,45 +90,56 @@ start/end-stop anchoring the chain needs.
   2. **Fetches the outstanding legs with bounded concurrency** — a capped batch (Laravel
      `Http::pool` over chunks sized to a configured cap) so the routing API is sped up but
      not flooded / rate-limited (`LIMIT_REACHED`).
-  3. **Populates a per-request duration map** (`legKey → ?int`); a raw pool response is
-     mapped to a duration via the **same `OpenStreetRouteClient` parsing** (no duplicated
-     response handling — the client exposes the mapping so the pool path reuses it), failure →
-     null (logged).
-  4. `WorkdayEstimator` then reads durations from this pre-filled map (a `durationBetween`
-     lookup is a map hit; a miss for a coincident pair returns 0).
-- **Reuse, not duplication**: `traceLeg` still serves single-leg needs and the pool path reuses
-  the client's response→leg mapping. `OpenStreetRouteClient`'s parsing is factored so both the
-  single-call and pooled paths share it. `TourGeometryService::trace` stays **untouched** (pure,
+  3. **Populates a per-request duration map** (`legKey → ?int`); each pooled response is mapped
+     to a duration via the **same `OpenStreetRouteClient`** — both the **request building**
+     (base URL, `origin`/`destination`/`mode`/`key` params, timeout) **and** the response→leg
+     parsing are shared (N2), so the pool path introduces **zero** duplicated request/response
+     logic; failure → null (logged per leg).
+  4. The travel-time consumers then read durations from this pre-filled map (a `durationBetween`
+     lookup is a map hit; a coincident pair returns 0 without a call).
+- **Reuse, not duplication** (N2): `traceLeg` still serves single-leg needs; the pool path reuses
+  the client's **request builder + response→leg mapping** (both factored out on
+  `OpenStreetRouteClient`, e.g. `legRequestParams()` + `mapResponseToDuration()`), so URL/params/
+  key/timeout live in exactly one place. `TourGeometryService::trace` stays **untouched** (pure,
   002 whole-tour geometry). This is the "Trace route function called on each valid start / between
   each tour," now dedup+capped-concurrent per the clarification.
 
-### R5 — `WorkdayEstimator`: the pure chain calculation
+### R5 — Two clean, separate concerns: start selection vs. the pure day total
 
-- New **`WorkdayEstimator`** domain service (injected `TravelTimeService`). Given a driver's
-  **warehouse** coordinate, their **prior assigned tours for the date** (ordered by
-  `sequence`, each carrying its saved start/end coordinates + its internal total seconds),
-  and the **candidate** tour (its start candidates, `loop`, end-deduction, internal total
-  seconds), it returns:
-  `{ projected_duration_s: int, incomplete: bool, start_index: int, start: Coordinate, end: Coordinate }`
-  (`incomplete` = a leg failed → best-effort lower bound, FR-009/FR-015).
-- **Algorithm**:
-  1. Chain = prior tours (fixed start/end from `driver_tour`) then the **candidate appended
-     last** (assignment order — spec FR-013 / clarification).
-  2. **Candidate start selection**: incoming point = the last prior tour's **end** coordinate,
-     or the **warehouse** when the driver has no prior tour that day. For each candidate start,
-     `durationBetween(incoming → start)`; pick the **minimum known** duration (deterministic
-     tie-break: lowest index; all-unknown → lowest index). `end = endStopForStart(start)`.
-  3. **Sum** = `durationBetween(W → chain.first.start)` + Σ between-legs
-     `durationBetween(prev.end → next.start)` + `durationBetween(chain.last.end → W)` +
-     Σ each segment's internal total. A **failed leg contributes 0** and sets an
-     **`incomplete`** flag on the estimate (best-effort lower bound — FR-009/FR-015), rather
-     than nulling the whole figure. The returned estimate is
-     `{ projected_duration_s: int, incomplete: bool, start_index, start, end }`.
-- **Between-tour legs are recomputed every call**, never stored (user requirement) — this
-  keeps the figure correct once a future feature re-orders a driver's tours, since only the
-  per-tour start/end coordinates + `sequence` are persisted.
-- Pure and injectable → unit-testable with a fake `TravelTimeService`, and directly reusable
-  by the later re-ordering feature.
+Selecting a start and summing a day are **separate responsibilities** (spec FR-016). Keeping
+them apart makes the day-total reusable for later "view a driver's assigned tours" screens that
+have no prospective/incoming tour to place, and keeps each function single-purpose (constitution III).
+
+- **`TourStartSelector`** (injected `TravelTimeService`) — the *only* place that picks a start.
+  `select(Coordinate $incoming, Tour $candidate, ?string $mode): { start_index, start, end }`:
+  for each `startCandidates()` coordinate, `durationBetween($incoming → start)`; pick the
+  **minimum known** (deterministic tie-break: lowest index; all-unknown → lowest index);
+  `end = endStopForStart(start)`. The incoming point is passed **in** (the caller decides it is
+  the warehouse for the first tour of the day, or the prior tour's end otherwise) — the selector
+  never reaches for prior tours itself.
+
+- **`WorkdayEstimator`** (injected `TravelTimeService`) — the **pure day total**, no selection.
+  `total(Coordinate $warehouse, list<TourSegment> $segments, ?string $mode): { projected_duration_s: int, incomplete: bool }`
+  where a **`TourSegment`** is a resolved `{ Coordinate start, Coordinate end, ?int duration_s }`.
+  It sums the connecting legs over the **already-resolved coordinates** it is handed —
+  `durationBetween(W → segments[0].start)` + Σ `durationBetween(segments[i].end → segments[i+1].start)`
+  + `durationBetween(segments.last.end → W)` — plus Σ each segment's `duration_s`. It performs
+  **no start selection** (segments already carry start/end). **Any unknown value → 0 + `incomplete`**:
+  a failed connecting leg **or** a segment with `duration_s === null` (a prior or candidate tour
+  with unknown own duration) both set the flag (FR-009/FR-015, **N1**). Never nulls the whole figure.
+
+- **Composition** (drivers endpoint): build prior `TourSegment`s from `driver_tour` (stored
+  start/end + each tour's total); determine the incoming point (last prior end, or warehouse if
+  none); `TourStartSelector::select` the candidate → append its resolved `TourSegment`; call
+  `WorkdayEstimator::total`. Selection happens **beforehand**, the total stays clean.
+
+- **Reuse**: a later "assigned tours of a driver" view calls `WorkdayEstimator::total` with the
+  stored segments and **no selector at all** — exactly the reusable shape the user asked for.
+
+- **Between-tour legs are recomputed every call**, never stored — keeps the figure correct once
+  a future feature re-orders a driver's tours (only per-tour start/end coords + `sequence` persist).
+
+- Both are pure over an injected `TravelTimeService` → unit-testable with a fake.
 
 ### R6 — `GET /api/tour/drivers` now takes the tour + returns the chained figure
 
@@ -136,11 +147,13 @@ start/end-stop anchoring the chain needs.
   validates it exists **and is owned** by the user (404 on a foreign id, mirroring the assign
   guard); the controller loads the tour + stops for `startCandidates`/`loop`/total.
 - Per available driver: load the **warehouse** coordinate + **prior tours for the date**
-  (`driver_tour` rows ordered by `sequence`, joined to their tour totals), run
-  `WorkdayEstimator`, and emit per driver:
+  (`driver_tour` rows ordered by `sequence`, with each tour's total — one grouped aggregate, M1)
+  as resolved `TourSegment`s; determine the incoming point (last prior end, or warehouse);
+  `TourStartSelector::select` the candidate → append its `TourSegment`; `WorkdayEstimator::total`.
+  Emit per driver:
   - `warehouse_name` (shown on the driver row — "where they come from"),
-  - `projected_seconds` (the **best-effort full chain**, `int`; failed legs count 0),
-  - `projected_incomplete` (`bool` — a leg failed → figure flagged approximate, FR-015),
+  - `projected_seconds` (the **best-effort full chain**, `int`; any unknown counts 0),
+  - `projected_incomplete` (`bool` — any unknown leg **or** unknown tour duration → flagged, FR-015),
   - `start_index` (the selected candidate start's `position`).
 - The old `assigned_seconds` field and the client-side "add current-tour total" step are
   **removed**: the server now returns the complete projected figure, so the frontend just
@@ -193,10 +206,13 @@ this is handled **now**, not deferred:
 
 ### R10 — Unknown vs zero, end-to-end (FR-009 / FR-010 / FR-015)
 
-- A failed `/route` leg → its duration is **unknown**; it is **logged** and contributes **0** to
-  a **best-effort** projected day, which is **flagged `projected_incomplete`** (FR-015) —
-  "at least this long, possibly more." The whole figure is **not** hidden (this supersedes 012's
-  null-propagation for the projected day; the per-leg unknown state is still distinct from zero).
+- **Any unknown value → 0 + `incomplete`** (N1): a failed `/route` connecting leg **or** a tour
+  segment with `duration_s === null` (a prior or candidate tour whose own road time was never
+  resolved) is **logged** and contributes **0** to a **best-effort** projected day, which is
+  **flagged `projected_incomplete`** (FR-015) — "at least this long, possibly more." The whole
+  figure is **not** hidden (supersedes 012's null-propagation for the projected day; the per-value
+  unknown state is still distinct from zero). Prior-tour null durations flag the day identically
+  to candidate null durations — the flag means the same thing everywhere.
 - Start selection tolerates unknown legs: choose the **minimum known** candidate; if all are
   unknown, pick deterministically (lowest index) so assignment still proceeds (and that driver's
   figure is flagged incomplete).

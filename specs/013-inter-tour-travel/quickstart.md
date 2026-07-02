@@ -35,14 +35,17 @@ behave per spec.
       point is the driver's **previous tour's end** coordinate.
 - [ ] One-way tour: selecting the nearer endpoint as start makes the far endpoint the end.
 
-## Chained projected workday (FR-002, US1, SC-001/SC-002)
+## Chained projected workday (FR-002, FR-016, US1, SC-001/SC-002)
 
-- [ ] Driver with **no** prior tours: `projected_seconds` =
+- [ ] Driver with **no** prior tours: incoming point = the **warehouse**; `projected_seconds` =
       `W→start + tourTotal + end→W` (all three legs present).
 - [ ] Driver with prior tours: `projected_seconds` = full chain across prior tours + the
       candidate appended last, with every between-leg and both warehouse legs.
 - [ ] The figure is **≥** the plain sum of tour totals, and strictly greater when any
       connecting leg is non-zero.
+- [ ] `WorkdayEstimator::total(warehouse, segments)` computes the figure from **resolved
+      segments alone** — no incoming tour / no selection — so it can total an already-assigned
+      driver's day (FR-016); start selection is a separate `TourStartSelector` step.
 
 ## Assignment persists start/end + sequence (FR-012, FR-013)
 
@@ -56,7 +59,11 @@ behave per spec.
 - [ ] A `/route` leg failing → that leg logged `warning`, counts **0** in the projected total,
       and the driver's `projected_incomplete` is **true** → the row shows the figure marked
       approximate/incomplete (never hidden, never a silent exact total).
-- [ ] A driver whose every leg routed → `projected_incomplete` **false**, no indicator.
+- [ ] A **tour with a null own duration** (prior **or** candidate — e.g. a 2-point tour with no
+      resolved road time) likewise counts its unknown as 0 and sets `projected_incomplete` — the
+      flag means the same whether the unknown is a connecting leg or a tour's own duration (N1).
+- [ ] A driver whose every leg routed **and** every tour duration is known → `projected_incomplete`
+      **false**, no indicator.
 - [ ] A warehouse coincident with the start stop → that leg is a genuine **0** (no API call),
       and does **not** set the incomplete flag.
 

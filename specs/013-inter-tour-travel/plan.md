@@ -30,8 +30,11 @@ the anchoring it needs:
    across all drivers and fetches them in a **capped concurrent batch** (bounded `Http::pool`),
    then computes each driver's chain from the pre-fetched durations (clarified — FR-014).
 
-The design keeps the OpenStreet call behind a thin duration service and the chain math in a
-pure estimator, both reusable by the later re-ordering feature.
+The design keeps the OpenStreet call behind a thin duration service, and splits the chain math
+into a **start selector** (used only when placing a new tour) and a **pure day-total** function
+over resolved segments — so the total is reusable for later "view a driver's assigned tours"
+screens with no incoming tour, and both are reusable by the re-ordering feature. Any unknown
+value (leg failure or unknown tour duration) flags the figure approximate.
 
 ## Technical Context
 
@@ -57,20 +60,23 @@ is a handful of drivers, ≤10 stops/tour, few prior tours/day.
 *GATE: re-checked after design.*
 
 - **I. Quality First / tests** — every new surface is covered: `Tour::startCandidates` /
-  `endStopForStart` (Unit, loop + one-way); `TravelTimeService` failure→null + distinct-leg
-  dedup + capped pool (Unit, faked client, peak-concurrency assertion — SC-006);
-  `WorkdayEstimator` chain + best-effort-on-failure + `incomplete` flag + start selection +
-  tie-break (Unit, fake travel times); `warehouses`/`Warehouse` + mandatory `warehouse_id`
-  (migration + factory/seeder); `GET /api/tour/drivers` (Feature, `Http::fake` — requires
-  `tour`, ownership 404, `warehouse_name` + `projected_seconds` + `projected_incomplete` +
-  `start_index`, a failed leg → best-effort + flag, no duplicate leg calls); assign (Feature —
-  `start_index` legality, start/end/sequence persisted, sequence increments, idempotent);
+  `endStopForStart` (Unit, loop + one-way + single-stop); `TravelTimeService` failure→null +
+  distinct-leg dedup + chunk-to-cap batches (Unit, faked client — SC-006); `WorkdayEstimator`
+  pure total (Unit — chain + best-effort + `incomplete` on a failed leg **or** a null segment
+  duration, N1); `TourStartSelector` (Unit — incoming warehouse/prior-end, one-way near→far,
+  tie-break, all-unknown); `warehouses`/`Warehouse` + mandatory `warehouse_id` (migration +
+  factory/seeder); `GET /api/tour/drivers` (Feature, `Http::fake` — requires `tour`, ownership
+  404, `warehouse_name` + `projected_seconds` + `projected_incomplete` + `start_index`=nearest,
+  a failed leg → best-effort + flag, no duplicate leg calls); assign (Feature — `start_index`
+  legality, start/end/sequence persisted, sequence increments, idempotent, reuse-not-recompute);
   frontend (driver-list shows warehouse + projected + incomplete indicator + passes
   `start_index`; assign hook/dialog send it). PASS.
-- **II/III. Readable & Simple** — one thin single-leg duration service over the existing
-  `traceLeg`; one pure estimator with a single responsibility (chain a day, pick a start);
-  shape queries live on `Tour` where the `loop`/`stops` data already is; no change to the
-  delicate optimize/cache/broadcast code. PASS.
+- **II/III. Readable & Simple** — a thin single-leg duration service over the existing
+  `traceLeg` (sharing its request builder + parser, N2); **two single-responsibility services** —
+  `TourStartSelector` (pick a start from a given incoming point) and `WorkdayEstimator` (pure day
+  total over resolved segments, no selection, reusable without an incoming tour — FR-016); shape
+  queries live on `Tour` where the `loop`/`stops` data already is; no change to the delicate
+  optimize/cache/broadcast code. PASS.
 - **IV. Robustness** — mandatory warehouse FK (`restrictOnDelete`); a failed `/route` leg is
   **caught + logged `warning`**, then counts 0 toward a **best-effort** figure that is
   **flagged `projected_incomplete`** so the manager is told it may understate travel (FR-009/
@@ -82,9 +88,9 @@ is a handful of drivers, ≤10 stops/tour, few prior tours/day.
   concrete coords (no defensive null branch). PASS.
 - **V. Performance with Clarity** — the routing load is bounded by **deduplicating the distinct
   leg set** and fetching it in a **capped concurrent `Http::pool` batch** (FR-014), reusing the
-  route client's response parsing (no duplicated logic); the cap prevents flooding /
-  rate-limiting; the estimator then does pure map lookups. Peak concurrency is asserted in a
-  test (SC-006). PASS.
+  route client's request builder + response parser (no duplicated logic, N2); the cap prevents
+  flooding / rate-limiting; the selector/total then do pure map lookups. The chunk-to-cap batching
+  is asserted in a test (SC-006). PASS.
 - **VI. Consistent, Reusable Styling** — the warehouse name + projected figure reuse existing
   muted/role-named text classes and `formatDurationHm`; no new colors, no raw hex. PASS.
 
@@ -111,15 +117,23 @@ Full rationale + alternatives in [research.md](research.md); condensed:
   the **distinct** leg set (keyed by rounded from/to + mode) across all drivers, fetch
   outstanding legs via a **bounded `Http::pool`** (configurable concurrency cap, chunked) into a
   per-request duration map, then `durationBetween(from,to,mode)` is a map lookup (coincident→0,
-  failure→null, logged). The pool path **reuses `OpenStreetRouteClient`'s response→leg parsing**
-  (factored out so single-call and pooled paths share it — no dup logic); `TourGeometryService`
-  untouched. (R4/R9)
-- **D5 — `WorkdayEstimator` (pure).** Chains warehouse → prior tours (fixed saved start/end) →
-  candidate (appended last), selects the candidate start as the **closest known** valid start
-  to the incoming point, sums legs + tour totals. A **failed leg counts 0 and sets `incomplete`**
-  (best-effort lower bound — FR-009/FR-015); returns
-  `{ projected_duration_s: int, incomplete: bool, start_index, start, end }`. Between-legs
-  recomputed, never stored. (R5)
+  failure→null, logged). The pool path **reuses `OpenStreetRouteClient`'s request builder AND
+  response→leg parser** (both factored out so single-call and pooled paths share URL/params/key/
+  timeout + parsing — no dup logic, **N2**); `TourGeometryService` untouched. (R4/R9)
+- **D5 — Separate start selection from the pure day total (FR-016 / N1).** Two single-purpose
+  services over `TravelTimeService`:
+  - **`TourStartSelector::select(incoming, candidate, mode)`** — the *only* place that picks a
+    start: closest-known valid start to the **incoming point passed in** (warehouse or prior end,
+    decided by the caller — the selector never reaches for prior tours). Returns
+    `{ start_index, start, end }`.
+  - **`WorkdayEstimator::total(warehouse, segments[], mode)`** — the **pure day total**, no
+    selection: sums connecting legs over the handed-in resolved `TourSegment{start,end,?duration_s}`
+    coordinates + Σ segment durations, returning `{ projected_duration_s: int, incomplete: bool }`.
+    **Any unknown value → 0 + `incomplete`**: a failed connecting leg **or** a null segment duration
+    (prior **or** candidate tour with unknown own time) — the flag means the same everywhere (N1).
+  - Composition: build prior segments from `driver_tour`, select the candidate start beforehand,
+    append its segment, then total. This makes `total(...)` reusable to sum an already-assigned
+    driver's day with **no** incoming tour / selector. Between-legs recomputed, never stored. (R5)
 - **D6 — `GET /api/tour/drivers` takes `tour`, returns the chain + selected start.** Requires
   an owned `tour` id (404 otherwise); per driver emits `warehouse_name`, `projected_seconds`
   (`int`, best-effort), `projected_incomplete` (`bool`), `start_index`. `assigned_seconds` +
@@ -134,8 +148,9 @@ Full rationale + alternatives in [research.md](research.md); condensed:
   with an **approximate/incomplete indicator** when `projectedIncomplete` (FR-015), and passes
   `start_index` to the assign hook/dialog; `result-summary` passes the tour id and stops
   threading `currentTourTotalS`. (R8)
-- **D9 — Unknown, zero, and the accuracy flag end-to-end.** Failed leg → logged, counts 0 in a
-  **best-effort** figure flagged `projected_incomplete` (never hidden, never a silent exact 0);
+- **D9 — Unknown, zero, and the accuracy flag end-to-end (N1).** **Any** unknown value → logged,
+  counts 0 in a **best-effort** figure flagged `projected_incomplete`: a failed connecting leg
+  **or** a null tour duration (prior or candidate). Never hidden, never a silent exact 0;
   coincident points → real 0 (no flag); selection tolerates unknown legs (min known /
   deterministic all-unknown). (R10)
 
@@ -150,10 +165,14 @@ Backend — **new**:
 - `app/Services/TravelTimeService.php` — collects the distinct leg set, fetches it via a
   **capped `Http::pool` batch** into a per-request map, exposes
   `durationBetween(Coordinate,Coordinate,?string): ?int` (map lookup; coincident→0, failure→null
-  logged). Reuses the route client's response→leg parsing (FR-014, R4).
-- `app/Services/WorkdayEstimator.php` (+ small `WorkdayEstimate` value object / `CandidateTour`
-  input struct) — the pure chain calculation returning `projected_duration_s` + `incomplete`
-  flag + selected start (R5).
+  logged). Reuses the route client's **request builder + response parser** (FR-014, R4, N2).
+- `app/Services/TourStartSelector.php` — `select(Coordinate $incoming, Tour $candidate, ?string $mode): TourStart`;
+  closest-known valid start to the passed-in incoming point; deducing the end. The only place that
+  selects a start (R5/FR-016).
+- `app/Services/WorkdayEstimator.php` (+ `WorkdayEstimate` + `TourSegment` value objects) — the
+  **pure day total**: `total(Coordinate $warehouse, list<TourSegment> $segments, ?string $mode): WorkdayEstimate`
+  → `{ projected_duration_s, incomplete }`; any unknown leg **or** null segment duration → 0 +
+  `incomplete` (N1). No selection; reusable for an already-assigned day (R5).
 - `database/factories/WarehouseFactory.php`.
 
 Backend — **change**:
@@ -161,12 +180,14 @@ Backend — **change**:
   `warehouse`; remove `committedSecondsForDate` (superseded by the estimator).
 - `app/Models/Tour.php` — `startCandidates()`, `endStopForStart()`; widen `drivers()` pivot
   (`start_*`, `end_*`, `sequence`).
-- `app/Http/Controllers/DriverController.php` — load the owned candidate tour; prime
-  `TravelTimeService` with the distinct leg set (dedup + capped pool); per driver run
-  `WorkdayEstimator`; emit `warehouse_name` / `projected_seconds` / `projected_incomplete` /
-  `start_index`.
-- `app/Services/OpenStreetRouteClient.php` — factor the response→leg mapping into a reusable
-  method so the pooled path and `traceLeg` share it (no dup parsing).
+- `app/Http/Controllers/DriverController.php` — load the owned candidate tour; fetch prior-tour
+  totals for the date in **one grouped aggregate** (no N+1, M1); prime `TravelTimeService` with
+  the distinct leg set (dedup + capped pool); per driver: build prior `TourSegment`s, pick the
+  incoming point, `TourStartSelector::select` the candidate, `WorkdayEstimator::total`; emit
+  `warehouse_name` / `projected_seconds` / `projected_incomplete` / `start_index`.
+- `app/Services/OpenStreetRouteClient.php` — factor **both** the request builder (URL/params/key/
+  timeout) and the response→leg mapping into reusable methods so the pooled path and `traceLeg`
+  share them (no dup request/response logic, N2). `traceLeg` behavior unchanged (M5).
 - `app/Http/Requests/AvailableDriversRequest.php` — require `tour` (exists + **owned**, 404).
 - `app/Http/Controllers/TourAssignmentController.php` — resolve start Stop from `start_index`,
   deduce end, compute `sequence`, persist start/end coords + sequence via `sync`.
@@ -188,13 +209,15 @@ Frontend — **change**:
 - `resources/js/components/tour/result-summary.tsx` — pass the tour id to `DriverList`; stop
   threading `currentTourTotalS`.
 
-Tests: `tests/Unit/TourTest.php` (start candidates/end), `TravelTimeServiceTest.php` (dedup =
-distinct call count, capped peak concurrency — SC-006, failure→null),
-`WorkdayEstimatorTest.php` (chain, best-effort + `incomplete` on failure, selection/tie-break);
+Tests: `tests/Unit/TourTest.php` (start candidates/end + single-stop), `TravelTimeServiceTest.php`
+(dedup = distinct call count, chunk-to-cap batches — SC-006, failure→null),
+`WorkdayEstimatorTest.php` (pure total: chain, best-effort + `incomplete` on a failed leg **or**
+a null segment duration — N1), `TourStartSelectorTest.php` (incoming=warehouse vs prior end,
+one-way near→far, tie-break, all-unknown);
 `tests/Feature/DriverAvailabilityTest.php` (extend — `tour`, ownership,
-warehouse/projected/`projected_incomplete`/start_index, no duplicate leg calls),
-`TourAssignmentTest.php` (extend — start_index + persistence + sequence); frontend
-`driver-list.test.tsx` (warehouse + incomplete indicator), `assign-driver-dialog.test.tsx`
+warehouse/projected/`projected_incomplete`/start_index, `start_index`=nearest, no duplicate leg calls),
+`TourAssignmentTest.php` (extend — start_index + persistence + sequence + reuse-not-recompute);
+frontend `driver-list.test.tsx` (warehouse + incomplete indicator), `assign-driver-dialog.test.tsx`
 (extend). Warehouse factory/seeder covered via the availability + assignment tests.
 
 Out of scope (designed-for, not built): a warehouse-management UI; re-ordering a driver's
@@ -205,9 +228,11 @@ contracted daily-hours limits.
 
 1. Optimize → geometry finalizes `travel_duration_s` (012); a persisted `tour` id is in hand.
 2. Presentation: `GET /api/tour/drivers?mode&date&tour=<id>`. The server dedups + capped-pool
-   fetches the distinct legs, then per eligible driver runs `WorkdayEstimator` (warehouse →
-   prior tours by `sequence` → candidate appended), returning `warehouse_name`,
-   `projected_seconds` (best-effort), `projected_incomplete`, and the selected `start_index`.
+   fetches the distinct legs, then per eligible driver builds prior `TourSegment`s (by
+   `sequence`), `TourStartSelector::select`s the candidate start (incoming = last prior end, or
+   warehouse), appends it, and `WorkdayEstimator::total`s the day — returning `warehouse_name`,
+   `projected_seconds` (best-effort), `projected_incomplete` (any unknown leg or tour duration),
+   and the selected `start_index`.
 3. Each row shows the driver, their warehouse, and the chained projected day (marked
    approximate when `projected_incomplete`).
 4. Click a driver → confirm → `POST /api/tour/{id}/assign { driver_id, date, start_index }`.

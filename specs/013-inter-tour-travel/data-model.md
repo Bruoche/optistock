@@ -65,14 +65,28 @@ Demo warehouses are created by the seeder (`DriverDemoSeeder`), not the migratio
 
 ## Services (new)
 
+Two **separate** concerns (spec FR-016 / research R5): choosing a start vs. summing a day.
+
 - **`TravelTimeService`** — primes a per-request duration map by collecting the **distinct** leg
   set and fetching it via a **capped `Http::pool` batch** (FR-014), then serves
   `durationBetween(Coordinate $from, Coordinate $to, ?string $mode): ?int` as a map lookup
-  (coincident→0, failure→null logged). Reuses `OpenStreetRouteClient`'s response→leg parsing.
-- **`WorkdayEstimator`** — `estimate(Coordinate $warehouse, array $priorTours, CandidateTour $candidate, ?string $mode): WorkdayEstimate`
-  returning `{ projected_duration_s: int, incomplete: bool, start_index: int, start: Coordinate, end: Coordinate }`
-  — best-effort total with an `incomplete` flag when a leg failed (research R5). Pure over an
-  injected `TravelTimeService`.
+  (coincident→0, failure→null logged). Reuses `OpenStreetRouteClient`'s **request builder + response
+  parser** (both factored so the pool path duplicates neither — N2).
+- **`TourStartSelector`** — the only place that picks a start.
+  `select(Coordinate $incoming, Tour $candidate, ?string $mode): TourStart` → `{ start_index, start, end }`.
+  Minimum-known `durationBetween($incoming → each startCandidate)`, deterministic tie-break;
+  `end = endStopForStart`. The **incoming point is passed in** (caller supplies warehouse or prior
+  end) — the selector never fetches prior tours.
+- **`WorkdayEstimator`** — the **pure day total**, no selection:
+  `total(Coordinate $warehouse, list<TourSegment> $segments, ?string $mode): WorkdayEstimate`
+  returning `{ projected_duration_s: int, incomplete: bool }`. Sums the connecting legs over the
+  handed-in resolved coordinates + Σ each segment's `duration_s`. **Any unknown value → 0 +
+  `incomplete`**: a failed connecting leg **or** a segment with `duration_s === null` (N1). Pure
+  over an injected `TravelTimeService`; reusable to total an already-assigned driver's day with no
+  selector.
+- **`TourSegment`** (value object) — `{ Coordinate start, Coordinate end, ?int duration_s }`: a
+  tour reduced to what the day total needs. Prior segments come from `driver_tour` (stored start/end
+  + the tour's total); the candidate segment is assembled from `TourStartSelector` + the tour total.
 
 ## Forward-compatibility
 

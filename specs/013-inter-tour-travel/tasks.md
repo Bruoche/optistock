@@ -18,15 +18,18 @@ three P1 stories, so they are **foundational** (Phase 2). Stories then layer on:
 - **US2 (P1)** — Start and end stops are set (recorded) when a tour is assigned.
 - **US3 (P1)** — Start stop is chosen as the closest valid stop (selection correctness + round-trip).
 
-**Analyze findings encoded** (from `/speckit-analyze`): **H1** null tour-total rule → T014;
-**H2** chunk-to-cap pool + per-leg failure logging → T011/T013; **M1** single grouped
-prior-tour totals (no N+1) → T017; **M2** shared coordinate-key precision → T009/T011;
-**M5** OpenStreetRouteClient parser extraction preserves 002 → T010; **C1** FR-012 reworded
-(start/end stops stored, legs recomputed); **T1** SC-006 asserted via chunk-count proxy → T013;
-**U1** all `start_index` plumbing consolidated into US1 payload + US2 assign wiring so the assign
-UI is never broken mid-stream (US3 is tests-only). **L1/L3** resolved by schema (no prod data →
-`driver_tour` start/end + `drivers.warehouse_id` are **NOT NULL, no default/backfill**; fresh
-migrate) → T002, so no defensive legacy-null branch is needed; **L2** single-stop edge → T012.
+**Analyze findings encoded** (from `/speckit-analyze`): **H2** chunk-to-cap pool + per-leg
+failure logging → T011/T013; **M1** single grouped prior-tour totals (no N+1) → T018; **M2**
+shared coordinate-key precision → T009/T011; **M5** `OpenStreetRouteClient` extraction preserves
+002 → T010; **C1** FR-012 reworded (start/end stops stored, legs recomputed); **T1** SC-006 via
+chunk-count proxy → T013; **U1** `start_index` plumbing in US1 payload + US2 assign wiring so the
+assign UI is never broken mid-stream (US3 tests-only). **L1/L3** clean NOT-NULL schema (no prod
+data, fresh migrate) → T002, no defensive legacy-null branch; **L2** single-stop edge → T012.
+**N1** any unknown value — a failed connecting leg **or** a null tour duration (prior **or**
+candidate) — → 0 + `incomplete` → T014/T018/T023. **N2** share the route client's request builder
+**and** parser (no dup) → T010/T011. **FR-016** start-selection (`TourStartSelector`, T015) is
+separate from the **pure day total** (`WorkdayEstimator::total`, T014), which sums resolved
+`TourSegment`s and is reusable to total an already-assigned driver's day with no incoming tour.
 
 ## Path Conventions
 
@@ -60,8 +63,8 @@ frontend under `resources/js/`.
 ### Shared travel-time machinery
 
 - [ ] T009 [P] Add a shared coordinate-key helper reusing `CoordinateNormalizer::PRECISION` (5) — factor `TourRecorder::coordinateKey` into a reusable location (e.g. a static on `Coordinate` or a small helper) so `TravelTimeService` dedup keys and coincident-point detection use the same rounding (M2). Update `TourRecorder` to use it (behavior unchanged).
-- [ ] T010 Refactor `app/Services/OpenStreetRouteClient.php`: extract the response→leg mapping (`mapToLeg` + `isSuccess`) into a reusable method the pooled path can call, **without changing `traceLeg` behavior** (M5). Existing 002 geometry tests are the regression guard.
-- [ ] T011 Create `app/Services/TravelTimeService.php`: given a set of `(from, to, mode)` legs, **collect the distinct set** (keyed via T009 helper), fetch outstanding legs with a **capped, chunked `Http::pool`** (chunk size = `openstreet.route_pool_cap` so peak concurrency ≤ cap — H2), map each pooled response via T010's parser into a per-request `legKey → ?int` duration map (**each failed leg logged `warning` with context** — H2/constitution IV; coincident points → genuine `0`, no call), and expose `durationBetween(Coordinate $from, Coordinate $to, ?string $mode): ?int` as a map lookup. `TourGeometryService::trace` untouched.
+- [ ] T010 Refactor `app/Services/OpenStreetRouteClient.php`: extract **both** the request building (base URL + `origin`/`destination`/`mode`/`key` params + timeout, e.g. `legRequestParams()`) **and** the response→leg mapping (`mapToLeg` + `isSuccess`, e.g. `mapResponseToDuration()`) into reusable methods the pooled path can call, so URL/params/key/timeout + parsing live in exactly one place (**N2**) — **without changing `traceLeg` behavior** (M5). Existing 002 geometry tests are the regression guard.
+- [ ] T011 Create `app/Services/TravelTimeService.php`: given a set of `(from, to, mode)` legs, **collect the distinct set** (keyed via T009 helper), fetch outstanding legs with a **capped, chunked `Http::pool`** (chunk size = `openstreet.route_pool_cap` — H2), build each pooled request + map each response via T010's shared helpers (no duplicated request/response logic — N2) into a per-request `legKey → ?int` duration map (**each failed leg logged `warning` with context** — H2/constitution IV; coincident points → genuine `0`, no call), and expose `durationBetween(Coordinate $from, Coordinate $to, ?string $mode): ?int` as a map lookup. `TourGeometryService::trace` untouched.
 
 ### Foundational tests
 
@@ -74,24 +77,25 @@ frontend under `resources/js/`.
 
 ## Phase 3: User Story 1 — Projected day includes travel to/from/between tours (Priority: P1) 🎯 MVP
 
-**Goal**: Each driver row shows the full chained workday (warehouse → tours → warehouse, with inter-tour travel), best-effort with an approximate flag when a leg fails.
+**Goal**: Each driver row shows the full chained workday (warehouse → tours → warehouse, with inter-tour travel), best-effort with an approximate flag when any value is unknown.
 
-**Independent Test**: For a driver with a warehouse and ≥1 tour on the date, the projected figure equals `W→firstStart + Σ tour totals + Σ between-legs + lastEnd→W`, is ≥ the plain sum of tour totals, and is flagged incomplete iff a leg failed.
+**Independent Test**: For a driver with a warehouse and ≥1 tour on the date, the projected figure equals `W→firstStart + Σ tour totals + Σ between-legs + lastEnd→W`, is ≥ the plain sum of tour totals, and is flagged incomplete iff a leg failed or a tour duration is unknown.
 
 ### Implementation
 
-- [ ] T014 [US1] Create `app/Services/WorkdayEstimator.php` (+ `WorkdayEstimate` value object / `CandidateTour` input struct): chain = prior tours (fixed saved start/end coords) then the candidate appended last; sum = `durationBetween(W→first.start)` + Σ between-legs + `durationBetween(last.end→W)` + Σ each segment's internal total; a **failed leg contributes 0 and sets `incomplete`** (FR-009/FR-015); a **null tour internal total** (unknown `travel_duration_s`, e.g. 2-point tour) contributes only that tour's **stop durations** and sets `incomplete` (**H1**); returns `{ projected_duration_s: int, incomplete: bool, start_index, start, end }`. Pure over injected `TravelTimeService`. (Start selection also lives here; its dedicated tests are US3.)
-- [ ] T015 [P] [US1] Unit `tests/Unit/WorkdayEstimatorTest.php`: full-chain correctness; best-effort + `incomplete` when a leg fails; **H1** null tour-total → stop-time-only + incomplete; projected ≥ plain sum.
-- [ ] T016 [US1] Update `app/Http/Requests/AvailableDriversRequest.php`: require `tour` (`integer`, `exists`) and authorize **ownership** — a foreign/unknown tour → `404` (mirror `AssignTourRequest`).
-- [ ] T017 [US1] Update `app/Http/Controllers/DriverController.php`: load the owned candidate tour (+ ordered `stops`); fetch **all prior-tour totals for the date in one grouped aggregate** (no N+1 across drivers × tours — **M1**); build the distinct leg set and prime `TravelTimeService`; per available driver run `WorkdayEstimator`; emit `warehouse_name` + `projected_seconds` + `projected_incomplete` + `start_index` (the estimator's selected start position). Remove `assigned_seconds`.
-- [ ] T018 [P] [US1] Update `resources/js/types/tour.ts`: `Driver` gains `warehouseName: string`, `projectedSeconds: number`, `projectedIncomplete: boolean`, `startIndex: number` (drop `assignedSeconds` + the `projectedSeconds()` helper).
-- [ ] T019 [US1] Update `resources/js/hooks/use-tour-drivers.ts`: send `&tour=<id>`; map `warehouse_name`/`projected_seconds`/`projected_incomplete`/`start_index`.
-- [ ] T020 [US1] Update `resources/js/components/tour/driver-list.tsx`: show the warehouse name in the driver info; render `projectedSeconds` via `formatDurationHm` with an **approximate/incomplete indicator** (icon + tooltip, role-named classes, "≥") when `projectedIncomplete` (FR-015); drop the `currentTourTotalS` prop.
-- [ ] T021 [US1] Update `resources/js/components/tour/result-summary.tsx`: pass the tour id to `DriverList`; stop threading `currentTourTotalS`.
-- [ ] T022 [P] [US1] Feature `tests/Feature/DriverAvailabilityTest.php` (`Http::fake`): `tour` required, ownership `404`, payload has `warehouse_name`/`projected_seconds`/`projected_incomplete`; a failed leg → best-effort figure + flag; no duplicate leg calls; `assigned_seconds` gone.
-- [ ] T023 [P] [US1] Frontend `resources/js/components/tour/driver-list.test.tsx`: warehouse name shown, projected figure shown, incomplete indicator appears iff flagged.
+- [ ] T014 [US1] Create `app/Services/TourSegment.php` (value object `{ Coordinate start, Coordinate end, ?int duration_s }`) + `app/Services/WorkdayEstimator.php` (+ `WorkdayEstimate` value object): the **pure day total** `total(Coordinate $warehouse, list<TourSegment> $segments, ?string $mode): WorkdayEstimate` — sum the connecting legs over the handed-in resolved coordinates (`durationBetween(W→segments[0].start)` + Σ `durationBetween(segments[i].end→segments[i+1].start)` + `durationBetween(segments.last.end→W)`) + Σ each segment's `duration_s`; **any unknown value → 0 + `incomplete`**: a failed connecting leg **or** a segment with `duration_s === null` (a prior **or** candidate tour with unknown own duration — **N1/H1**); returns `{ projected_duration_s: int, incomplete: bool }`. **No start selection.** Pure over injected `TravelTimeService`; reusable to total an already-assigned day with no incoming tour (**FR-016**).
+- [ ] T015 [P] [US1] Create `app/Services/TourStartSelector.php` (+ `TourStart` value object `{ start_index, start, end }`): `select(Coordinate $incoming, Tour $candidate, ?string $mode): TourStart` — for each `Tour::startCandidates()` coordinate, `durationBetween($incoming → start)`; pick the **minimum known** (deterministic tie-break: lowest index; all-unknown → lowest index); `end = Tour::endStopForStart`. The **incoming point is passed in** — the selector never fetches prior tours. The only start-selection site.
+- [ ] T016 [P] [US1] Unit `tests/Unit/WorkdayEstimatorTest.php`: pure-total correctness; projected ≥ plain sum; **incomplete on a failed connecting leg AND on a null segment duration** (prior or candidate — N1); a fully-known day is not flagged.
+- [ ] T017 [US1] Update `app/Http/Requests/AvailableDriversRequest.php`: require `tour` (`integer`, `exists`) and authorize **ownership** — a foreign/unknown tour → `404` (mirror `AssignTourRequest`).
+- [ ] T018 [US1] Update `app/Http/Controllers/DriverController.php`: load the owned candidate tour (+ ordered `stops`); fetch **all prior-tour totals for the date in one grouped aggregate** carrying each tour's total **and whether its `travel_duration_s` is null** (no N+1 — **M1**); build the distinct leg set and prime `TravelTimeService`; per available driver: build prior `TourSegment`s (null `duration_s` when that tour's travel is unknown), set incoming = last prior end **or the warehouse** when none, `TourStartSelector::select` the candidate → append its `TourSegment`, `WorkdayEstimator::total`; emit `warehouse_name` + `projected_seconds` + `projected_incomplete` + `start_index` (the selector's chosen position). Remove `assigned_seconds`.
+- [ ] T019 [P] [US1] Update `resources/js/types/tour.ts`: `Driver` gains `warehouseName: string`, `projectedSeconds: number`, `projectedIncomplete: boolean`, `startIndex: number` (drop `assignedSeconds` + the `projectedSeconds()` helper).
+- [ ] T020 [US1] Update `resources/js/hooks/use-tour-drivers.ts`: send `&tour=<id>`; map `warehouse_name`/`projected_seconds`/`projected_incomplete`/`start_index`.
+- [ ] T021 [US1] Update `resources/js/components/tour/driver-list.tsx`: show the warehouse name in the driver info; render `projectedSeconds` via `formatDurationHm` with an **approximate/incomplete indicator** (icon + tooltip, role-named classes, "≥") when `projectedIncomplete` (FR-015); drop the `currentTourTotalS` prop.
+- [ ] T022 [US1] Update `resources/js/components/tour/result-summary.tsx`: pass the tour id to `DriverList`; stop threading `currentTourTotalS`.
+- [ ] T023 [P] [US1] Feature `tests/Feature/DriverAvailabilityTest.php` (`Http::fake`): `tour` required, ownership `404`, payload has `warehouse_name`/`projected_seconds`/`projected_incomplete`; a failed leg **or** a prior/candidate tour with null travel → best-effort figure + flag; no duplicate leg calls; `assigned_seconds` gone.
+- [ ] T024 [P] [US1] Frontend `resources/js/components/tour/driver-list.test.tsx`: warehouse name shown, projected figure shown, incomplete indicator appears iff flagged.
 
-**Checkpoint**: The chained projected workday is visible per driver, best-effort + flagged.
+**Checkpoint**: The chained projected workday is visible per driver, best-effort + flagged on any unknown.
 
 ---
 
@@ -103,13 +107,13 @@ frontend under `resources/js/`.
 
 ### Implementation
 
-- [ ] T024 [US2] Update `app/Http/Requests/AssignTourRequest.php`: require `start_index` (`integer`) and validate it is a **legal start position** for the bound tour — a `Tour::startCandidates()` position (looping → any stop position; one-way → first or last only); reject an interior position (`422`).
-- [ ] T025 [US2] Update `app/Http/Controllers/TourAssignmentController.php`: resolve the start `Stop` at `start_index`; deduce the end via `Tour::endStopForStart`; compute `sequence = max(driver_tour.sequence for this driver + date) + 1`; write the pivot (`date`, `start_*`, `end_*`, `sequence`) via the idempotent `sync` on the unique `tour_id`; return `start_index` + `sequence` in the response.
-- [ ] T026 [US2] Update `resources/js/hooks/use-assign-driver.ts`: accept + send `start_index` in the assign POST body.
-- [ ] T027 [US2] Update `resources/js/components/tour/assign-driver-dialog.tsx`: accept a `startIndex` prop and pass it to `useAssignDriver`/the confirm call.
-- [ ] T028 [US2] Update `resources/js/components/tour/driver-list.tsx`: pass the selected driver's `startIndex` (from the US1 payload field) into `AssignDriverDialog`, so the click-to-assign path carries it. (Depends on T020 + T027.)
-- [ ] T029 [P] [US2] Feature `tests/Feature/TourAssignmentTest.php`: `start_index` legality (interior one-way → `422`); persisted start/end coords (loop = same stop, one-way = opposite endpoint); `sequence` increments per driver+date; still idempotent + ownership/eligibility enforced.
-- [ ] T030 [P] [US2] Frontend `resources/js/components/tour/assign-driver-dialog.test.tsx`: `start_index` included in the assign request.
+- [ ] T025 [US2] Update `app/Http/Requests/AssignTourRequest.php`: require `start_index` (`integer`) and validate it is a **legal start position** for the bound tour — a `Tour::startCandidates()` position (looping → any stop position; one-way → first or last only); reject an interior position (`422`).
+- [ ] T026 [US2] Update `app/Http/Controllers/TourAssignmentController.php`: resolve the start `Stop` at `start_index`; deduce the end via `Tour::endStopForStart`; compute `sequence = max(driver_tour.sequence for this driver + date) + 1`; write the pivot (`date`, `start_*`, `end_*`, `sequence`) via the idempotent `sync` on the unique `tour_id`; return `start_index` + `sequence` in the response.
+- [ ] T027 [US2] Update `resources/js/hooks/use-assign-driver.ts`: accept + send `start_index` in the assign POST body.
+- [ ] T028 [US2] Update `resources/js/components/tour/assign-driver-dialog.tsx`: accept a `startIndex` prop and pass it to `useAssignDriver`/the confirm call.
+- [ ] T029 [US2] Update `resources/js/components/tour/driver-list.tsx`: pass the selected driver's `startIndex` (from the US1 payload field) into `AssignDriverDialog`, so the click-to-assign path carries it. (Depends on T021 + T028.)
+- [ ] T030 [P] [US2] Feature `tests/Feature/TourAssignmentTest.php`: `start_index` legality (interior one-way → `422`); persisted start/end coords (loop = same stop, one-way = opposite endpoint); `sequence` increments per driver+date; still idempotent + ownership/eligibility enforced.
+- [ ] T031 [P] [US2] Frontend `resources/js/components/tour/assign-driver-dialog.test.tsx`: `start_index` included in the assign request.
 
 **Checkpoint**: Assignments durably record start/end stops + day order, and the assign UI sends the selected start end-to-end (no broken mid-stream state).
 
@@ -117,15 +121,15 @@ frontend under `resources/js/`.
 
 ## Phase 5: User Story 3 — Start stop chosen as the closest valid stop (Priority: P1)
 
-**Goal**: Prove the auto-selection is correct — each driver's candidate start is the valid stop with the shortest travel time from the incoming point (warehouse for the first tour, prior tour's end otherwise), it surfaces as `start_index`, and the assign call reuses it without recomputing. The selection algorithm is delivered in US1's `WorkdayEstimator` (T014); this story verifies and hardens it.
+**Goal**: Prove the auto-selection is correct — each driver's candidate start is the valid stop with the shortest travel time from the incoming point (warehouse for the first tour, prior tour's end otherwise), it surfaces as `start_index`, and the assign call reuses it without recomputing. The selection lives in `TourStartSelector` (T015); this story verifies and hardens it.
 
 **Independent Test**: With two candidate starts at clearly different faked distances, the drivers payload `start_index` is the nearer one; the assign call persists exactly that index's start/end without re-selecting.
 
 ### Verification & hardening (tests)
 
-- [ ] T031 [P] [US3] Unit `tests/Unit/WorkdayEstimatorTest.php` (selection cases): first tour → incoming = warehouse; later tour → incoming = prior tour's end; one-way near endpoint chosen as start → far endpoint becomes end; deterministic tie-break; all-unknown legs → lowest index + `incomplete`. (Extends the file created in T015.)
-- [ ] T032 [P] [US3] Feature `tests/Feature/DriverAvailabilityTest.php` (`Http::fake` with distinct per-leg durations): `start_index` = the nearest valid candidate for the incoming point. (Extends T022.)
-- [ ] T033 [US3] Feature `tests/Feature/TourAssignmentTest.php`: the assign endpoint **consumes** the provided `start_index` and does not re-run selection (the persisted start/end match the given index). (Extends T029.)
+- [ ] T032 [P] [US3] Unit `tests/Unit/TourStartSelectorTest.php`: first tour → incoming = warehouse; later tour → incoming = prior tour's end; one-way near endpoint chosen as start → far endpoint becomes end; deterministic tie-break; all-unknown legs → lowest index. (The incoming point is asserted to be supplied by the caller, not derived inside the selector.)
+- [ ] T033 [P] [US3] Feature `tests/Feature/DriverAvailabilityTest.php` (`Http::fake` with distinct per-leg durations): `start_index` = the nearest valid candidate for the incoming point. (Extends T023.)
+- [ ] T034 [US3] Feature `tests/Feature/TourAssignmentTest.php`: the assign endpoint **consumes** the provided `start_index` and does not re-run selection (the persisted start/end match the given index). (Extends T030.)
 
 **Checkpoint**: Closest-start selection is correct and round-trips from list to assignment.
 
@@ -133,9 +137,9 @@ frontend under `resources/js/`.
 
 ## Phase 6: Polish & Cross-Cutting Concerns
 
-- [ ] T034 Run `specs/013-inter-tour-travel/quickstart.md` checklist end-to-end (warehouse link, start/end, closest selection, chained figure, best-effort+flag, dedup+cap).
-- [ ] T035 [P] Verify no regression in feature 002 geometry (existing `TourGeometry*` tests green after the T010 parser extraction) and in feature 012 assignment tests updated for the new payload/params.
-- [ ] T036 [P] Confirm styling of the incomplete indicator uses only role-named palette classes (constitution VI) — no raw hex.
+- [ ] T035 Run `specs/013-inter-tour-travel/quickstart.md` checklist end-to-end (warehouse link, start/end, closest selection, chained figure, best-effort+flag, dedup+cap).
+- [ ] T036 [P] Verify no regression in feature 002 geometry (existing `TourGeometry*` tests green after the T010 request-builder/parser extraction) and in feature 012 assignment tests updated for the new payload/params.
+- [ ] T037 [P] Confirm styling of the incomplete indicator uses only role-named palette classes (constitution VI) — no raw hex.
 
 ---
 
@@ -145,22 +149,22 @@ frontend under `resources/js/`.
 
 - **Setup (Phase 1)**: no dependencies.
 - **Foundational (Phase 2)**: depends on Setup — **BLOCKS all stories**.
-- **US1 (Phase 3)**: depends on Foundational (needs `WorkdayEstimator` deps, Tour accessors, TravelTimeService, warehouse link). Delivers the full drivers payload including `start_index`.
-- **US2 (Phase 4)**: depends on Foundational + US1's payload `start_index` (T017/T018) for the click-to-assign wiring (T028). Self-contained: the assign UI works end-to-end once US2 lands.
-- **US3 (Phase 5)**: tests-only; depends on US1 (estimator + payload) and US2 (assign round-trip).
+- **US1 (Phase 3)**: depends on Foundational (needs `TravelTimeService`, Tour accessors, warehouse link). Builds `WorkdayEstimator` (pure total) + `TourStartSelector` and delivers the full drivers payload including `start_index`.
+- **US2 (Phase 4)**: depends on Foundational + US1's payload `start_index` (T018/T019) for the click-to-assign wiring (T029). Self-contained: the assign UI works end-to-end once US2 lands.
+- **US3 (Phase 5)**: tests-only; depends on US1 (selector + payload) and US2 (assign round-trip).
 - **Polish (Phase 6)**: after all stories.
 
 ### Cross-story file notes (sequential, same file)
 
-- `driver-list.tsx` — US1 (T020, warehouse+projected) then US2 (T028, pass `startIndex`).
-- `WorkdayEstimatorTest.php` — US1 (T015) then US3 (T031); `DriverAvailabilityTest.php` — US1 (T022) then US3 (T032); `TourAssignmentTest.php` — US2 (T029) then US3 (T033).
+- `driver-list.tsx` — US1 (T021, warehouse+projected) then US2 (T029, pass `startIndex`).
+- `DriverAvailabilityTest.php` — US1 (T023) then US3 (T033); `TourAssignmentTest.php` — US2 (T030) then US3 (T034).
 
 ### Parallel Opportunities
 
 - Foundational: T003, T004, T006, T007 are [P] (distinct files); T012, T013 [P] after their targets exist.
-- US1: T015, T018, T022, T023 [P].
-- US2: T029, T030 [P].
-- US3: T031, T032 [P].
+- US1: T014 vs T015 [P] (`WorkdayEstimator` vs `TourStartSelector`, distinct files); T016, T019, T023, T024 [P].
+- US2: T030, T031 [P].
+- US3: T032, T033 [P].
 
 ---
 
@@ -182,7 +186,7 @@ Task: "Assign warehouses in DriverDemoSeeder"                        # T007
 
 1. Phase 1 Setup → Phase 2 Foundational (schema + services + Tour accessors).
 2. Phase 3 US1 → the chained projected workday is visible per driver.
-3. **STOP & VALIDATE**: projected = full chain, ≥ plain sum, flagged when a leg fails.
+3. **STOP & VALIDATE**: projected = full chain, ≥ plain sum, flagged when any value is unknown (leg failure or null tour duration).
 
 ### Incremental
 

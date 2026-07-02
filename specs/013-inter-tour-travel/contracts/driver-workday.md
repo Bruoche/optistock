@@ -41,9 +41,11 @@ GET /api/tour/drivers?mode=<trucking|driving|walking>&date=<YYYY-MM-DD>&tour=<to
   `W→firstStart + Σ tourTotals + Σ betweenLegs + lastEnd→W` for this driver **including the
   candidate tour appended last** (assignment order). A leg that **failed to route contributes
   0** (FR-009) — so the figure is a **lower bound**, paired with `projected_incomplete`.
-- `projected_incomplete` — `bool`. **`true`** when at least one leg feeding this driver's
-  figure failed to route: the UI marks the figure approximate/incomplete ("at least this long,
-  possibly more" — FR-015). `false` when every leg routed. Failed legs are logged server-side.
+- `projected_incomplete` — `bool`. **`true`** when **any** value feeding this driver's figure is
+  unknown — a leg that failed to route **or** a tour (prior or candidate) with an unknown own
+  duration: the UI marks the figure approximate/incomplete ("at least this long, possibly more" —
+  FR-015). `false` only when every leg routed **and** every tour duration is known. Unknowns are
+  logged server-side.
 - `start_index` — the candidate tour stop `position` selected as this driver's start (the
   valid start nearest, by road time, to the driver's incoming point — warehouse or their last
   prior tour's end). The assign call sends this back so the start is **not** recomputed (R7).
@@ -59,19 +61,21 @@ The endpoint needs up to *drivers × valid-start* + chain legs of routing lookup
 collect the **distinct** set of legs (dedup identical warehouse/return/between legs across
 drivers), fetch outstanding legs with a **capped concurrent batch** (bounded pool, so the
 routing API is not flooded), populate a per-request duration map, then run each driver's chain
-over the pre-fetched durations. A leg missing from the map (routing failure) → 0 +
-`projected_incomplete` for any driver depending on it.
+over the pre-fetched durations. A leg missing from the map (routing failure) **or** a tour with a
+null own duration → 0 + `projected_incomplete` for any driver depending on it.
 
 ## Server flow
 
 1. `AvailableDriversRequest` validates `mode`, `date`, and owned `tour`.
 2. Load the tour (+ ordered `stops`) → `startCandidates`, `loop`, internal total seconds.
-3. `Driver::available(mode, weekday)` (eager-load `warehouse`).
-4. Per driver: warehouse coordinate + prior `driver_tour` rows for `date` ordered by
-   `sequence` (with each tour's total) → `WorkdayEstimator::estimate(...)`.
-5. Emit `warehouse_name`, `projected_seconds`, `start_index` per driver.
+3. `Driver::available(mode, weekday)` (eager-load `warehouse`); prior-tour totals for `date` in
+   one grouped aggregate.
+4. Per driver: build prior `TourSegment`s (by `sequence`); incoming = last prior end, or the
+   warehouse; `TourStartSelector::select(incoming, candidate)`; append the candidate segment;
+   `WorkdayEstimator::total(warehouse, segments)`.
+5. Emit `warehouse_name`, `projected_seconds`, `projected_incomplete`, `start_index` per driver.
 
-Travel legs go through `TravelTimeService` (per-request memoized; failure→null→unavailable).
+Travel legs go through `TravelTimeService` (dedup + capped pool; any unknown → 0 + flag).
 
 ## Errors
 
