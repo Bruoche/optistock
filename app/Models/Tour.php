@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Collection;
 
 /**
  * A persisted optimized tour: its travel mode, shape (004), road totals, and its
@@ -62,7 +63,39 @@ class Tour extends Model
      */
     public function drivers(): BelongsToMany
     {
-        return $this->belongsToMany(Driver::class, 'driver_tour')->withPivot('date')->withTimestamps();
+        return $this->belongsToMany(Driver::class, 'driver_tour')
+            ->withPivot('date', 'start_latitude', 'start_longitude', 'end_latitude', 'end_longitude', 'sequence')
+            ->withTimestamps();
+    }
+
+    /**
+     * The stops a driver may enter/leave the tour by: any stop on a loop, only the two
+     * endpoints on a one-way trip.
+     *
+     * @return Collection<int, Stop>
+     */
+    public function startCandidates(): Collection
+    {
+        $stops = $this->stops;
+
+        if ($this->loop || $stops->count() <= 1) {
+            return $stops;
+        }
+
+        return collect([$stops->first(), $stops->last()]);
+    }
+
+    /** The end stop implied by a chosen start (loop → same stop, one-way → opposite endpoint). */
+    public function endStopForStart(Stop $start): Stop
+    {
+        if ($this->loop) {
+            return $start;
+        }
+
+        $stops = $this->stops;
+        $first = $stops->first();
+
+        return $start->is($first) ? $stops->last() : $first;
     }
 
     /**

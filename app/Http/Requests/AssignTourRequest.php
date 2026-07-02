@@ -41,7 +41,20 @@ class AssignTourRequest extends FormRequest
         return [
             'driver_id' => ['bail', 'required', 'integer', $this->eligibleDriverRule()],
             'date' => ['required', 'date'],
+            'start_index' => ['bail', 'required', 'integer', $this->legalStartRule()],
         ];
+    }
+
+    private function legalStartRule(): callable
+    {
+        return function (string $attribute, mixed $value, callable $fail): void {
+            /** @var Tour $tour */
+            $tour = $this->route('tour');
+
+            if (! $tour->startCandidates()->contains('position', (int) $value)) {
+                $fail('The selected start is not valid for this tour.');
+            }
+        };
     }
 
     /**

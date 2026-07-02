@@ -53,6 +53,10 @@ export default [
             import: importPlugin,
         },
         settings: {
+            // Classify the `@/…` alias as internal by pattern, not by resolving it, so
+            // import ordering is identical on every OS (the resolver classified the alias
+            // inconsistently between Windows and Linux, breaking CI).
+            'import/internal-regex': '^@/',
             'import/resolver': {
                 typescript: {
                     alwaysTryTypes: true,
@@ -86,7 +90,6 @@ export default [
                         order: 'asc',
                         caseInsensitive: true,
                     },
-                    sortTypesGroup: true,
                 },
             ],
             'import/consistent-type-specifier-style': [

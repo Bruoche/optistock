@@ -3,19 +3,36 @@
 namespace App\Http\Requests;
 
 use App\Enums\DeliveryMode as DeliveryModeEnum;
+use App\Models\Tour;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /**
- * Validates the available-drivers query: a required `mode` (one of the
- * App\Enums\DeliveryMode values) and a required `date` (the tour's day). The
- * weekday is deduced server-side from `date`; no weekday is accepted from the client.
+ * The weekday is deduced server-side from `date`; no weekday is accepted from the client.
+ * An unknown or non-owned `tour` surfaces as 404, never confirming a foreign tour id.
  */
 class AvailableDriversRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user() !== null;
+        if ($this->user() === null) {
+            return false;
+        }
+
+        $tourId = $this->input('tour');
+        if (! is_numeric($tourId)) {
+            return true;
+        }
+
+        $tour = Tour::find((int) $tourId);
+
+        return $tour !== null && $tour->user_id === $this->user()->id;
+    }
+
+    protected function failedAuthorization(): void
+    {
+        throw new NotFoundHttpException;
     }
 
     /**
@@ -26,6 +43,7 @@ class AvailableDriversRequest extends FormRequest
         return [
             'mode' => ['required', Rule::enum(DeliveryModeEnum::class)],
             'date' => ['required', 'date'],
+            'tour' => ['required', 'integer'],
         ];
     }
 
@@ -37,6 +55,7 @@ class AvailableDriversRequest extends FormRequest
         return [
             'mode' => 'Mode must be one of: trucking, driving, walking.',
             'date' => 'A valid tour date is required.',
+            'tour' => 'A tour is required to project the working day.',
         ];
     }
 }

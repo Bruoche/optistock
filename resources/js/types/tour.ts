@@ -21,19 +21,19 @@ export type Driver = {
     name: string;
     imageUrl: string | null;
     modes: DeliveryMode[];
-    /** Committed working seconds already assigned to this driver for the selected
-     *  date (feature 012); 0 when none. */
-    assignedSeconds: number;
+    /** The warehouse this driver departs from and returns to (feature 013). */
+    warehouseName: string;
+    /** The driver's projected working day if given the current tour (feature 013):
+     *  warehouse → first tour → … → warehouse, a best-effort total. */
+    projectedSeconds: number;
+    /** True when a value feeding the projection was unknown (a connection could not
+     *  be routed, or a tour's own duration is unknown) — the figure is then a
+     *  lower bound shown as approximate (feature 013). */
+    projectedIncomplete: boolean;
+    /** The stop position chosen as this driver's start for the current tour — sent
+     *  back on assignment so the start is not recomputed (feature 013). */
+    startIndex: number;
 };
-
-/** A driver's projected working seconds if given the current tour (feature 012):
- *  their committed load for the date plus this tour's total (road + wait). */
-export function projectedSeconds(
-    assignedSeconds: number,
-    currentTourTotalS: number,
-): number {
-    return assignedSeconds + currentTourTotalS;
-}
 
 /** Format a duration in seconds as a human-readable `h min` string, matching the
  *  tour-duration figure on the presentation phase. */

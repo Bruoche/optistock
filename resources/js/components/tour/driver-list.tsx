@@ -1,20 +1,20 @@
-// Feature 006/011: lists the drivers available for the optimized tour's mode + date.
-// Feature 012: each row is a button that opens a confirmation to assign the tour to
-// that driver, and shows the driver's projected working hours for the date (their
-// committed load plus this tour).
-import { Car, Loader2, PersonStanding, Truck, UserRound } from 'lucide-react';
+import {
+    Car,
+    Loader2,
+    PersonStanding,
+    TriangleAlert,
+    Truck,
+    UserRound,
+    Warehouse,
+} from 'lucide-react';
 import { useState } from 'react';
 import { AssignDriverDialog } from '@/components/tour/assign-driver-dialog';
 import { useTourDrivers } from '@/hooks/use-tour-drivers';
 import { cn } from '@/lib/utils';
-import {
-    DELIVERY_MODES,
-    formatDurationHm,
-    projectedSeconds,
-} from '@/types/tour';
+import { DELIVERY_MODES, formatDurationHm } from '@/types/tour';
+import type { DeliveryMode, Driver } from '@/types/tour';
 import type { LucideIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
-import type { DeliveryMode, Driver } from '@/types/tour';
 
 const MODE_ICON: Record<DeliveryMode, LucideIcon> = {
     walking: PersonStanding,
@@ -32,11 +32,8 @@ type DriverListProps = {
     mode: DeliveryMode;
     /** The selected tour date (YYYY-MM-DD); its weekday narrows the list. */
     date: string;
-    /** The persisted tour to assign when a driver is picked. */
+    /** The persisted tour to project + assign when a driver is picked. */
     tourId: number;
-    /** The current tour's total duration in seconds (road + wait) — added to each
-     *  driver's committed load for the projected-hours figure. */
-    currentTourTotalS: number;
     /** Called after a successful assignment (clears the tour + returns to creation). */
     onAssigned: () => void;
 };
@@ -64,10 +61,9 @@ export function DriverList({
     mode,
     date,
     tourId,
-    currentTourTotalS,
     onAssigned,
 }: DriverListProps) {
-    const { drivers, status } = useTourDrivers(mode, date);
+    const { drivers, status } = useTourDrivers(mode, date, tourId);
     const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null);
 
     if (status === 'loading') {
@@ -132,19 +128,27 @@ export function DriverList({
                                         );
                                     })}
                                 </div>
+                                <div className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+                                    <Warehouse className="size-3.5" />
+                                    <span className="truncate">
+                                        {driver.warehouseName}
+                                    </span>
+                                </div>
                             </div>
 
                             <div className="ml-auto shrink-0 text-right">
                                 <p className="text-xs tracking-wide text-muted-foreground uppercase">
                                     Projected
                                 </p>
-                                <p className="font-semibold">
-                                    {formatDurationHm(
-                                        projectedSeconds(
-                                            driver.assignedSeconds,
-                                            currentTourTotalS,
-                                        ),
+                                <p className="flex items-center justify-end gap-1 font-semibold">
+                                    {driver.projectedIncomplete && (
+                                        <TriangleAlert
+                                            className="size-4 text-accent"
+                                            aria-label="Approximate — some travel time could not be calculated"
+                                        />
                                     )}
+                                    {driver.projectedIncomplete && '≥ '}
+                                    {formatDurationHm(driver.projectedSeconds)}
                                 </p>
                             </div>
                         </button>
@@ -156,6 +160,7 @@ export function DriverList({
                 driver={selectedDriver}
                 tourId={tourId}
                 date={date}
+                startIndex={selectedDriver?.startIndex ?? 0}
                 onOpenChange={(open) => {
                     if (!open) {
                         setSelectedDriver(null);

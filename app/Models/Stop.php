@@ -2,8 +2,10 @@
 
 namespace App\Models;
 
+use App\Services\Coordinate;
 use Database\Factories\StopFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -34,5 +36,13 @@ class Stop extends Model
     public function tour(): BelongsTo
     {
         return $this->belongsTo(Tour::class);
+    }
+
+    /**
+     * @return Attribute<Coordinate, never>
+     */
+    protected function coordinate(): Attribute
+    {
+        return Attribute::get(fn (): Coordinate => new Coordinate($this->latitude, $this->longitude));
     }
 }

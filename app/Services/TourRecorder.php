@@ -22,17 +22,14 @@ use RuntimeException;
  */
 class TourRecorder
 {
-    /** Decimals kept when keying a coordinate — matches {@see CoordinateNormalizer}. */
-    private const KEY_PRECISION = CoordinateNormalizer::PRECISION;
-
     /**
      * The map key for a coordinate: the two components rounded to the normalizer's
      * precision so a request coordinate and its (already-normalized) ordered stop
-     * resolve to the same key.
+     * resolve to the same key. Shares the single rounding source with {@see Coordinate}.
      */
     public static function coordinateKey(float $lat, float $lng): string
     {
-        return sprintf('%.'.self::KEY_PRECISION.'f,%.'.self::KEY_PRECISION.'f', $lat, $lng);
+        return Coordinate::keyFor($lat, $lng);
     }
 
     /**
