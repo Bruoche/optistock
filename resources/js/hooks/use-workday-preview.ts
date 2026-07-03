@@ -24,11 +24,13 @@ function composeLegPath(leg: WorkdayLeg, geometry: TourGeometry): TracedPath {
     geometry.legs.forEach((geoLeg, index) => {
         if (geoLeg.ok) {
             path.push(...geoLeg.coordinates);
+
             return;
         }
 
         const from = leg.path[index];
         const to = leg.path[(index + 1) % leg.path.length];
+
         if (from && to) {
             path.push(from, to);
         }
