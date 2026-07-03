@@ -4,6 +4,7 @@ namespace Tests\Unit;
 
 use App\Services\Coordinate;
 use App\Services\OpenStreetRouteClient;
+use App\Services\PolylineDecoder;
 use App\Services\TravelTimeService;
 use Illuminate\Http\Client\Factory as HttpFactory;
 use Illuminate\Support\Facades\Http;
@@ -18,6 +19,26 @@ class TravelTimeServiceTest extends TestCase
             http: $this->app->make(HttpFactory::class),
             client: $this->app->make(OpenStreetRouteClient::class),
             poolCap: $poolCap,
+        );
+    }
+
+    /** A service whose client decodes at precision 5, matching the canonical polyline test vector. */
+    private function serviceWithKnownPrecision(): TravelTimeService
+    {
+        $client = new OpenStreetRouteClient(
+            $this->app->make(HttpFactory::class),
+            new PolylineDecoder,
+            'https://maps.open-street.com/api/route/',
+            'secret-key',
+            'trucking',
+            8,
+            5,
+        );
+
+        return new TravelTimeService(
+            http: $this->app->make(HttpFactory::class),
+            client: $client,
+            poolCap: 5,
         );
     }
 
@@ -114,5 +135,51 @@ class TravelTimeServiceTest extends TestCase
         $b = new Coordinate(2.0, 2.0);
 
         $this->assertSame(345, $this->service()->durationBetween($a, $b, 'trucking'));
+    }
+
+    public function test_a_connection_with_a_polyline_exposes_its_decoded_geometry(): void
+    {
+        Http::fake(['*' => Http::response($this->okResponse(345) + ['polyline' => '_p~iF~ps|U_ulLnnqC'])]);
+        $a = new Coordinate(1.0, 1.0);
+        $b = new Coordinate(2.0, 2.0);
+
+        $service = $this->serviceWithKnownPrecision();
+        $service->preload([[$a, $b]], 'trucking');
+
+        $this->assertSame([[38.5, -120.2], [40.7, -120.95]], $service->geometryBetween($a, $b, 'trucking'));
+        $this->assertSame(345, $service->durationBetween($a, $b, 'trucking'));
+        Http::assertSentCount(1);
+    }
+
+    public function test_a_connection_without_a_polyline_keeps_its_duration_and_null_geometry(): void
+    {
+        Http::fake(['*' => Http::response($this->okResponse(345))]);
+        $a = new Coordinate(1.0, 1.0);
+        $b = new Coordinate(2.0, 2.0);
+
+        $service = $this->service();
+        $service->preload([[$a, $b]], 'trucking');
+
+        $this->assertNull($service->geometryBetween($a, $b, 'trucking'));
+        $this->assertSame(345, $service->durationBetween($a, $b, 'trucking'));
+    }
+
+    public function test_a_failed_connection_has_null_geometry(): void
+    {
+        Http::fake(['*' => Http::response('', 500)]);
+        Log::spy();
+        $a = new Coordinate(1.0, 1.0);
+        $b = new Coordinate(2.0, 2.0);
+
+        $this->assertNull($this->service()->geometryBetween($a, $b, 'trucking'));
+    }
+
+    public function test_coincident_points_have_null_geometry_with_no_request(): void
+    {
+        Http::fake(['*' => Http::response($this->okResponse(120))]);
+        $a = new Coordinate(1.0, 1.0);
+
+        $this->assertNull($this->service()->geometryBetween($a, $a, 'trucking'));
+        Http::assertNothingSent();
     }
 }

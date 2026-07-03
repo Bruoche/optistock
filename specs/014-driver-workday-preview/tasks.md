@@ -1,4 +1,4 @@
-# Tasks: Driver Workday Preview
+﻿# Tasks: Driver Workday Preview
 
 **Input**: Design documents from `specs/014-driver-workday-preview/`
 
@@ -25,18 +25,18 @@ No setup tasks — the feature extends the existing Laravel + React app on branc
 
 **⚠️ CRITICAL**: complete before any user story phase.
 
-- [ ] T001 Extend `tests/Unit/OpenStreetRouteClientTest.php` with failing `legFromResponse` cases: successful body → decoded coordinates + metrics; failed HTTP response → null; non-OK status → null; missing polyline → null (never throws)
-- [ ] T002 Implement `legFromResponse(Response): ?array` in `app/Services/OpenStreetRouteClient.php`, sharing the `mapToLeg` parsing; remove `durationFromResponse` (fold into the new method; update its only caller) — plan D6
-- [ ] T003 Extend `tests/Unit/TravelTimeServiceTest.php` (failing): connection geometry cached alongside duration from one parse; `geometryBetween` returns decoded coordinates when routed, null when unroutable and null for coincident points; existing dedup + chunk-to-cap assertions unchanged
-- [ ] T004 Widen the `TravelTimeService` cache to `{duration_s, coordinates}` and add `geometryBetween(Coordinate, Coordinate, ?string): ?array` in `app/Services/TravelTimeService.php`; `fetchBatch` uses `legFromResponse`; `durationBetween` contract untouched — plan D6
-- [ ] T005 [P] Create `WorkdayLeg` value object (`kind`, `dotted`, `path`, `geometry`, `loop` + payload serialization) in `app/Services/WorkdayLeg.php` — data-model.md
-- [ ] T006 [P] Create `PriorTourLeg` value object (`start`, `end`, `loop`, `stopCoordinates`) in `app/Services/PriorTourLeg.php` — data-model.md
-- [ ] T007 Create `tests/Unit/WorkdayLegsBuilderTest.php` (failing): chain order (connection, tour, connection, …, connection into candidate start, connection candidate end → warehouse); `dotted` true only on connections; connection geometry attached from `TravelTimeService`, null when unroutable; loop tour entered at stop *k* → path rotated to start at *k* with `loop: true`; one-way reversed when recorded start is the last stop, `loop: false`; unmatched pivot start → unrotated path + `warning` log; no prior tours → exactly two connection legs; coincident connection → `path: [p, p]`, `geometry: null`
-- [ ] T008 Implement `WorkdayLegsBuilder::build(warehouse, priorTours, candidateStart, candidateEnd, mode): list<WorkdayLeg>` in `app/Services/WorkdayLegsBuilder.php` — plan D3/D4/D5
-- [ ] T009 Extend `app/Http/Controllers/DriverController.php`: widen the prior-assignments query set to also load each prior tour's `loop` and ordered stop coordinates (grouped queries, no N+1); assemble `PriorTourLeg`s; emit `legs` per driver via `WorkdayLegsBuilder` alongside the unchanged 013 fields
-- [ ] T010 Extend `tests/Feature/DriverAvailabilityTest.php` (failing first): `legs` present with contract shape and chain order (contracts/driver-workday.md); connection legs carry geometry decoded from the pooled `Http::fake` responses; prior-tour legs carry `geometry: null` + rotated `path` + `loop`; **`/route` call count unchanged** vs 013; DB query count pinned (`expectsDatabaseQueryCount`) so the widened prior-assignments query set cannot regress into an N+1; `projected_seconds`/`projected_incomplete`/`start_index`/`warehouse_name` untouched
-- [ ] T011 [P] Add the `WorkdayLeg` type and `Driver.legs` field to `resources/js/types/tour.ts` — data-model.md
-- [ ] T012 Map `legs` from the payload in `resources/js/hooks/use-tour-drivers.ts`
+- [X] T001 Extend `tests/Unit/OpenStreetRouteClientTest.php` with failing `legFromResponse` cases: successful body → decoded coordinates + metrics; failed HTTP response → null; non-OK status → null; missing polyline → null (never throws)
+- [X] T002 Implement `legFromResponse(Response): ?array` in `app/Services/OpenStreetRouteClient.php`, sharing the `mapToLeg` parsing; remove `durationFromResponse` (fold into the new method; update its only caller) — plan D6
+- [X] T003 Extend `tests/Unit/TravelTimeServiceTest.php` (failing): connection geometry cached alongside duration from one parse; `geometryBetween` returns decoded coordinates when routed, null when unroutable and null for coincident points; existing dedup + chunk-to-cap assertions unchanged
+- [X] T004 Widen the `TravelTimeService` cache to `{duration_s, coordinates}` and add `geometryBetween(Coordinate, Coordinate, ?string): ?array` in `app/Services/TravelTimeService.php`; `fetchBatch` uses `legFromResponse`; `durationBetween` contract untouched — plan D6
+- [X] T005 [P] Create `WorkdayLeg` value object (`kind`, `dotted`, `path`, `geometry`, `loop` + payload serialization) in `app/Services/WorkdayLeg.php` — data-model.md
+- [X] T006 [P] Create `PriorTourLeg` value object (`start`, `end`, `loop`, `stopCoordinates`) in `app/Services/PriorTourLeg.php` — data-model.md
+- [X] T007 Create `tests/Unit/WorkdayLegsBuilderTest.php` (failing): chain order (connection, tour, connection, …, connection into candidate start, connection candidate end → warehouse); `dotted` true only on connections; connection geometry attached from `TravelTimeService`, null when unroutable; loop tour entered at stop *k* → path rotated to start at *k* with `loop: true`; one-way reversed when recorded start is the last stop, `loop: false`; unmatched pivot start → unrotated path + `warning` log; no prior tours → exactly two connection legs; coincident connection → `path: [p, p]`, `geometry: null`
+- [X] T008 Implement `WorkdayLegsBuilder::build(warehouse, priorTours, candidateStart, candidateEnd, mode): list<WorkdayLeg>` in `app/Services/WorkdayLegsBuilder.php` — plan D3/D4/D5
+- [X] T009 Extend `app/Http/Controllers/DriverController.php`: widen the prior-assignments query set to also load each prior tour's `loop` and ordered stop coordinates (grouped queries, no N+1); assemble `PriorTourLeg`s; emit `legs` per driver via `WorkdayLegsBuilder` alongside the unchanged 013 fields
+- [X] T010 Extend `tests/Feature/DriverAvailabilityTest.php` (failing first): `legs` present with contract shape and chain order (contracts/driver-workday.md); connection legs carry geometry decoded from the pooled `Http::fake` responses; prior-tour legs carry `geometry: null` + rotated `path` + `loop`; **`/route` call count unchanged** vs 013; DB query count pinned (`expectsDatabaseQueryCount`) so the widened prior-assignments query set cannot regress into an N+1; `projected_seconds`/`projected_incomplete`/`start_index`/`warehouse_name` untouched
+- [X] T011 [P] Add the `WorkdayLeg` type and `Driver.legs` field to `resources/js/types/tour.ts` — data-model.md
+- [X] T012 Map `legs` from the payload in `resources/js/hooks/use-tour-drivers.ts`
 
 **Checkpoint**: `GET /api/tour/drivers` serves legs per contract; frontend `Driver` objects carry them. Nothing visible yet.
 
@@ -48,13 +48,13 @@ No setup tasks — the feature extends the existing Laravel + React app on branc
 
 **Independent Test**: with a driver holding a prior tour, click them — the map shows the full chain around the still-highlighted candidate tour; re-click reverts to the candidate only (spec US1 scenarios).
 
-- [ ] T013 [P] [US1] Define the `--route-neutral` role variable in both theme blocks of `resources/css/app.css` (dark neutral in both — map tiles stay light in dark mode; plan D9)
-- [ ] T014 [P] [US1] Create `resources/js/components/tour/workday-layer.test.tsx` (failing): one line rendered per leg; road `geometry` used when present, straight `path` fallback when null; color resolved from `--route-neutral`
-- [ ] T015 [US1] Create `resources/js/components/tour/workday-layer.tsx`: GeoJSON source/layer per leg drawing `geometry ?? path`, neutral color runtime-resolved like `RouteLayer.primaryColor()`
-- [ ] T016 [US1] Rework `resources/js/components/tour/driver-list.tsx`: accept `selectedDriver`/`onSelect` props; row click toggles selection (select / re-click deselects); selected-row styling via existing role classes; remove the direct `AssignDriverDialog` open-on-click
-- [ ] T017 [US1] Update `resources/js/components/tour/driver-list.test.tsx`: click selects without opening a dialog; re-click deselects; selected styling asserted; fixtures gain `legs`
-- [ ] T018 [US1] Thread selection through `resources/js/components/tour/result-summary.tsx` (pass `selectedDriver`/`onSelect` down to `DriverList`) and update `resources/js/components/tour/result-summary.test.tsx` fixtures
-- [ ] T019 [US1] Wire `resources/js/pages/tour/optimize.tsx`: `selectedDriver` state; render `<WorkdayLayer>` inside `TourMap` **before** the candidate `RouteLayer`; clear the selection on reset, on date change, and when the driver list reloads (spec FR-012)
+- [X] T013 [P] [US1] Define the `--route-neutral` role variable in both theme blocks of `resources/css/app.css` (dark neutral in both — map tiles stay light in dark mode; plan D9)
+- [X] T014 [P] [US1] Create `resources/js/components/tour/workday-layer.test.tsx` (failing): one line rendered per leg; road `geometry` used when present, straight `path` fallback when null; color resolved from `--route-neutral`
+- [X] T015 [US1] Create `resources/js/components/tour/workday-layer.tsx`: GeoJSON source/layer per leg drawing `geometry ?? path`, neutral color runtime-resolved like `RouteLayer.primaryColor()`
+- [X] T016 [US1] Rework `resources/js/components/tour/driver-list.tsx`: accept `selectedDriver`/`onSelect` props; row click toggles selection (select / re-click deselects); selected-row styling via existing role classes; remove the direct `AssignDriverDialog` open-on-click
+- [X] T017 [US1] Update `resources/js/components/tour/driver-list.test.tsx`: click selects without opening a dialog; re-click deselects; selected styling asserted; fixtures gain `legs`
+- [X] T018 [US1] Thread selection through `resources/js/components/tour/result-summary.tsx` (pass `selectedDriver`/`onSelect` down to `DriverList`) and update `resources/js/components/tour/result-summary.test.tsx` fixtures
+- [X] T019 [US1] Wire `resources/js/pages/tour/optimize.tsx`: `selectedDriver` state; render `<WorkdayLayer>` inside `TourMap` **before** the candidate `RouteLayer`; clear the selection on reset, on date change, and when the driver list reloads (spec FR-012)
 
 **Checkpoint**: full preview visible on click (prior tours as straight lines, connections road-accurate); assignment temporarily unreachable until US2 lands — ship US1+US2 together.
 
@@ -66,8 +66,8 @@ No setup tasks — the feature extends the existing Laravel + React app on branc
 
 **Independent Test**: no selection → button grayed out; select a driver → click button → familiar pop-up; cancel keeps the preview, confirm assigns and returns to the cleared creation menu (spec US2 scenarios).
 
-- [ ] T020 [US2] Add the **Assign Driver** `ActionButton` to the right of "New tour" in `resources/js/components/tour/result-summary.tsx`: disabled while `selectedDriver` is null; clicking opens `AssignDriverDialog` (moved here from `driver-list.tsx`) for the selected driver with the existing `tourId`/`date`/`startIndex` props; extend `resources/js/components/action-button.tsx` with a disabled state only if it lacks one
-- [ ] T021 [US2] Extend `resources/js/components/tour/result-summary.test.tsx`: button present and disabled without selection; enabled with one; opens the dialog; while the dialog is open, driver-row clicks do not change the selection (012 one-confirmation-at-a-time rule); cancel closes without clearing the selection; confirm fires `onAssigned`
+- [X] T020 [US2] Add the **Assign Driver** `ActionButton` to the right of "New tour" in `resources/js/components/tour/result-summary.tsx`: disabled while `selectedDriver` is null; clicking opens `AssignDriverDialog` (moved here from `driver-list.tsx`) for the selected driver with the existing `tourId`/`date`/`startIndex` props; extend `resources/js/components/action-button.tsx` with a disabled state only if it lacks one
+- [X] T021 [US2] Extend `resources/js/components/tour/result-summary.test.tsx`: button present and disabled without selection; enabled with one; opens the dialog; while the dialog is open, driver-row clicks do not change the selection (012 one-confirmation-at-a-time rule); cancel closes without clearing the selection; confirm fires `onAssigned`
 
 **Checkpoint**: complete assign flow — select, button, confirm — behaves as 012 did. MVP done (US1 + US2).
 
@@ -79,9 +79,9 @@ No setup tasks — the feature extends the existing Laravel + React app on branc
 
 **Independent Test**: click through drivers faster than traces resolve — display always matches the last click, placeholders upgrade in place, re-select shows road paths with no refetch (spec US4 scenarios).
 
-- [ ] T022 [P] [US4] Create `resources/js/hooks/use-workday-preview.test.ts` (failing): returns legs synchronously with straight fallbacks; traces only `geometry: null` legs; request body is `{stops: leg.path, mode, loop: leg.loop}` with **no `tour_id`**; a failed trace (network error or `ok: false` response leg) keeps that leg's straight `path` and leaves the other legs intact (FR-011); a response arriving after the selection switched is dropped; re-selecting a traced driver hits the cache (no second fetch); cache cleared when the driver list reloads
-- [ ] T023 [US4] Implement `resources/js/hooks/use-workday-preview.ts`: token/identity guard per selected driver (the `useTourGeometry` FR-010 pattern), `driverId:legIndex` ref cache, per-response leg composition (failed trace hop keeps its straight segment); a swallowed trace failure carries a short comment noting the failure is already logged server-side by the geometry endpoint (constitution IV) — plan D8
-- [ ] T024 [US4] Integrate the hook in `resources/js/pages/tour/optimize.tsx`: feed `WorkdayLayer` the hook's best-available legs instead of the raw payload legs
+- [X] T022 [P] [US4] Create `resources/js/hooks/use-workday-preview.test.ts` (failing): returns legs synchronously with straight fallbacks; traces only `geometry: null` legs; request body is `{stops: leg.path, mode, loop: leg.loop}` with **no `tour_id`**; a failed trace (network error or `ok: false` response leg) keeps that leg's straight `path` and leaves the other legs intact (FR-011); a response arriving after the selection switched is dropped; re-selecting a traced driver hits the cache (no second fetch); cache cleared when the driver list reloads
+- [X] T023 [US4] Implement `resources/js/hooks/use-workday-preview.ts`: token/identity guard per selected driver (the `useTourGeometry` FR-010 pattern), `driverId:legIndex` ref cache, per-response leg composition (failed trace hop keeps its straight segment); a swallowed trace failure carries a short comment noting the failure is already logged server-side by the geometry endpoint (constitution IV) — plan D8
+- [X] T024 [US4] Integrate the hook in `resources/js/pages/tour/optimize.tsx`: feed `WorkdayLayer` the hook's best-available legs instead of the raw payload legs
 
 **Checkpoint**: rapid cycling safe by construction; prior tours snap to road paths when traces land.
 
@@ -93,8 +93,8 @@ No setup tasks — the feature extends the existing Laravel + React app on branc
 
 **Independent Test**: preview with a prior tour shows three renderings — highlight-solid candidate, neutral-solid prior tour, neutral-dashed connections (spec US3 scenarios).
 
-- [ ] T025 [US3] Add dashed rendering in `resources/js/components/tour/workday-layer.tsx`: `line-dasharray` on legs with `dotted: true`, solid otherwise (mount order under the candidate `RouteLayer` is already wired by T019 — no re-wiring here)
-- [ ] T026 [US3] Extend `resources/js/components/tour/workday-layer.test.tsx`: dashed vs solid driven by `leg.dotted`; candidate layer not rendered by `WorkdayLayer` (only neutral legs); `WorkdayLayer` renders before the candidate `RouteLayer` in the map children (T019 ordering asserted)
+- [X] T025 [US3] Add dashed rendering in `resources/js/components/tour/workday-layer.tsx`: `line-dasharray` on legs with `dotted: true`, solid otherwise (mount order under the candidate `RouteLayer` is already wired by T019 — no re-wiring here)
+- [X] T026 [US3] Extend `resources/js/components/tour/workday-layer.test.tsx`: dashed vs solid driven by `leg.dotted`; candidate layer not rendered by `WorkdayLayer` (only neutral legs); `WorkdayLayer` renders before the candidate `RouteLayer` in the map children (T019 ordering asserted)
 
 **Checkpoint**: all four stories functional.
 

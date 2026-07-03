@@ -6,9 +6,11 @@ use App\Exceptions\TourGeometryException;
 use App\Services\Coordinate;
 use App\Services\OpenStreetRouteClient;
 use App\Services\PolylineDecoder;
+use GuzzleHttp\Psr7\Response as Psr7Response;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Factory as HttpFactory;
 use Illuminate\Http\Client\Request;
+use Illuminate\Http\Client\Response;
 use PHPUnit\Framework\TestCase;
 
 class OpenStreetRouteClientTest extends TestCase
@@ -114,6 +116,52 @@ class OpenStreetRouteClientTest extends TestCase
         });
 
         $this->assertErrorCode('timeout', fn () => $this->client($http)->traceLeg($this->origin(), $this->destination()));
+    }
+
+    private function jsonResponse(array $body, int $status = 200): Response
+    {
+        return new Response(new Psr7Response($status, ['Content-Type' => 'application/json'], json_encode($body)));
+    }
+
+    public function test_leg_from_response_maps_a_successful_body(): void
+    {
+        $leg = $this->client(new HttpFactory)->legFromResponse($this->jsonResponse([
+            'polyline' => '_p~iF~ps|U_ulLnnqC_mqNvxq`@',
+            'total_distance' => 465000,
+            'total_time' => 16800,
+            'status' => 0,
+        ]));
+
+        $this->assertSame(465000, $leg['distance_m']);
+        $this->assertSame(16800, $leg['duration_s']);
+        $this->assertSame([
+            [38.5, -120.2],
+            [40.7, -120.95],
+            [43.252, -126.453],
+        ], $leg['coordinates']);
+    }
+
+    public function test_leg_from_response_keeps_metrics_when_the_polyline_is_missing(): void
+    {
+        $leg = $this->client(new HttpFactory)->legFromResponse($this->jsonResponse([
+            'total_distance' => 1000,
+            'total_time' => 120,
+            'status' => 'OK',
+        ]));
+
+        $this->assertNull($leg['coordinates']);
+        $this->assertSame(120, $leg['duration_s']);
+        $this->assertSame(1000, $leg['distance_m']);
+    }
+
+    public function test_leg_from_response_is_null_on_http_failure(): void
+    {
+        $this->assertNull($this->client(new HttpFactory)->legFromResponse($this->jsonResponse([], 500)));
+    }
+
+    public function test_leg_from_response_is_null_on_error_status(): void
+    {
+        $this->assertNull($this->client(new HttpFactory)->legFromResponse($this->jsonResponse(['status' => 'WRONG_KEY'])));
     }
 
     private function assertErrorCode(string $expectedCode, callable $callback): void

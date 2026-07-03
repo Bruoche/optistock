@@ -1,7 +1,7 @@
 // Fetches the drivers available for an optimized tour, with each one's projected
 // working day; re-fetches whenever the mode, date, or tour changes.
 import { useEffect, useState } from 'react';
-import type { DeliveryMode, Driver } from '@/types/tour';
+import type { DeliveryMode, Driver, WorkdayLeg } from '@/types/tour';
 
 type DriversStatus = 'loading' | 'ready' | 'error';
 
@@ -14,6 +14,7 @@ type ApiDriver = {
     projected_seconds: number;
     projected_incomplete: boolean;
     start_index: number;
+    legs: WorkdayLeg[];
 };
 
 type FetchState = {
@@ -69,6 +70,7 @@ export function useTourDrivers(
                     projectedSeconds: driver.projected_seconds,
                     projectedIncomplete: driver.projected_incomplete,
                     startIndex: driver.start_index,
+                    legs: driver.legs,
                 }));
                 setState({ mode, date, tourId, drivers, status: 'ready' });
             })

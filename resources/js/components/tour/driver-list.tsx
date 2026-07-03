@@ -7,8 +7,6 @@ import {
     UserRound,
     Warehouse,
 } from 'lucide-react';
-import { useState } from 'react';
-import { AssignDriverDialog } from '@/components/tour/assign-driver-dialog';
 import { useTourDrivers } from '@/hooks/use-tour-drivers';
 import { cn } from '@/lib/utils';
 import { DELIVERY_MODES, formatDurationHm } from '@/types/tour';
@@ -34,8 +32,10 @@ type DriverListProps = {
     date: string;
     /** The persisted tour to project + assign when a driver is picked. */
     tourId: number;
-    /** Called after a successful assignment (clears the tour + returns to creation). */
-    onAssigned: () => void;
+    /** The driver whose projected workday is previewed, if any (feature 014). */
+    selectedDriver: Driver | null;
+    /** Called on row click; the owner toggles the selection (re-click deselects). */
+    onSelect: (driver: Driver) => void;
 };
 
 function StatusLine({
@@ -61,10 +61,10 @@ export function DriverList({
     mode,
     date,
     tourId,
-    onAssigned,
+    selectedDriver,
+    onSelect,
 }: DriverListProps) {
     const { drivers, status } = useTourDrivers(mode, date, tourId);
-    const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null);
 
     if (status === 'loading') {
         return (
@@ -88,14 +88,22 @@ export function DriverList({
     }
 
     return (
-        <>
-            <ul className="flex-1 space-y-1 overflow-y-auto">
-                {drivers.map((driver) => (
+        <ul className="flex-1 space-y-1 overflow-y-auto">
+            {drivers.map((driver) => {
+                const selected = driver.id === selectedDriver?.id;
+
+                return (
                     <li key={driver.id}>
                         <button
                             type="button"
-                            onClick={() => setSelectedDriver(driver)}
-                            className="flex w-full items-center gap-3 rounded-md border border-border px-3 py-2 text-left transition-colors hover:bg-secondary hover:text-secondary-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-hidden"
+                            onClick={() => onSelect(driver)}
+                            aria-pressed={selected}
+                            className={cn(
+                                'flex w-full items-center gap-3 rounded-md border px-3 py-2 text-left transition-colors hover:bg-secondary hover:text-secondary-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-hidden',
+                                selected
+                                    ? 'border-primary bg-secondary text-secondary-foreground'
+                                    : 'border-border',
+                            )}
                         >
                             {driver.imageUrl ? (
                                 <img
@@ -153,21 +161,8 @@ export function DriverList({
                             </div>
                         </button>
                     </li>
-                ))}
-            </ul>
-
-            <AssignDriverDialog
-                driver={selectedDriver}
-                tourId={tourId}
-                date={date}
-                startIndex={selectedDriver?.startIndex ?? 0}
-                onOpenChange={(open) => {
-                    if (!open) {
-                        setSelectedDriver(null);
-                    }
-                }}
-                onAssigned={onAssigned}
-            />
-        </>
+                );
+            })}
+        </ul>
     );
 }

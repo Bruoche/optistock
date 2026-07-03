@@ -9,10 +9,12 @@ import { RouteLayer } from '@/components/tour/route-layer';
 import { StopList } from '@/components/tour/stop-list';
 import { TourControlBar } from '@/components/tour/tour-control-bar';
 import { TourMap } from '@/components/tour/tour-map';
+import { WorkdayLayer } from '@/components/tour/workday-layer';
 import { useTourGeometry } from '@/hooks/use-tour-geometry';
 import { useTourOptimization } from '@/hooks/use-tour-optimization';
+import { useWorkdayPreview } from '@/hooks/use-workday-preview';
 import { todayDate } from '@/types/tour';
-import type { DeliveryMode } from '@/types/tour';
+import type { DeliveryMode, Driver } from '@/types/tour';
 
 const MIN_STOPS = 2;
 
@@ -34,6 +36,25 @@ export default function TourOptimize() {
     const [loop, setLoop] = useState<boolean>(true);
     // Tour date (011); defaults to today and persists across resets, like mode/loop.
     const [tourDate, setTourDate] = useState<string>(todayDate);
+    // The driver whose projected workday is previewed on the map (014); row click
+    // toggles, and any change that reloads the driver list clears it (FR-012).
+    const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null);
+
+    function toggleDriver(driver: Driver) {
+        setSelectedDriver((current) =>
+            current?.id === driver.id ? null : driver,
+        );
+    }
+
+    function changeDate(date: string) {
+        setSelectedDriver(null);
+        setTourDate(date);
+    }
+
+    function resetTour() {
+        setSelectedDriver(null);
+        reset();
+    }
 
     const isPending =
         state.status === 'submitting' || state.status === 'pending';
@@ -48,6 +69,14 @@ export default function TourOptimize() {
         state.status === 'done' ? state.loop : loop,
     );
 
+    // Best-available workday legs for the previewed driver (014): straight lines
+    // first, road paths as their lazy traces land. Keyed per driver-list load.
+    const previewLegs = useWorkdayPreview(
+        selectedDriver,
+        state.status === 'done' ? state.mode : mode,
+        `${doneResult?.id ?? 0}:${tourDate}`,
+    );
+
     return (
         <>
             <Head title="Optimize tour" />
@@ -59,6 +88,9 @@ export default function TourOptimize() {
                         onAddStop={addStop}
                         addable={!isPending && !isDone}
                     >
+                        {isDone && selectedDriver && (
+                            <WorkdayLayer legs={previewLegs} />
+                        )}
                         {isDone && (
                             <RouteLayer
                                 path={geometry.routePath}
@@ -76,9 +108,11 @@ export default function TourOptimize() {
                             waitTimeS={waitTimeS}
                             mode={state.mode}
                             date={tourDate}
-                            onDateChange={setTourDate}
-                            onReset={reset}
-                            onAssigned={reset}
+                            selectedDriver={selectedDriver}
+                            onSelectDriver={toggleDriver}
+                            onDateChange={changeDate}
+                            onReset={resetTour}
+                            onAssigned={resetTour}
                         />
                     ) : (
                         <>

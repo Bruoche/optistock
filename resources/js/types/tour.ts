@@ -14,6 +14,21 @@ export const DELIVERY_MODES: ReadonlyArray<{
     { value: 'walking', label: 'Walking' },
 ];
 
+/** One neutral (non-candidate) path piece of a driver's projected workday
+ *  (feature 014), in chain order. The candidate tour is never a leg — it keeps
+ *  its own highlight rendering. */
+export type WorkdayLeg = {
+    kind: 'connection' | 'tour';
+    /** Render hint: dashed connection drive vs solid tour path. */
+    dotted: boolean;
+    /** `[lat, lng]` straight-line fallback points (rotated stops for a tour leg). */
+    path: Array<[number, number]>;
+    /** Decoded road coordinates, or null when the client traces lazily. */
+    geometry: Array<[number, number]> | null;
+    /** Trace flag: true only for a looping tour leg. */
+    loop: boolean;
+};
+
 /** A delivery driver available for an optimized tour (feature 006). `modes` are
  *  the driver's supported delivery modes (one or more). */
 export type Driver = {
@@ -33,6 +48,8 @@ export type Driver = {
     /** The stop position chosen as this driver's start for the current tour — sent
      *  back on assignment so the start is not recomputed (feature 013). */
     startIndex: number;
+    /** The drawable pieces of this driver's projected workday (feature 014). */
+    legs: WorkdayLeg[];
 };
 
 /** Format a duration in seconds as a human-readable `h min` string, matching the

@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Models\Warehouse;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
@@ -237,6 +238,125 @@ class DriverAvailabilityTest extends TestCase
             ->getJson($this->driversRoute('driving', self::MONDAY, $tour->id))
             ->assertOk()
             ->assertJsonPath('data.0.start_index', 0);
+    }
+
+    public function test_legs_cover_the_chain_with_connection_geometry_and_lazy_tour_legs(): void
+    {
+        // Every routed connection carries a polyline, so connection legs get geometry.
+        Http::fake(['*' => Http::response([
+            'status' => 'OK', 'total_time' => 60, 'total_distance' => 1000,
+            'polyline' => '_p~iF~ps|U_ulLnnqC',
+        ])]);
+        $user = User::factory()->create();
+        $tour = $this->candidateTour($user);
+        $driver = Driver::factory()->withModes(['driving'])->withDays(['monday'])->create(['name' => 'Amelie']);
+        Tour::factory()->withMode('driving')->withStops(2)->assignedTo($driver, self::MONDAY)
+            ->create(['travel_duration_s' => 500, 'loop' => true]);
+
+        $response = $this->actingAs($user)
+            ->getJson($this->driversRoute('driving', self::MONDAY, $tour->id));
+
+        $response->assertOk();
+        $legs = $response->json('data.0.legs');
+
+        // Chain order: W→prior, prior tour, prior→candidate, candidate→W.
+        $this->assertSame(['connection', 'tour', 'connection', 'connection'], array_column($legs, 'kind'));
+        $this->assertSame([true, false, true, true], array_column($legs, 'dotted'));
+
+        foreach ([0, 2, 3] as $connectionIndex) {
+            $this->assertIsArray($legs[$connectionIndex]['geometry']);
+            $this->assertNotEmpty($legs[$connectionIndex]['geometry']);
+            $this->assertCount(2, $legs[$connectionIndex]['path']);
+        }
+
+        // The prior tour leg is traced lazily by the client: straight path, no geometry.
+        $this->assertNull($legs[1]['geometry']);
+        $this->assertCount(2, $legs[1]['path']);
+        $this->assertTrue($legs[1]['loop']);
+    }
+
+    public function test_a_prior_loop_tour_leg_path_is_rotated_to_its_recorded_start(): void
+    {
+        $this->fakeEveryConnection(60);
+        $user = User::factory()->create();
+        $tour = $this->candidateTour($user);
+        $driver = Driver::factory()->withModes(['driving'])->withDays(['monday'])->create(['name' => 'Amelie']);
+
+        // Prior loop tour with three stops; the assignment records the middle stop as start/end.
+        $prior = Tour::factory()->withMode('driving')->create(['travel_duration_s' => 500, 'loop' => true]);
+        Stop::factory()->for($prior)->create(['latitude' => 48.70, 'longitude' => 2.10, 'duration_s' => 60, 'position' => 0]);
+        Stop::factory()->for($prior)->create(['latitude' => 48.71, 'longitude' => 2.11, 'duration_s' => 60, 'position' => 1]);
+        Stop::factory()->for($prior)->create(['latitude' => 48.72, 'longitude' => 2.12, 'duration_s' => 60, 'position' => 2]);
+        $prior->drivers()->sync([$driver->id => [
+            'date' => self::MONDAY,
+            'start_latitude' => 48.71, 'start_longitude' => 2.11,
+            'end_latitude' => 48.71, 'end_longitude' => 2.11,
+            'sequence' => 1,
+        ]]);
+
+        $response = $this->actingAs($user)
+            ->getJson($this->driversRoute('driving', self::MONDAY, $tour->id));
+
+        $response->assertOk();
+        $tourLeg = collect($response->json('data.0.legs'))->firstWhere('kind', 'tour');
+        $this->assertSame([[48.71, 2.11], [48.72, 2.12], [48.70, 2.10]], $tourLeg['path']);
+    }
+
+    public function test_legs_do_not_change_the_thirteen_payload_or_add_route_calls(): void
+    {
+        $this->fakeEveryConnection(60);
+        $user = User::factory()->create();
+        $tour = $this->candidateTour($user, loop: true, travelS: 300);
+        Driver::factory()->withModes(['driving'])->withDays(['monday'])->create(['name' => 'Amelie']);
+
+        $response = $this->actingAs($user)
+            ->getJson($this->driversRoute('driving', self::MONDAY, $tour->id));
+
+        // The 013 fields are untouched and the legs ride the same routed connections:
+        // W→stop0, W→stop1 (selection) + start→W (return) = 3 requests, as before legs existed.
+        $response->assertOk()
+            ->assertJsonPath('data.0.projected_seconds', 720)
+            ->assertJsonPath('data.0.projected_incomplete', false)
+            ->assertJsonPath('data.0.warehouse_name', fn (mixed $name): bool => is_string($name))
+            ->assertJsonPath('data.0.start_index', fn (mixed $index): bool => is_int($index));
+        Http::assertSentCount(3);
+    }
+
+    public function test_the_database_query_count_does_not_grow_with_drivers_or_prior_tours(): void
+    {
+        $this->fakeEveryConnection(60);
+        $user = User::factory()->create();
+        $tour = $this->candidateTour($user);
+        $driver = Driver::factory()->withModes(['driving'])->withDays(['monday'])->create(['name' => 'Amelie']);
+        Tour::factory()->withMode('driving')->withStops(1)->assignedTo($driver, self::MONDAY)
+            ->create(['travel_duration_s' => 500]);
+
+        $queriesWithOneDriver = $this->countQueriesForDriversRequest($user, $tour->id);
+
+        foreach (['Bruno', 'Carla'] as $name) {
+            $extra = Driver::factory()->withModes(['driving'])->withDays(['monday'])->create(['name' => $name]);
+            Tour::factory()->withMode('driving')->withStops(2)->assignedTo($extra, self::MONDAY)
+                ->create(['travel_duration_s' => 400]);
+        }
+
+        $queriesWithThreeDrivers = $this->countQueriesForDriversRequest($user, $tour->id);
+
+        $this->assertSame($queriesWithOneDriver, $queriesWithThreeDrivers);
+    }
+
+    private function countQueriesForDriversRequest(User $user, int $tourId): int
+    {
+        DB::enableQueryLog();
+        DB::flushQueryLog();
+
+        $this->actingAs($user)
+            ->getJson($this->driversRoute('driving', self::MONDAY, $tourId))
+            ->assertOk();
+
+        $queries = count(DB::getQueryLog());
+        DB::disableQueryLog();
+
+        return $queries;
     }
 
     public function test_shared_connections_are_not_requested_more_than_once(): void
