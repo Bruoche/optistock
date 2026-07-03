@@ -119,10 +119,7 @@ describe('WorkdayLayer', () => {
     it('paints a highlighted leg in the primary role color and a non-highlighted leg neutral', () => {
         const { container } = render(
             <WorkdayLayer
-                legs={[
-                    leg({ highlight: true }),
-                    leg({ highlight: false }),
-                ]}
+                legs={[leg({ highlight: true }), leg({ highlight: false })]}
             />,
         );
 
@@ -136,7 +133,9 @@ describe('WorkdayLayer', () => {
     it('keeps a highlighted connection dashed — color is independent of dash', () => {
         const { container } = render(
             <WorkdayLayer
-                legs={[leg({ kind: 'connection', dotted: true, highlight: true })]}
+                legs={[
+                    leg({ kind: 'connection', dotted: true, highlight: true }),
+                ]}
             />,
         );
 
