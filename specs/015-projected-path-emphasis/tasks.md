@@ -26,7 +26,7 @@ Web app (Laravel + React SPA): backend under `app/`, `tests/`; frontend under `r
 
 **Purpose**: Confirm the 014 baseline is green before touching it.
 
-- [ ] T001 Run the baseline suites and confirm green: `php artisan test` and `npm run test` (guards against attributing a pre-existing failure to this feature).
+- [X] T001 Run the baseline suites and confirm green: `php artisan test` and `npm run test` (guards against attributing a pre-existing failure to this feature).
 
 ---
 
@@ -36,12 +36,12 @@ Web app (Laravel + React SPA): backend under `app/`, `tests/`; frontend under `r
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete.
 
-- [ ] T002 [P] Add readonly `bool $highlight` to `WorkdayLeg` in `app/Services/WorkdayLeg.php`: constructor param; `connection()` factory gains `bool $highlight = false`; `tour()` constructs with `false`; `toArray()` emits `'highlight' => $this->highlight`.
-- [ ] T003 In `WorkdayLegsBuilder` (`app/Services/WorkdayLegsBuilder.php`) add `bool $highlight = false` to the private `connection()` helper and pass `highlight: true` on the two candidate-bracketing calls (`… → $candidateStart` and `$candidateEnd → …`); prior-tour connections keep the default `false` (depends on T002).
-- [ ] T004 [P] Extend `tests/Unit/WorkdayLegsBuilderTest.php`: the two candidate-bracketing connections have `highlight === true`, every prior-tour connection and every `tour` leg `false`, and the no-prior-tours case yields both legs `true`.
-- [ ] T005 [P] Extend `tests/Feature/DriverAvailabilityTest.php`: assert each leg in the drivers payload carries `highlight`, `true` only on the two candidate-adjacent connections and in the correct positions.
-- [ ] T006 [P] Add `highlight: boolean` (required) to the `WorkdayLeg` type in `resources/js/types/tour.ts` with the doc comment from data-model.md; no `use-tour-drivers` change (legs are copied verbatim).
-- [ ] T007 [P] Add `highlight: false` to the existing `WorkdayLeg` literals so the 014 suites still compile: the `leg()` factory default in `resources/js/components/tour/workday-layer.test.tsx`, and the `leg()` factory default **plus** the two inline connection literals (~L87, ~L155) in `resources/js/hooks/use-workday-preview.test.ts`.
+- [X] T002 [P] Add readonly `bool $highlight` to `WorkdayLeg` in `app/Services/WorkdayLeg.php`: constructor param; `connection()` factory gains `bool $highlight = false`; `tour()` constructs with `false`; `toArray()` emits `'highlight' => $this->highlight`.
+- [X] T003 In `WorkdayLegsBuilder` (`app/Services/WorkdayLegsBuilder.php`) add `bool $highlight = false` to the private `connection()` helper and pass `highlight: true` on the two candidate-bracketing calls (`… → $candidateStart` and `$candidateEnd → …`); prior-tour connections keep the default `false` (depends on T002).
+- [X] T004 [P] Extend `tests/Unit/WorkdayLegsBuilderTest.php`: the two candidate-bracketing connections have `highlight === true`, every prior-tour connection and every `tour` leg `false`, and the no-prior-tours case yields both legs `true`.
+- [X] T005 [P] Extend `tests/Feature/DriverAvailabilityTest.php`: assert each leg in the drivers payload carries `highlight`, `true` only on the two candidate-adjacent connections and in the correct positions.
+- [X] T006 [P] Add `highlight: boolean` (required) to the `WorkdayLeg` type in `resources/js/types/tour.ts` with the doc comment from data-model.md; no `use-tour-drivers` change (legs are copied verbatim).
+- [X] T007 [P] Add `highlight: false` to the existing `WorkdayLeg` literals so the 014 suites still compile: the `leg()` factory default in `resources/js/components/tour/workday-layer.test.tsx`, and the `leg()` factory default **plus** the two inline connection literals (~L87, ~L155) in `resources/js/hooks/use-workday-preview.test.ts`.
 
 **Checkpoint**: `highlight` present on every leg in the payload and type; all 014 tests compile and stay green.
 
@@ -53,8 +53,8 @@ Web app (Laravel + React SPA): backend under `app/`, `tests/`; frontend under `r
 
 **Independent Test**: Preview a driver with ≥1 prior tour — the drive into the candidate start and out of its end are primary-colored; warehouse/between-prior connections stay neutral; all still dotted.
 
-- [ ] T008 [US1] In `resources/js/components/tour/workday-layer.tsx` add a local `primaryColor()` resolver of `--primary` (mirror the existing `neutralColor()`, fallback `#ff9a3c`) and set `line-color` per leg to `leg.highlight ? primaryColor() : neutralColor()`; `line-dasharray` stays keyed to `leg.dotted`. Do **not** modify `route-layer.tsx` (depends on T006).
-- [ ] T009 [P] [US1] Extend `resources/js/components/tour/workday-layer.test.tsx`: set `--primary` in `beforeEach`; a `highlight: true` leg paints `line-color` = the primary value, a `highlight: false` leg the neutral value; a highlighted connection still dashes `[0.5, 2]` (color independent of dash).
+- [X] T008 [US1] In `resources/js/components/tour/workday-layer.tsx` add a local `primaryColor()` resolver of `--primary` (mirror the existing `neutralColor()`, fallback `#ff9a3c`) and set `line-color` per leg to `leg.highlight ? primaryColor() : neutralColor()`; `line-dasharray` stays keyed to `leg.dotted`. Do **not** modify `route-layer.tsx` (depends on T006).
+- [X] T009 [P] [US1] Extend `resources/js/components/tour/workday-layer.test.tsx`: set `--primary` in `beforeEach`; a `highlight: true` leg paints `line-color` = the primary value, a `highlight: false` leg the neutral value; a highlighted connection still dashes `[0.5, 2]` (color independent of dash).
 
 **Checkpoint**: US1 fully functional — the projected tour's connecting drives read as primary orange.
 
@@ -66,8 +66,8 @@ Web app (Laravel + React SPA): backend under `app/`, `tests/`; frontend under `r
 
 **Independent Test**: Preview a driver with ≥1 prior tour — prior tours and neutral connections render at `0.5` opacity while the two highlighted connections render at `1`.
 
-- [ ] T010 [US2] In `resources/js/components/tour/workday-layer.tsx` add a `line-opacity` paint property set to `leg.highlight ? 1 : 0.5` (depends on T008 — same file/paint object).
-- [ ] T011 [P] [US2] Extend `resources/js/components/tour/workday-layer.test.tsx`: a `highlight: true` leg has `line-opacity` `1`, a `highlight: false` leg `0.5`, and opacity is the same whether the leg has `geometry` or only `path` (independent of geometry state, FR-007).
+- [X] T010 [US2] In `resources/js/components/tour/workday-layer.tsx` add a `line-opacity` paint property set to `leg.highlight ? 1 : 0.5` (depends on T008 — same file/paint object).
+- [X] T011 [P] [US2] Extend `resources/js/components/tour/workday-layer.test.tsx`: a `highlight: true` leg has `line-opacity` `1`, a `highlight: false` leg `0.5`, and opacity is the same whether the leg has `geometry` or only `path` (independent of geometry state, FR-007).
 
 **Checkpoint**: US1 + US2 — orange emphasis set at full opacity, everything else dimmed.
 
@@ -75,8 +75,8 @@ Web app (Laravel + React SPA): backend under `app/`, `tests/`; frontend under `r
 
 ## Phase 5: Polish & Cross-Cutting
 
-- [ ] T012 [P] Run the full suites and linters green: `php artisan test`, `npm run test`, `npm run lint`, and Pint.
-- [ ] T013 Walk through `specs/015-projected-path-emphasis/quickstart.md` in the app: prior-tour driver (two tiers), no-prior driver (all orange), progressive upgrade keeps tier, rapid cycling stable.
+- [X] T012 [P] Run the full suites and linters green: `php artisan test`, `npm run test`, `npm run lint`, and Pint.
+- [ ] T013 (manual — needs a visual pass in the running app) Walk through `specs/015-projected-path-emphasis/quickstart.md` in the app: prior-tour driver (two tiers), no-prior driver (all orange), progressive upgrade keeps tier, rapid cycling stable.
 
 ---
 

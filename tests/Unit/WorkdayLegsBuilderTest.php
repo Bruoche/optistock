@@ -82,6 +82,26 @@ class WorkdayLegsBuilderTest extends TestCase
         $this->assertSame([[48.86, 2.36], [48.90, 2.30]], $legs[1]->path);
         $this->assertTrue($legs[0]->dotted);
         $this->assertFalse($legs[0]->loop);
+        // Both connections bracket the candidate tour, so both are highlighted.
+        $this->assertTrue($legs[0]->highlight);
+        $this->assertTrue($legs[1]->highlight);
+    }
+
+    public function test_only_the_candidate_bracketing_connections_are_highlighted(): void
+    {
+        Http::fake(['*' => Http::response(['status' => 'OK', 'total_time' => 60, 'total_distance' => 100])]);
+        $stopA = new Coordinate(48.70, 2.10);
+        $stopB = new Coordinate(48.71, 2.11);
+        $prior = $this->priorTour([$stopA, $stopB], loop: true, start: $stopA, end: $stopA);
+
+        $legs = $this->builder()->build($this->warehouse, [$prior], $this->candidateStart, $this->candidateEnd, 'driving');
+
+        // W → prior start (pre-existing) and the prior tour itself are not highlighted;
+        // prior end → candidate start and candidate end → W bracket the candidate, so they are.
+        $this->assertSame(
+            [false, false, true, true],
+            array_map(fn (WorkdayLeg $leg): bool => $leg->highlight, $legs),
+        );
     }
 
     public function test_prior_tours_interleave_solid_tour_legs_in_chain_order(): void

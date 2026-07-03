@@ -262,6 +262,8 @@ class DriverAvailabilityTest extends TestCase
         // Chain order: W→prior, prior tour, prior→candidate, candidate→W.
         $this->assertSame(['connection', 'tour', 'connection', 'connection'], array_column($legs, 'kind'));
         $this->assertSame([true, false, true, true], array_column($legs, 'dotted'));
+        // Only the two connections bracketing the candidate tour are highlighted.
+        $this->assertSame([false, false, true, true], array_column($legs, 'highlight'));
 
         foreach ([0, 2, 3] as $connectionIndex) {
             $this->assertIsArray($legs[$connectionIndex]['geometry']);

@@ -41,6 +41,7 @@ function leg(overrides: Partial<WorkdayLeg> = {}): WorkdayLeg {
         ],
         geometry: null,
         loop: false,
+        highlight: false,
         ...overrides,
     };
 }
@@ -57,6 +58,7 @@ describe('WorkdayLayer', () => {
             '--route-neutral',
             '#1a1a1a',
         );
+        document.documentElement.style.setProperty('--primary', '#ff9a3c');
     });
 
     it('renders one line per leg', () => {
@@ -112,6 +114,69 @@ describe('WorkdayLayer', () => {
         paints.forEach((paint) => {
             expect(paint['line-color']).toBe('#1a1a1a');
         });
+    });
+
+    it('paints a highlighted leg in the primary role color and a non-highlighted leg neutral', () => {
+        const { container } = render(
+            <WorkdayLayer
+                legs={[
+                    leg({ highlight: true }),
+                    leg({ highlight: false }),
+                ]}
+            />,
+        );
+
+        const paints = Array.from(
+            container.querySelectorAll('[data-testid="layer"]'),
+        ).map((layer) => JSON.parse(layer.getAttribute('data-paint') ?? '{}'));
+        expect(paints[0]['line-color']).toBe('#ff9a3c');
+        expect(paints[1]['line-color']).toBe('#1a1a1a');
+    });
+
+    it('keeps a highlighted connection dashed — color is independent of dash', () => {
+        const { container } = render(
+            <WorkdayLayer
+                legs={[leg({ kind: 'connection', dotted: true, highlight: true })]}
+            />,
+        );
+
+        const paint = JSON.parse(
+            container
+                .querySelector('[data-testid="layer"]')
+                ?.getAttribute('data-paint') ?? '{}',
+        );
+        expect(paint['line-color']).toBe('#ff9a3c');
+        expect(paint['line-dasharray']).toEqual([0.5, 2]);
+    });
+
+    it('draws highlighted legs fully opaque and dims the rest to half opacity', () => {
+        const withGeometry: Partial<WorkdayLeg> = {
+            geometry: [
+                [48.9, 2.3],
+                [48.85, 2.35],
+            ],
+        };
+        const { container } = render(
+            <WorkdayLayer
+                legs={[
+                    leg({ highlight: true }),
+                    leg({ highlight: false }),
+                    // Same emphasis whether or not the leg already has road geometry.
+                    leg({ highlight: false, ...withGeometry }),
+                    leg({ highlight: true, ...withGeometry }),
+                ]}
+            />,
+        );
+
+        const opacities = Array.from(
+            container.querySelectorAll('[data-testid="layer"]'),
+        ).map(
+            (layer) =>
+                JSON.parse(layer.getAttribute('data-paint') ?? '{}')[
+                    'line-opacity'
+                ],
+        );
+        expect(opacities).toEqual([1, 0.5, 0.5, 1]);
     });
 
     it('dashes connection legs and keeps tour legs solid, always explicitly', () => {

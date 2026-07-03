@@ -17,6 +17,7 @@ final class WorkdayLeg
      * @param  array<int, array{0: float, 1: float}>  $path  straight-line fallback points
      * @param  array<int, array{0: float, 1: float}>|null  $geometry  decoded road coordinates, null when the client traces lazily
      * @param  bool  $loop  trace flag, true only for a looping tour leg
+     * @param  bool  $highlight  true only for a connection bracketing the candidate tour; drawn in the primary role color
      */
     public function __construct(
         public readonly string $kind,
@@ -24,12 +25,13 @@ final class WorkdayLeg
         public readonly array $path,
         public readonly ?array $geometry,
         public readonly bool $loop,
+        public readonly bool $highlight = false,
     ) {}
 
     /**
      * @param  array<int, array{0: float, 1: float}>|null  $geometry
      */
-    public static function connection(Coordinate $from, Coordinate $to, ?array $geometry): self
+    public static function connection(Coordinate $from, Coordinate $to, ?array $geometry, bool $highlight = false): self
     {
         return new self(
             kind: self::KIND_CONNECTION,
@@ -37,6 +39,7 @@ final class WorkdayLeg
             path: [[$from->lat, $from->lng], [$to->lat, $to->lng]],
             geometry: $geometry,
             loop: false,
+            highlight: $highlight,
         );
     }
 
@@ -60,7 +63,8 @@ final class WorkdayLeg
      *     dotted: bool,
      *     path: array<int, array{0: float, 1: float}>,
      *     geometry: array<int, array{0: float, 1: float}>|null,
-     *     loop: bool
+     *     loop: bool,
+     *     highlight: bool
      * }
      */
     public function toArray(): array
@@ -71,6 +75,7 @@ final class WorkdayLeg
             'path' => $this->path,
             'geometry' => $this->geometry,
             'loop' => $this->loop,
+            'highlight' => $this->highlight,
         ];
     }
 }
