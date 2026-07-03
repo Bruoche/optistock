@@ -17,17 +17,32 @@ import type {
 type TracedPath = Array<[number, number]>;
 
 // A failed hop keeps its straight segment, mirroring useTourGeometry's composition.
+// Hops beyond the leg's own points (a malformed trace response) are dropped
+// rather than pushing undefined coordinates into the map layer.
 function composeLegPath(leg: WorkdayLeg, geometry: TourGeometry): TracedPath {
     const path: TracedPath = [];
     geometry.legs.forEach((geoLeg, index) => {
         if (geoLeg.ok) {
             path.push(...geoLeg.coordinates);
-        } else {
-            path.push(leg.path[index], leg.path[(index + 1) % leg.path.length]);
+            return;
+        }
+
+        const from = leg.path[index];
+        const to = leg.path[(index + 1) % leg.path.length];
+        if (from && to) {
+            path.push(from, to);
         }
     });
 
     return path;
+}
+
+// A leg whose points all coincide (warehouse at the very stop) has nothing to
+// trace — the zero-length straight display is already exact.
+function allPointsCoincide(path: TracedPath): boolean {
+    const [[firstLat, firstLng]] = path;
+
+    return path.every(([lat, lng]) => lat === firstLat && lng === firstLng);
 }
 
 export function useWorkdayPreview(
@@ -50,7 +65,11 @@ export function useWorkdayPreview(
         }
 
         driver.legs.forEach(async (leg, index) => {
-            if (leg.geometry !== null || leg.path.length < 2) {
+            if (
+                leg.geometry !== null ||
+                leg.path.length < 2 ||
+                allPointsCoincide(leg.path)
+            ) {
                 return;
             }
 

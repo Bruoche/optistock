@@ -144,6 +144,71 @@ describe('useWorkdayPreview', () => {
         expect(result.current[0].path).toEqual(failing.path);
     });
 
+    it('does not trace a coincident leg — its zero-length straight display is already exact', async () => {
+        mockPostJson.mockResolvedValue(
+            geometryResponse([
+                [48.7, 2.1],
+                [48.71, 2.11],
+            ]),
+        );
+        const coincident = leg({
+            kind: 'connection',
+            dotted: true,
+            path: [
+                [48.7, 2.1],
+                [48.7, 2.1],
+            ],
+        });
+        const selected = driver(1, [coincident, leg()]);
+
+        renderHook(() => useWorkdayPreview(selected, 'driving', 'load-1'));
+
+        await waitFor(() => expect(mockPostJson).toHaveBeenCalledTimes(1));
+        expect(mockPostJson).toHaveBeenCalledWith('/api/tour/geometry', {
+            stops: selected.legs[1].path,
+            mode: 'driving',
+            loop: false,
+        });
+    });
+
+    it('drops trace hops beyond the leg points instead of drawing undefined coordinates', async () => {
+        // Malformed response: three hops for a two-point leg. The overflow hop
+        // must be dropped, not pushed as undefined into the drawn path.
+        mockPostJson.mockResolvedValue({
+            ok: true,
+            json: async () => ({
+                legs: [
+                    {
+                        ok: true,
+                        coordinates: [
+                            [48.7, 2.1],
+                            [48.71, 2.11],
+                        ],
+                        distance_m: 1,
+                        duration_s: 1,
+                    },
+                    { ok: false },
+                    { ok: false },
+                ],
+                total_distance_m: null,
+                total_duration_s: null,
+            }),
+        });
+        const selected = driver(1, [leg()]);
+
+        const { result } = renderHook(() =>
+            useWorkdayPreview(selected, 'driving', 'load-1'),
+        );
+
+        await waitFor(() => expect(result.current[0].geometry).not.toBeNull());
+        expect(result.current[0].geometry).toEqual([
+            [48.7, 2.1],
+            [48.71, 2.11],
+            [48.71, 2.11],
+            [48.7, 2.1],
+        ]);
+    });
+
     it('drops a trace that resolves after the selection switched', async () => {
         const slow = deferred<unknown>();
         mockPostJson.mockReturnValueOnce(slow.promise);

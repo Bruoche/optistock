@@ -6,6 +6,8 @@ use App\Exceptions\TourGeometryException;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Factory as HttpFactory;
 use Illuminate\Http\Client\Response;
+use Illuminate\Support\Facades\Log;
+use Throwable;
 
 /**
  * Thin client for the OpenStreet /route endpoint — the road path of ONE leg.
@@ -107,15 +109,33 @@ class OpenStreetRouteClient
             return null;
         }
 
-        $polyline = $body['polyline'] ?? null;
-
         return [
-            'coordinates' => is_string($polyline) && $polyline !== ''
-                ? $this->decoder->decode($polyline, $this->precision)
-                : null,
+            'coordinates' => $this->decodedOrNull($body['polyline'] ?? null),
             'distance_m' => (int) ($body['total_distance'] ?? 0),
             'duration_s' => (int) ($body['total_time'] ?? 0),
         ];
+    }
+
+    /**
+     * Decoded polyline coordinates, or null when absent or undecodable. A malformed
+     * polyline must not fail the whole pooled batch — the leg degrades to its
+     * straight-line display exactly like an unroutable one, and the metrics survive.
+     *
+     * @return array<int, array{0: float, 1: float}>|null
+     */
+    private function decodedOrNull(mixed $polyline): ?array
+    {
+        if (! is_string($polyline) || $polyline === '') {
+            return null;
+        }
+
+        try {
+            return $this->decoder->decode($polyline, $this->precision);
+        } catch (Throwable $e) {
+            Log::warning('Connection polyline could not be decoded', ['error' => $e->getMessage()]);
+
+            return null;
+        }
     }
 
     /**

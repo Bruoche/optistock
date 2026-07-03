@@ -151,6 +151,23 @@ class TravelTimeServiceTest extends TestCase
         Http::assertSentCount(1);
     }
 
+    public function test_a_malformed_polyline_keeps_the_duration_null_geometry_and_warns(): void
+    {
+        // '_' is a truncated varint: decoding it overruns the string. The batch
+        // must survive with the leg's metrics intact and only its geometry lost.
+        Http::fake(['*' => Http::response($this->okResponse(345) + ['polyline' => '_'])]);
+        Log::spy();
+        $a = new Coordinate(1.0, 1.0);
+        $b = new Coordinate(2.0, 2.0);
+
+        $service = $this->service();
+        $service->preload([[$a, $b]], 'trucking');
+
+        $this->assertNull($service->geometryBetween($a, $b, 'trucking'));
+        $this->assertSame(345, $service->durationBetween($a, $b, 'trucking'));
+        Log::shouldHaveReceived('warning')->once();
+    }
+
     public function test_a_connection_without_a_polyline_keeps_its_duration_and_null_geometry(): void
     {
         Http::fake(['*' => Http::response($this->okResponse(345))]);
