@@ -1,8 +1,9 @@
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read the current plan:
-`specs/014-driver-workday-preview/plan.md` (map preview of a selected driver's projected workday legs + "Assign Driver" button;
+`specs/015-projected-path-emphasis/plan.md` (recolor the candidate tour's two bracketing connection legs to primary orange + dim other workday legs to 50%; adds a `highlight` flag to each leg;
 design artifacts: `research.md`, `data-model.md`, `contracts/driver-workday.md`, `quickstart.md`). Prior features:
+`specs/014-driver-workday-preview/plan.md` (map preview of a selected driver's projected workday legs + "Assign Driver" button),
 `specs/013-inter-tour-travel/plan.md` (warehouse origin + chained driver workday incl. inter-tour travel & start/end stop selection),
 `specs/012-tour-driver-assignment/plan.md` (assign tours to drivers + persist tours/stops),
 `specs/011-weekday-label/plan.md` (driver schedule filtering & selected-weekday label),
