@@ -148,13 +148,13 @@ describe('WorkdayLayer', () => {
         ).map((source) => source.getAttribute('data-id'));
         expect(sourceIds).toEqual(['workday-connection-0', 'workday-tour-1']);
 
-        Array.from(
-            container.querySelectorAll('[data-testid="layer"]'),
-        ).forEach((layer) => {
-            expect(layer.getAttribute('data-before-id')).toBe(
-                'tour-route-line',
-            );
-        });
+        Array.from(container.querySelectorAll('[data-testid="layer"]')).forEach(
+            (layer) => {
+                expect(layer.getAttribute('data-before-id')).toBe(
+                    'tour-route-line',
+                );
+            },
+        );
     });
 
     it('skips a degenerate leg with fewer than two points', () => {
