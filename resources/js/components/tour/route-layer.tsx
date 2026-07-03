@@ -28,6 +28,9 @@ function primaryColor(): string {
     return value || PRIMARY_FALLBACK;
 }
 
+/** The candidate tour's MapLibre layer id — overlays anchor below it via beforeId. */
+export const TOUR_ROUTE_LAYER_ID = 'tour-route-line';
+
 export function RouteLayer({ path, closed = true }: RouteLayerProps) {
     if (path.length < 2) {
         return null;
@@ -48,7 +51,7 @@ export function RouteLayer({ path, closed = true }: RouteLayerProps) {
     return (
         <Source id="tour-route" type="geojson" data={geojson}>
             <Layer
-                id="tour-route-line"
+                id={TOUR_ROUTE_LAYER_ID}
                 type="line"
                 layout={{ 'line-cap': 'round', 'line-join': 'round' }}
                 paint={{ 'line-color': primaryColor(), 'line-width': 4 }}

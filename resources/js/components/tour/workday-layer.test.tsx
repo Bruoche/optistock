@@ -23,7 +23,11 @@ vi.mock('react-map-gl/maplibre', () => ({
         </div>
     ),
     Layer: (props: Record<string, unknown>) => (
-        <div data-testid="layer" data-paint={JSON.stringify(props.paint)} />
+        <div
+            data-testid="layer"
+            data-paint={JSON.stringify(props.paint)}
+            data-before-id={String(props.beforeId)}
+        />
     ),
 }));
 
@@ -110,7 +114,7 @@ describe('WorkdayLayer', () => {
         });
     });
 
-    it('dashes connection legs and keeps tour legs solid, per the dotted flag', () => {
+    it('dashes connection legs and keeps tour legs solid, always explicitly', () => {
         const { container } = render(
             <WorkdayLayer
                 legs={[
@@ -123,8 +127,34 @@ describe('WorkdayLayer', () => {
         const paints = Array.from(
             container.querySelectorAll('[data-testid="layer"]'),
         ).map((layer) => JSON.parse(layer.getAttribute('data-paint') ?? '{}'));
-        expect(paints[0]['line-dasharray']).toBeDefined();
-        expect(paints[1]['line-dasharray']).toBeUndefined();
+        expect(paints[0]['line-dasharray']).toEqual([0.5, 2]);
+        // Solid is an explicit dash too — omitting the property would leave its
+        // reset to paint diffing and pop patterns on layer updates.
+        expect(paints[1]['line-dasharray']).toEqual([1, 0]);
+    });
+
+    it('keys each leg by its kind and anchors it below the candidate route layer', () => {
+        const { container } = render(
+            <WorkdayLayer
+                legs={[
+                    leg({ kind: 'connection', dotted: true }),
+                    leg({ kind: 'tour', dotted: false }),
+                ]}
+            />,
+        );
+
+        const sourceIds = Array.from(
+            container.querySelectorAll('[data-testid="source"]'),
+        ).map((source) => source.getAttribute('data-id'));
+        expect(sourceIds).toEqual(['workday-connection-0', 'workday-tour-1']);
+
+        Array.from(
+            container.querySelectorAll('[data-testid="layer"]'),
+        ).forEach((layer) => {
+            expect(layer.getAttribute('data-before-id')).toBe(
+                'tour-route-line',
+            );
+        });
     });
 
     it('skips a degenerate leg with fewer than two points', () => {
