@@ -1,13 +1,18 @@
-import { render, screen } from '@testing-library/react';
+﻿import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { ResultSummary } from './result-summary';
-import type { TourResult } from '@/types/tour';
+import type { Driver, TourResult } from '@/types/tour';
 
 const mockUseTourDrivers = vi.fn();
+const mockAssign = vi.fn();
 
 vi.mock('@/hooks/use-tour-drivers', () => ({
     useTourDrivers: (mode: string, date: string) =>
         mockUseTourDrivers(mode, date),
+}));
+
+vi.mock('@/hooks/use-assign-driver', () => ({
+    useAssignDriver: () => ({ assign: mockAssign }),
 }));
 
 const DATE = '2026-07-06';
@@ -22,21 +27,45 @@ const result: TourResult = {
     total_duration_s: 600,
 };
 
+function driver(overrides: Partial<Driver> = {}): Driver {
+    return {
+        id: 1,
+        name: 'Amelie',
+        imageUrl: null,
+        modes: ['driving'],
+        warehouseName: 'North Depot',
+        projectedSeconds: 0,
+        projectedIncomplete: false,
+        startIndex: 0,
+        legs: [],
+        ...overrides,
+    };
+}
+
+function renderSummary(
+    props: Partial<React.ComponentProps<typeof ResultSummary>> = {},
+) {
+    return render(
+        <ResultSummary
+            result={result}
+            waitTimeS={0}
+            mode="driving"
+            date={DATE}
+            selectedDriver={null}
+            onSelectDriver={() => {}}
+            onDateChange={() => {}}
+            onReset={() => {}}
+            onAssigned={() => {}}
+            {...props}
+        />,
+    );
+}
+
 describe('ResultSummary', () => {
     it('renders the DriverList for the optimized mode', () => {
         mockUseTourDrivers.mockReturnValue({ drivers: [], status: 'ready' });
 
-        render(
-            <ResultSummary
-                result={result}
-                waitTimeS={0}
-                mode="driving"
-                date={DATE}
-                onDateChange={() => {}}
-                onReset={() => {}}
-                onAssigned={() => {}}
-            />,
-        );
+        renderSummary();
 
         // ResultSummary mounts DriverList (empty state proves it rendered) for the mode + date.
         expect(mockUseTourDrivers).toHaveBeenCalledWith('driving', DATE);
@@ -57,17 +86,7 @@ describe('ResultSummary', () => {
         mockUseTourDrivers.mockReturnValue({ drivers: [], status: 'ready' });
 
         // total_duration_s 600 (10 min) + waitTimeS 2400 (40 min) → Tour duration 50 min.
-        render(
-            <ResultSummary
-                result={result}
-                waitTimeS={2400}
-                mode="driving"
-                date={DATE}
-                onDateChange={() => {}}
-                onReset={() => {}}
-                onAssigned={() => {}}
-            />,
-        );
+        renderSummary({ waitTimeS: 2400 });
 
         expect(figureValue(/time on road/i)).toBe('10 min');
         expect(figureValue(/tour duration/i)).toBe('50 min');
@@ -75,19 +94,11 @@ describe('ResultSummary', () => {
 
     it('treats an unavailable Time on road as 0 toward Tour duration (FR-011)', () => {
         mockUseTourDrivers.mockReturnValue({ drivers: [], status: 'ready' });
-        const noMetrics: TourResult = { ...result, total_duration_s: null };
 
-        render(
-            <ResultSummary
-                result={noMetrics}
-                waitTimeS={1500}
-                mode="driving"
-                date={DATE}
-                onDateChange={() => {}}
-                onReset={() => {}}
-                onAssigned={() => {}}
-            />,
-        );
+        renderSummary({
+            result: { ...result, total_duration_s: null },
+            waitTimeS: 1500,
+        });
 
         expect(figureValue(/time on road/i)).toBe('Unavailable');
         expect(figureValue(/tour duration/i)).toBe('25 min');
@@ -95,22 +106,108 @@ describe('ResultSummary', () => {
 
     it('uses road metrics for both figures once they arrive (FR-008)', () => {
         mockUseTourDrivers.mockReturnValue({ drivers: [], status: 'ready' });
-        const noMetrics: TourResult = { ...result, total_duration_s: null };
 
-        render(
-            <ResultSummary
-                result={noMetrics}
-                roadMetrics={{ distance_m: 5000, duration_s: 1200 }}
-                waitTimeS={1500}
-                mode="driving"
-                date={DATE}
-                onDateChange={() => {}}
-                onReset={() => {}}
-                onAssigned={() => {}}
-            />,
-        );
+        renderSummary({
+            result: { ...result, total_duration_s: null },
+            roadMetrics: { distance_m: 5000, duration_s: 1200 },
+            waitTimeS: 1500,
+        });
 
         expect(figureValue(/time on road/i)).toBe('20 min');
         expect(figureValue(/tour duration/i)).toBe('45 min');
+    });
+
+    it('disables Assign Driver while no driver is selected, right of New tour', () => {
+        mockUseTourDrivers.mockReturnValue({ drivers: [], status: 'ready' });
+
+        renderSummary();
+
+        const assignButton = screen.getByRole('button', {
+            name: /assign driver/i,
+        });
+        expect(assignButton).toBeDisabled();
+
+        const newTourButton = screen.getByRole('button', {
+            name: /new tour/i,
+        });
+        expect(
+            newTourButton.compareDocumentPosition(assignButton) &
+                Node.DOCUMENT_POSITION_FOLLOWING,
+        ).toBeTruthy();
+    });
+
+    it('enables Assign Driver once a driver is selected and opens the confirmation dialog', async () => {
+        const selected = driver();
+        mockUseTourDrivers.mockReturnValue({
+            drivers: [selected],
+            status: 'ready',
+        });
+
+        renderSummary({ selectedDriver: selected });
+
+        const assignButton = screen.getByRole('button', {
+            name: /assign driver/i,
+        });
+        expect(assignButton).toBeEnabled();
+
+        fireEvent.click(assignButton);
+        expect(screen.getByRole('dialog')).toBeInTheDocument();
+        expect(screen.getByText(/assign this delivery/i)).toBeInTheDocument();
+    });
+
+    it('hides the driver rows from interaction while the dialog is open (one confirmation at a time)', async () => {
+        const selected = driver();
+        mockUseTourDrivers.mockReturnValue({
+            drivers: [selected],
+            status: 'ready',
+        });
+
+        renderSummary({ selectedDriver: selected });
+        fireEvent.click(screen.getByRole('button', { name: /assign driver/i }));
+
+        // The modal removes the page behind it from the accessibility tree, so
+        // no driver row can be clicked while the confirmation is open.
+        expect(
+            screen.queryByRole('button', { name: /Amelie/ }),
+        ).not.toBeInTheDocument();
+    });
+
+    it('cancelling the dialog keeps the selection and assigns nothing', async () => {
+        const selected = driver();
+        const onSelectDriver = vi.fn();
+        const onAssigned = vi.fn();
+        mockUseTourDrivers.mockReturnValue({
+            drivers: [selected],
+            status: 'ready',
+        });
+
+        renderSummary({ selectedDriver: selected, onSelectDriver, onAssigned });
+        fireEvent.click(screen.getByRole('button', { name: /assign driver/i }));
+        fireEvent.click(screen.getByRole('button', { name: /cancel/i }));
+
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+        expect(mockAssign).not.toHaveBeenCalled();
+        expect(onAssigned).not.toHaveBeenCalled();
+        expect(onSelectDriver).not.toHaveBeenCalled();
+        expect(
+            screen.getByRole('button', { name: /assign driver/i }),
+        ).toBeEnabled();
+    });
+
+    it('confirming assigns the selected driver and fires onAssigned', async () => {
+        const selected = driver();
+        const onAssigned = vi.fn();
+        mockAssign.mockResolvedValue(true);
+        mockUseTourDrivers.mockReturnValue({
+            drivers: [selected],
+            status: 'ready',
+        });
+
+        renderSummary({ selectedDriver: selected, onAssigned });
+        fireEvent.click(screen.getByRole('button', { name: /assign driver/i }));
+        fireEvent.click(screen.getByRole('button', { name: /confirm/i }));
+
+        expect(mockAssign).toHaveBeenCalledWith(selected.id, DATE, 0);
+        await waitFor(() => expect(onAssigned).toHaveBeenCalled());
     });
 });

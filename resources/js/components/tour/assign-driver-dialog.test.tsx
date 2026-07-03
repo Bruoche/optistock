@@ -24,6 +24,7 @@ const driver: Driver = {
     projectedSeconds: 0,
     projectedIncomplete: false,
     startIndex: 3,
+    legs: [],
 };
 
 const DATE = '2026-07-06';

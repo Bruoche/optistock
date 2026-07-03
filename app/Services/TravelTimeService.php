@@ -7,11 +7,11 @@ use Illuminate\Http\Client\Pool;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Log;
 
-/** Road travel duration between points, de-duplicated and fetched in capped concurrent batches. */
+/** Road travel duration and geometry between points, de-duplicated and fetched in capped concurrent batches. */
 class TravelTimeService
 {
-    /** @var array<string, int|null> connectionKey → duration seconds (null = unroutable) */
-    private array $durationByConnection = [];
+    /** @var array<string, array{duration_s: int|null, coordinates: array<int, array{0: float, 1: float}>|null}> connectionKey → leg (null duration = unroutable) */
+    private array $legByConnection = [];
 
     public function __construct(
         private readonly HttpFactory $http,
@@ -20,7 +20,7 @@ class TravelTimeService
     ) {}
 
     /**
-     * Fetch the distinct, not-yet-fetched connections into the duration map (capped concurrent batches).
+     * Fetch the distinct, not-yet-fetched connections into the leg map (capped concurrent batches).
      *
      * @param  array<int, array{0: Coordinate, 1: Coordinate}>  $connections
      */
@@ -29,11 +29,11 @@ class TravelTimeService
         $connectionsToFetch = [];
         foreach ($connections as [$from, $to]) {
             $key = $this->connectionKey($from, $to, $mode);
-            if (array_key_exists($key, $this->durationByConnection) || isset($connectionsToFetch[$key])) {
+            if (array_key_exists($key, $this->legByConnection) || isset($connectionsToFetch[$key])) {
                 continue;
             }
             if ($from->isSameAs($to)) {
-                $this->durationByConnection[$key] = 0;
+                $this->legByConnection[$key] = ['duration_s' => 0, 'coordinates' => null];
 
                 continue;
             }
@@ -48,16 +48,31 @@ class TravelTimeService
     /** Road seconds between two points (0 for coincident, null when unroutable). */
     public function durationBetween(Coordinate $from, Coordinate $to, ?string $mode = null): ?int
     {
-        if ($from->isSameAs($to)) {
-            return 0;
-        }
+        return $this->legBetween($from, $to, $mode)['duration_s'];
+    }
 
+    /**
+     * Decoded road coordinates between two points (null when unroutable or coincident —
+     * nothing to draw).
+     *
+     * @return array<int, array{0: float, 1: float}>|null
+     */
+    public function geometryBetween(Coordinate $from, Coordinate $to, ?string $mode = null): ?array
+    {
+        return $this->legBetween($from, $to, $mode)['coordinates'];
+    }
+
+    /**
+     * @return array{duration_s: int|null, coordinates: array<int, array{0: float, 1: float}>|null}
+     */
+    private function legBetween(Coordinate $from, Coordinate $to, ?string $mode): array
+    {
         $key = $this->connectionKey($from, $to, $mode);
-        if (! array_key_exists($key, $this->durationByConnection)) {
+        if (! array_key_exists($key, $this->legByConnection)) {
             $this->preload([[$from, $to]], $mode);
         }
 
-        return $this->durationByConnection[$key];
+        return $this->legByConnection[$key];
     }
 
     /**
@@ -78,13 +93,13 @@ class TravelTimeService
 
         foreach ($batch as $key => [$from, $to]) {
             // The pool yields a ConnectionException instead of a Response when a
-            // request cannot connect or times out — same outcome: duration unknown.
+            // request cannot connect or times out — same outcome: leg unknown.
             $response = $responses[$key];
-            $duration = $response instanceof Response
-                ? $this->client->durationFromResponse($response)
+            $leg = $response instanceof Response
+                ? $this->client->legFromResponse($response)
                 : null;
 
-            if ($duration === null) {
+            if ($leg === null) {
                 Log::warning('Inter-tour connection could not be routed', [
                     'origin' => $from->toQueryValue(),
                     'destination' => $to->toQueryValue(),
@@ -94,7 +109,10 @@ class TravelTimeService
                         : $response->getMessage(),
                 ]);
             }
-            $this->durationByConnection[$key] = $duration;
+            $this->legByConnection[$key] = [
+                'duration_s' => $leg['duration_s'] ?? null,
+                'coordinates' => $leg['coordinates'] ?? null,
+            ];
         }
     }
 

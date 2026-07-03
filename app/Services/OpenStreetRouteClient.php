@@ -6,6 +6,8 @@ use App\Exceptions\TourGeometryException;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Factory as HttpFactory;
 use Illuminate\Http\Client\Response;
+use Illuminate\Support\Facades\Log;
+use Throwable;
 
 /**
  * Thin client for the OpenStreet /route endpoint — the road path of ONE leg.
@@ -85,10 +87,18 @@ class OpenStreetRouteClient
     }
 
     /**
-     * Leg road duration (seconds), or null when unroutable. Never throws (the pooled
-     * caller maps many responses and logs its own misses).
+     * One leg parsed from a pooled response, or null when unroutable. Never throws
+     * (the pooled caller maps many responses and logs its own misses). Unlike
+     * `traceLeg`, a missing polyline is tolerated: the metrics stay usable and only
+     * the coordinates are null.
+     *
+     * @return array{
+     *     coordinates: array<int, array{0: float, 1: float}>|null,
+     *     distance_m: int,
+     *     duration_s: int
+     * }|null
      */
-    public function durationFromResponse(Response $response): ?int
+    public function legFromResponse(Response $response): ?array
     {
         if ($response->failed()) {
             return null;
@@ -99,7 +109,33 @@ class OpenStreetRouteClient
             return null;
         }
 
-        return (int) ($body['total_time'] ?? 0);
+        return [
+            'coordinates' => $this->decodedOrNull($body['polyline'] ?? null),
+            'distance_m' => (int) ($body['total_distance'] ?? 0),
+            'duration_s' => (int) ($body['total_time'] ?? 0),
+        ];
+    }
+
+    /**
+     * Decoded polyline coordinates, or null when absent or undecodable. A malformed
+     * polyline must not fail the whole pooled batch — the leg degrades to its
+     * straight-line display exactly like an unroutable one, and the metrics survive.
+     *
+     * @return array<int, array{0: float, 1: float}>|null
+     */
+    private function decodedOrNull(mixed $polyline): ?array
+    {
+        if (! is_string($polyline) || $polyline === '') {
+            return null;
+        }
+
+        try {
+            return $this->decoder->decode($polyline, $this->precision);
+        } catch (Throwable $e) {
+            Log::warning('Connection polyline could not be decoded', ['error' => $e->getMessage()]);
+
+            return null;
+        }
     }
 
     /**

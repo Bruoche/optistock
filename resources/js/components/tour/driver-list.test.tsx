@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DriverList } from './driver-list';
 import type { Driver } from '@/types/tour';
@@ -20,6 +20,7 @@ function driver(overrides: Partial<Driver> = {}): Driver {
         projectedSeconds: 0,
         projectedIncomplete: false,
         startIndex: 0,
+        legs: [],
         ...overrides,
     };
 }
@@ -32,7 +33,8 @@ function renderList(
             mode="driving"
             date="2026-07-06"
             tourId={42}
-            onAssigned={() => {}}
+            selectedDriver={null}
+            onSelect={() => {}}
             {...props}
         />,
     );
@@ -144,7 +146,7 @@ describe('DriverList', () => {
         expect(screen.getByText(/≥/)).toBeInTheDocument();
     });
 
-    it('rows are buttons (keyboard-focusable, clickable to assign)', () => {
+    it('rows are buttons (keyboard-focusable, clickable to select)', () => {
         mockUseTourDrivers.mockReturnValue({
             status: 'ready',
             drivers: [driver({ name: 'Amelie' })],
@@ -154,5 +156,47 @@ describe('DriverList', () => {
         expect(
             screen.getByRole('button', { name: /Amelie/ }),
         ).toBeInTheDocument();
+    });
+
+    it('clicking a row reports the driver to onSelect and opens no dialog', () => {
+        const drivers = [driver({ name: 'Amelie' })];
+        mockUseTourDrivers.mockReturnValue({ status: 'ready', drivers });
+        const onSelect = vi.fn();
+
+        renderList({ onSelect });
+        fireEvent.click(screen.getByRole('button', { name: /Amelie/ }));
+
+        expect(onSelect).toHaveBeenCalledWith(drivers[0]);
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
+
+    it('clicking the already-selected row reports it again so the owner can deselect', () => {
+        const drivers = [driver({ name: 'Amelie' })];
+        mockUseTourDrivers.mockReturnValue({ status: 'ready', drivers });
+        const onSelect = vi.fn();
+
+        renderList({ onSelect, selectedDriver: drivers[0] });
+        fireEvent.click(screen.getByRole('button', { name: /Amelie/ }));
+
+        expect(onSelect).toHaveBeenCalledWith(drivers[0]);
+    });
+
+    it('marks only the selected row as pressed', () => {
+        const drivers = [
+            driver({ id: 1, name: 'Amelie' }),
+            driver({ id: 2, name: 'Bruno' }),
+        ];
+        mockUseTourDrivers.mockReturnValue({ status: 'ready', drivers });
+
+        renderList({ selectedDriver: drivers[0] });
+
+        expect(screen.getByRole('button', { name: /Amelie/ })).toHaveAttribute(
+            'aria-pressed',
+            'true',
+        );
+        expect(screen.getByRole('button', { name: /Bruno/ })).toHaveAttribute(
+            'aria-pressed',
+            'false',
+        );
     });
 });
