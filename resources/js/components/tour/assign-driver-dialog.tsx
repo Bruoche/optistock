@@ -1,16 +1,8 @@
 // Feature 012: confirmation before assigning the current tour to a driver. Built on
-// the shared Dialog primitive; open when a driver is selected. Confirm assigns and
+// the shared ConfirmDialog; open when a driver is selected. Confirm assigns and
 // calls onAssigned (which clears the tour); Cancel/dismiss closes with no assignment.
 import { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from '@/components/ui/dialog';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useAssignDriver } from '@/hooks/use-assign-driver';
 import type { Driver } from '@/types/tour';
 
@@ -57,29 +49,19 @@ export function AssignDriverDialog({
     }
 
     return (
-        <Dialog open={driver !== null} onOpenChange={onOpenChange}>
-            <DialogContent>
-                <DialogHeader>
-                    <DialogTitle>Assign this delivery?</DialogTitle>
-                    <DialogDescription>
-                        Assign the optimized tour to{' '}
-                        <span className="font-semibold">{driver?.name}</span>{' '}
-                        for {date}.
-                    </DialogDescription>
-                </DialogHeader>
-                <DialogFooter>
-                    <Button
-                        variant="outline"
-                        onClick={() => onOpenChange(false)}
-                        disabled={pending}
-                    >
-                        Cancel
-                    </Button>
-                    <Button onClick={handleConfirm} disabled={pending}>
-                        Confirm
-                    </Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
+        <ConfirmDialog
+            open={driver !== null}
+            onOpenChange={onOpenChange}
+            title="Assign this delivery?"
+            description={
+                <>
+                    Assign the optimized tour to{' '}
+                    <span className="font-semibold">{driver?.name}</span> for{' '}
+                    {date}.
+                </>
+            }
+            pending={pending}
+            onConfirm={handleConfirm}
+        />
     );
 }

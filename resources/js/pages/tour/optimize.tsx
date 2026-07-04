@@ -36,6 +36,10 @@ export default function TourOptimize() {
     const [loop, setLoop] = useState<boolean>(true);
     // Tour date (011); defaults to today and persists across resets, like mode/loop.
     const [tourDate, setTourDate] = useState<string>(todayDate);
+    // Mode chosen in the result view (016); null follows the tour's optimization mode.
+    // Switching it reloads the driver list only — the tour is never re-optimized.
+    const [presentationMode, setPresentationMode] =
+        useState<DeliveryMode | null>(null);
     // The driver whose projected workday is previewed on the map (014); row click
     // toggles, and any change that reloads the driver list clears it (FR-012).
     const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null);
@@ -51,8 +55,14 @@ export default function TourOptimize() {
         setTourDate(date);
     }
 
+    function changeDriverMode(nextMode: DeliveryMode) {
+        setSelectedDriver(null);
+        setPresentationMode(nextMode);
+    }
+
     function resetTour() {
         setSelectedDriver(null);
+        setPresentationMode(null);
         reset();
     }
 
@@ -63,18 +73,23 @@ export default function TourOptimize() {
 
     // Geometry uses the mode + loop the shown tour was optimized with, not the live controls (FR-007).
     const doneResult = state.status === 'done' ? state.result : null;
+    const optimizationMode = state.status === 'done' ? state.mode : mode;
     const geometry = useTourGeometry(
         doneResult,
-        state.status === 'done' ? state.mode : mode,
+        optimizationMode,
         state.status === 'done' ? state.loop : loop,
     );
 
+    // Driver list + preview follow the result-view mode (016); the tour geometry above
+    // stays on the optimization mode — switching never re-optimizes/re-traces it.
+    const effectiveDriverMode = presentationMode ?? optimizationMode;
+
     // Best-available workday legs for the previewed driver (014): straight lines
-    // first, road paths as their lazy traces land. Keyed per driver-list load.
+    // first, road paths as their lazy traces land. Keyed per driver-list load (mode included).
     const previewLegs = useWorkdayPreview(
         selectedDriver,
-        state.status === 'done' ? state.mode : mode,
-        `${doneResult?.id ?? 0}:${tourDate}`,
+        effectiveDriverMode,
+        `${doneResult?.id ?? 0}:${tourDate}:${effectiveDriverMode}`,
     );
 
     return (
@@ -106,7 +121,8 @@ export default function TourOptimize() {
                             result={state.result}
                             roadMetrics={geometry.metrics}
                             waitTimeS={waitTimeS}
-                            mode={state.mode}
+                            driverMode={effectiveDriverMode}
+                            onDriverModeChange={changeDriverMode}
                             date={tourDate}
                             selectedDriver={selectedDriver}
                             onSelectDriver={toggleDriver}

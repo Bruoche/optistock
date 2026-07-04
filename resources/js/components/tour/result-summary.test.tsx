@@ -1,7 +1,14 @@
 ﻿import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { ResultSummary } from './result-summary';
 import type { Driver, TourResult } from '@/types/tour';
+
+// Radix Select (the result-view mode selector) needs these jsdom shims.
+beforeAll(() => {
+    Element.prototype.hasPointerCapture = vi.fn();
+    Element.prototype.releasePointerCapture = vi.fn();
+    Element.prototype.scrollIntoView = vi.fn();
+});
 
 const mockUseTourDrivers = vi.fn();
 const mockAssign = vi.fn();
@@ -49,7 +56,8 @@ function renderSummary(
         <ResultSummary
             result={result}
             waitTimeS={0}
-            mode="driving"
+            driverMode="driving"
+            onDriverModeChange={() => {}}
             date={DATE}
             selectedDriver={null}
             onSelectDriver={() => {}}
@@ -209,5 +217,59 @@ describe('ResultSummary', () => {
 
         expect(mockAssign).toHaveBeenCalledWith(selected.id, DATE, 0);
         await waitFor(() => expect(onAssigned).toHaveBeenCalled());
+    });
+
+    it('New tour opens a confirmation and does not reset until confirmed (US1)', () => {
+        const onReset = vi.fn();
+        mockUseTourDrivers.mockReturnValue({ drivers: [], status: 'ready' });
+
+        renderSummary({ onReset });
+        fireEvent.click(screen.getByRole('button', { name: /new tour/i }));
+
+        expect(
+            screen.getByText(
+                'Are you sure you want to make a new tour? The tour will remain unassigned.',
+            ),
+        ).toBeInTheDocument();
+        expect(onReset).not.toHaveBeenCalled();
+
+        fireEvent.click(screen.getByRole('button', { name: /confirm/i }));
+        expect(onReset).toHaveBeenCalledTimes(1);
+    });
+
+    it('cancelling the New tour confirmation does not reset (US1)', () => {
+        const onReset = vi.fn();
+        mockUseTourDrivers.mockReturnValue({ drivers: [], status: 'ready' });
+
+        renderSummary({ onReset });
+        fireEvent.click(screen.getByRole('button', { name: /new tour/i }));
+        fireEvent.click(screen.getByRole('button', { name: /cancel/i }));
+
+        expect(onReset).not.toHaveBeenCalled();
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
+
+    it('renders the mode selector for driverMode and feeds it to the driver list (US2)', () => {
+        mockUseTourDrivers.mockReturnValue({ drivers: [], status: 'ready' });
+
+        renderSummary({ driverMode: 'walking' });
+
+        expect(
+            screen.getByRole('combobox', { name: /delivery mode/i }),
+        ).toHaveTextContent('Walking');
+        expect(mockUseTourDrivers).toHaveBeenCalledWith('walking', DATE);
+    });
+
+    it('changing the mode selector calls onDriverModeChange (US2)', () => {
+        const onDriverModeChange = vi.fn();
+        mockUseTourDrivers.mockReturnValue({ drivers: [], status: 'ready' });
+
+        renderSummary({ driverMode: 'trucking', onDriverModeChange });
+        fireEvent.click(
+            screen.getByRole('combobox', { name: /delivery mode/i }),
+        );
+        fireEvent.click(screen.getByRole('option', { name: 'Walking' }));
+
+        expect(onDriverModeChange).toHaveBeenCalledWith('walking');
     });
 });

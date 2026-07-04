@@ -41,6 +41,7 @@ import TourOptimize from './optimize';
 
 beforeAll(() => {
     Element.prototype.hasPointerCapture = vi.fn();
+    Element.prototype.releasePointerCapture = vi.fn();
     Element.prototype.scrollIntoView = vi.fn();
 });
 
@@ -64,7 +65,7 @@ describe('TourOptimize control bar visibility (003)', () => {
         ).toBeInTheDocument();
     });
 
-    it('hides the editing controls once a result is displayed (editing-only, FR-004)', () => {
+    it('hides the editing-only loop toggle + Optimize button once a result is displayed (FR-004)', () => {
         mocks.state = {
             status: 'done',
             result: {
@@ -79,13 +80,29 @@ describe('TourOptimize control bar visibility (003)', () => {
         render(<TourOptimize />);
 
         expect(
-            screen.queryByRole('combobox', { name: /delivery mode/i }),
-        ).not.toBeInTheDocument();
-        expect(
             screen.queryByRole('button', { name: /return to origin/i }),
         ).not.toBeInTheDocument();
         expect(
             screen.queryByRole('button', { name: /optimize route/i }),
         ).not.toBeInTheDocument();
+    });
+
+    it('shows a result-view mode selector defaulting to the tour optimization mode (016)', () => {
+        mocks.state = {
+            status: 'done',
+            result: {
+                id: 1,
+                ordered_stops: [],
+                total_distance_m: 100,
+                total_duration_s: 600,
+            },
+            mode: 'walking',
+            loop: true,
+        };
+        render(<TourOptimize />);
+
+        expect(
+            screen.getByRole('combobox', { name: /delivery mode/i }),
+        ).toHaveTextContent('Walking');
     });
 });
