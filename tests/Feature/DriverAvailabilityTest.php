@@ -357,6 +357,58 @@ class DriverAvailabilityTest extends TestCase
             ->assertJsonPath('data.0.projected_incomplete', true);
     }
 
+    public function test_it_exposes_the_warehouse_coordinate(): void
+    {
+        $this->fakeEveryConnection(60);
+        $user = User::factory()->create();
+        $tour = $this->candidateTour($user, loop: true, travelS: 300);
+        $warehouse = Warehouse::factory()->create(['latitude' => 48.5, 'longitude' => 2.5]);
+        Driver::factory()->for($warehouse)->withModes(['driving'])->withDays(['monday'])->create(['name' => 'Amelie']);
+
+        $this->actingAs($user)
+            ->getJson($this->driversRoute('driving', self::MONDAY, $tour->id))
+            ->assertOk()
+            ->assertJsonPath('data.0.warehouse_coordinate', [48.5, 2.5]);
+    }
+
+    public function test_previous_tour_end_is_null_without_a_prior_tour(): void
+    {
+        $this->fakeEveryConnection(60);
+        $user = User::factory()->create();
+        $tour = $this->candidateTour($user, loop: true, travelS: 300); // total = 600
+        Driver::factory()->withModes(['driving'])->withDays(['monday'])->create(['name' => 'Amelie']);
+
+        // No prior tour → the driver departs from the warehouse, so no "0" origin.
+        // projected_seconds stays 720 (600 + 2×60), unchanged by the added fields.
+        $this->actingAs($user)
+            ->getJson($this->driversRoute('driving', self::MONDAY, $tour->id))
+            ->assertOk()
+            ->assertJsonPath('data.0.previous_tour_end', null)
+            ->assertJsonPath('data.0.projected_seconds', 720);
+    }
+
+    public function test_previous_tour_end_is_the_last_prior_tour_end(): void
+    {
+        $this->fakeEveryConnection(60);
+        $user = User::factory()->create();
+        $tour = $this->candidateTour($user, loop: true, travelS: 300);
+        $driver = Driver::factory()->withModes(['driving'])->withDays(['monday'])->create(['name' => 'Amelie']);
+
+        // A prior tour whose recorded end is a known point → that point is the incoming origin.
+        $prior = Tour::factory()->withMode('driving')->withStops(1)->create(['travel_duration_s' => 500]);
+        $prior->drivers()->sync([$driver->id => [
+            'date' => self::MONDAY,
+            'start_latitude' => 48.70, 'start_longitude' => 2.10,
+            'end_latitude' => 48.71, 'end_longitude' => 2.11,
+            'sequence' => 0,
+        ]]);
+
+        $this->actingAs($user)
+            ->getJson($this->driversRoute('driving', self::MONDAY, $tour->id))
+            ->assertOk()
+            ->assertJsonPath('data.0.previous_tour_end', [48.71, 2.11]);
+    }
+
     public function test_the_database_query_count_does_not_grow_with_drivers_or_prior_tours(): void
     {
         $this->fakeEveryConnection(60);

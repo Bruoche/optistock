@@ -22,6 +22,8 @@ function driver(overrides: Partial<Driver> = {}): Driver {
         timeToTour: null,
         timeFromTour: null,
         startIndex: 0,
+        warehouseCoordinate: [48.85, 2.35],
+        previousTourEnd: null,
         legs: [],
         ...overrides,
     };
@@ -145,14 +147,14 @@ describe('DriverList', () => {
 
         renderList();
 
-        expect(screen.getByText('Road to tour')).toBeInTheDocument();
-        expect(screen.getByText('Road to warehouse')).toBeInTheDocument();
+        expect(screen.getByText('To tour')).toBeInTheDocument();
+        expect(screen.getByText('To warehouse')).toBeInTheDocument();
         // 1320 s → 22 min; null → "Unavailable".
         expect(screen.getByText(/22 min/)).toBeInTheDocument();
         expect(screen.getByText('Unavailable')).toBeInTheDocument();
     });
 
-    it('labels the total "Total projected workday" and orders the three figures (US2)', () => {
+    it('labels the total "Projected workday" and orders the three figures (US2)', () => {
         mockUseTourDrivers.mockReturnValue({
             status: 'ready',
             drivers: [driver({ name: 'Amelie' })],
@@ -160,12 +162,11 @@ describe('DriverList', () => {
 
         renderList();
 
-        expect(screen.getByText('Total projected workday')).toBeInTheDocument();
-        expect(screen.queryByText('Projected')).not.toBeInTheDocument();
+        expect(screen.getByText('Projected workday')).toBeInTheDocument();
 
-        const toTour = screen.getByText('Road to tour');
-        const toWarehouse = screen.getByText('Road to warehouse');
-        const total = screen.getByText('Total projected workday');
+        const toTour = screen.getByText('To tour');
+        const toWarehouse = screen.getByText('To warehouse');
+        const total = screen.getByText('Projected workday');
         expect(
             toTour.compareDocumentPosition(toWarehouse) &
                 Node.DOCUMENT_POSITION_FOLLOWING,

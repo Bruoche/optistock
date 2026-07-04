@@ -167,16 +167,16 @@ export function DriverList({
 
                             <div className="ml-auto flex shrink-0 items-start gap-4 text-right">
                                 <RoadFigure
-                                    label="Road to tour"
+                                    label="To tour"
                                     seconds={driver.timeToTour}
                                 />
                                 <RoadFigure
-                                    label="Road to warehouse"
+                                    label="To warehouse"
                                     seconds={driver.timeFromTour}
                                 />
                                 <div>
                                     <p className="text-xs tracking-wide text-muted-foreground uppercase">
-                                        Total projected workday
+                                        Projected workday
                                     </p>
                                     <p className="flex items-center justify-end gap-1 font-semibold">
                                         {driver.projectedIncomplete && (

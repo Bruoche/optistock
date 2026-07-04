@@ -20,6 +20,8 @@ const apiDriver = (overrides: Record<string, unknown> = {}) => ({
     time_to_tour: 60,
     time_from_tour: 90,
     start_index: 0,
+    warehouse_coordinate: [48.85, 2.35],
+    previous_tour_end: null,
     legs: [],
     ...overrides,
 });
@@ -56,5 +58,40 @@ describe('useTourDrivers', () => {
         await waitFor(() => expect(result.current.status).toBe('ready'));
         expect(result.current.drivers[0].timeToTour).toBeNull();
         expect(result.current.drivers[0].timeFromTour).toBeNull();
+    });
+
+    it('maps warehouse_coordinate and previous_tour_end onto the driver view model', async () => {
+        vi.stubGlobal(
+            'fetch',
+            fakeFetchOnce([
+                apiDriver({
+                    warehouse_coordinate: [48.5, 2.5],
+                    previous_tour_end: [48.71, 2.11],
+                }),
+            ]),
+        );
+
+        const { result } = renderHook(() =>
+            useTourDrivers('driving', '2026-07-06', 42),
+        );
+
+        await waitFor(() => expect(result.current.status).toBe('ready'));
+        expect(result.current.drivers[0].warehouseCoordinate).toEqual([
+            48.5, 2.5,
+        ]);
+        expect(result.current.drivers[0].previousTourEnd).toEqual([
+            48.71, 2.11,
+        ]);
+    });
+
+    it('maps a null previous_tour_end (driver departs from the warehouse)', async () => {
+        vi.stubGlobal('fetch', fakeFetchOnce([apiDriver()]));
+
+        const { result } = renderHook(() =>
+            useTourDrivers('driving', '2026-07-06', 42),
+        );
+
+        await waitFor(() => expect(result.current.status).toBe('ready'));
+        expect(result.current.drivers[0].previousTourEnd).toBeNull();
     });
 });
