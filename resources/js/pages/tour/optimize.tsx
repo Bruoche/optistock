@@ -10,6 +10,7 @@ import { StopList } from '@/components/tour/stop-list';
 import { TourControlBar } from '@/components/tour/tour-control-bar';
 import { TourMap } from '@/components/tour/tour-map';
 import { WorkdayLayer } from '@/components/tour/workday-layer';
+import { WorkdayMarkers } from '@/components/tour/workday-markers';
 import { useTourGeometry } from '@/hooks/use-tour-geometry';
 import { useTourOptimization } from '@/hooks/use-tour-optimization';
 import { useWorkdayPreview } from '@/hooks/use-workday-preview';
@@ -105,6 +106,9 @@ export default function TourOptimize() {
                     >
                         {isDone && selectedDriver && (
                             <WorkdayLayer legs={previewLegs} />
+                        )}
+                        {isDone && selectedDriver && (
+                            <WorkdayMarkers driver={selectedDriver} />
                         )}
                         {isDone && (
                             <RouteLayer

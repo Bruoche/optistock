@@ -81,6 +81,8 @@ class DriverController extends Controller
                 'time_to_tour' => $travelTime->durationBetween($incoming, $projected->start, $mode->value),
                 'time_from_tour' => $travelTime->durationBetween($projected->end, $warehouse, $mode->value),
                 'start_index' => $projected->startIndex,
+                'warehouse_coordinate' => [$warehouse->lat, $warehouse->lng],
+                'previous_tour_end' => $incoming->isSameAs($warehouse) ? null : [$incoming->lat, $incoming->lng],
                 'legs' => array_map(fn (WorkdayLeg $leg): array => $leg->toArray(), $legs),
             ];
         });

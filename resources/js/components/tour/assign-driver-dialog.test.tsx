@@ -26,6 +26,8 @@ const driver: Driver = {
     timeToTour: null,
     timeFromTour: null,
     startIndex: 3,
+    warehouseCoordinate: [48.85, 2.35],
+    previousTourEnd: null,
     legs: [],
 };
 

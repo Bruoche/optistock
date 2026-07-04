@@ -42,6 +42,7 @@
     --color-text-on-color: var(--text-on-color);
 
     --color-route-neutral: var(--route-neutral);
+    --color-route-neutral-foreground: var(--route-neutral-foreground);
 
     --color-destructive: var(--destructive);
     --color-destructive-foreground: var(--destructive-foreground);
@@ -88,6 +89,9 @@
     /* Non-candidate workday paths on the map (014). Dark in both themes: the
        raster map tiles stay light, so a theme-flipped neutral would vanish. */
     --route-neutral: #1a1a1a;
+    /* Glyph drawn on a route-neutral marker fill (018). Near-white in both themes,
+       for the same reason route-neutral is theme-stable. */
+    --route-neutral-foreground: #ffffff;
     --destructive: oklch(0.577 0.245 27.325);
     --destructive-foreground: oklch(0.577 0.245 27.325);
     --border: oklch(0.922 0 0);
@@ -131,6 +135,9 @@
     /* Non-candidate workday paths on the map (014). Dark in both themes: the
        raster map tiles stay light, so a theme-flipped neutral would vanish. */
     --route-neutral: #1a1a1a;
+    /* Glyph drawn on a route-neutral marker fill (018). Near-white in both themes,
+       for the same reason route-neutral is theme-stable. */
+    --route-neutral-foreground: #ffffff;
     --destructive: oklch(0.396 0.141 25.723);
     --destructive-foreground: oklch(0.637 0.237 25.331);
     --border: oklch(0.269 0 0);

@@ -56,6 +56,12 @@ export type Driver = {
     timeToTour: number | null;
     /** Road time from the candidate tour back to the warehouse; null when unroutable (017). */
     timeFromTour: number | null;
+    /** The driver's warehouse `[lat, lng]` — the projected day's fixed start/end; drawn as the
+     *  warehouse marker while the driver is selected (feature 018). */
+    warehouseCoordinate: [number, number];
+    /** End of the driver's last prior tour that day `[lat, lng]`, or null when the driver departs
+     *  from the warehouse (no prior tour) — the "0" origin marker is drawn only when non-null (018). */
+    previousTourEnd: [number, number] | null;
     /** The drawable pieces of this driver's projected workday (feature 014). */
     legs: WorkdayLeg[];
 };

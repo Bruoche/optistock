@@ -16,6 +16,8 @@ type ApiDriver = {
     time_to_tour: number | null;
     time_from_tour: number | null;
     start_index: number;
+    warehouse_coordinate: [number, number];
+    previous_tour_end: [number, number] | null;
     legs: WorkdayLeg[];
 };
 
@@ -74,6 +76,8 @@ export function useTourDrivers(
                     timeToTour: driver.time_to_tour,
                     timeFromTour: driver.time_from_tour,
                     startIndex: driver.start_index,
+                    warehouseCoordinate: driver.warehouse_coordinate,
+                    previousTourEnd: driver.previous_tour_end,
                     legs: driver.legs,
                 }));
                 setState({ mode, date, tourId, drivers, status: 'ready' });
