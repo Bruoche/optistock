@@ -18,6 +18,7 @@ type ApiDriver = {
     start_index: number;
     warehouse_coordinate: [number, number];
     previous_tour_end: [number, number] | null;
+    added_break: number;
     legs: WorkdayLeg[];
 };
 
@@ -78,6 +79,7 @@ export function useTourDrivers(
                     startIndex: driver.start_index,
                     warehouseCoordinate: driver.warehouse_coordinate,
                     previousTourEnd: driver.previous_tour_end,
+                    addedBreak: driver.added_break,
                     legs: driver.legs,
                 }));
                 setState({ mode, date, tourId, drivers, status: 'ready' });

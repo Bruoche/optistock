@@ -409,6 +409,138 @@ class DriverAvailabilityTest extends TestCase
             ->assertJsonPath('data.0.previous_tour_end', [48.71, 2.11]);
     }
 
+    public function test_projected_seconds_includes_a_workday_break_over_six_hours(): void
+    {
+        $this->fakeEveryConnection(60);
+        $user = User::factory()->create();
+        $tour = $this->candidateTour($user, loop: true, travelS: 300);
+        $tour->stops()->update(['duration_s' => 11000]); // 2 stops → 22000 s of stops; total 22300
+        Driver::factory()->withModes(['driving'])->withDays(['monday'])->create(['name' => 'Amelie']);
+
+        // Day = 60 + 22300 + 60 = 22420 (> 6 h, ≤ 9 h); driving = 420 (< 4 h 30) → +30 min break.
+        $this->actingAs($user)
+            ->getJson($this->driversRoute('driving', self::MONDAY, $tour->id))
+            ->assertOk()
+            ->assertJsonPath('data.0.projected_seconds', 24220); // 22420 + 1800
+    }
+
+    public function test_projected_seconds_includes_a_larger_break_over_nine_hours(): void
+    {
+        $this->fakeEveryConnection(60);
+        $user = User::factory()->create();
+        $tour = $this->candidateTour($user, loop: true, travelS: 300);
+        $tour->stops()->update(['duration_s' => 16500]); // 2 stops → 33000 s; total 33300
+        Driver::factory()->withModes(['driving'])->withDays(['monday'])->create(['name' => 'Amelie']);
+
+        // Day = 60 + 33300 + 60 = 33420 (> 9 h) → +45 min break.
+        $this->actingAs($user)
+            ->getJson($this->driversRoute('driving', self::MONDAY, $tour->id))
+            ->assertOk()
+            ->assertJsonPath('data.0.projected_seconds', 36120); // 33420 + 2700
+    }
+
+    public function test_the_driving_rule_alone_can_add_a_break_on_a_short_day(): void
+    {
+        $this->fakeEveryConnection(8200); // each connection 8200 s
+        $user = User::factory()->create();
+        $tour = $this->candidateTour($user, loop: true, travelS: 300); // total 600 (300 travel + 300 stops)
+        Driver::factory()->withModes(['driving'])->withDays(['monday'])->create(['name' => 'Amelie']);
+
+        // Day = 8200 + 600 + 8200 = 17000 (< 6 h → no workday break); driving = 16700 → one 4 h 30
+        // block → +45 min from the driving rule alone.
+        $this->actingAs($user)
+            ->getJson($this->driversRoute('driving', self::MONDAY, $tour->id))
+            ->assertOk()
+            ->assertJsonPath('data.0.projected_seconds', 19700); // 17000 + 2700
+    }
+
+    public function test_added_break_equals_the_whole_break_for_a_driver_with_no_prior_tour(): void
+    {
+        $this->fakeEveryConnection(60);
+        $user = User::factory()->create();
+        $tour = $this->candidateTour($user, loop: true, travelS: 300);
+        $tour->stops()->update(['duration_s' => 11000]); // day 22420 → +30 min
+        Driver::factory()->withModes(['driving'])->withDays(['monday'])->create(['name' => 'Amelie']);
+
+        $this->actingAs($user)
+            ->getJson($this->driversRoute('driving', self::MONDAY, $tour->id))
+            ->assertOk()
+            ->assertJsonPath('data.0.added_break', 1800);
+    }
+
+    public function test_added_break_is_zero_and_projected_unchanged_below_any_threshold(): void
+    {
+        $this->fakeEveryConnection(60);
+        $user = User::factory()->create();
+        $tour = $this->candidateTour($user, loop: true, travelS: 300); // total 600, day 720
+        Driver::factory()->withModes(['driving'])->withDays(['monday'])->create(['name' => 'Amelie']);
+
+        $this->actingAs($user)
+            ->getJson($this->driversRoute('driving', self::MONDAY, $tour->id))
+            ->assertOk()
+            ->assertJsonPath('data.0.added_break', 0)
+            ->assertJsonPath('data.0.projected_seconds', 720); // unchanged, no break
+    }
+
+    public function test_added_break_is_only_the_increase_the_candidate_causes(): void
+    {
+        $this->fakeEveryConnection(60);
+        $user = User::factory()->create();
+        $tour = $this->candidateTour($user, loop: true, travelS: 300);
+        $tour->stops()->update(['duration_s' => 5000]); // 2 stops → 10000 s; candidate total 10300
+        $driver = Driver::factory()->withModes(['driving'])->withDays(['monday'])->create(['name' => 'Amelie']);
+
+        // Prior tour alone: 60 + (300 + 22000) + 60 = 22420 → break 1800 (over 6 h).
+        $prior = Tour::factory()->withMode('driving')->withStops(1)->assignedTo($driver, self::MONDAY)
+            ->create(['travel_duration_s' => 300]);
+        $prior->stops()->update(['duration_s' => 22000]);
+
+        // With the candidate: 60 + 22300 + 60 + 10300 + 60 = 32780 → break 2700 (over 9 h).
+        // added_break = 2700 − 1800 = 900.
+        $this->actingAs($user)
+            ->getJson($this->driversRoute('driving', self::MONDAY, $tour->id))
+            ->assertOk()
+            ->assertJsonPath('data.0.added_break', 900);
+    }
+
+    public function test_added_break_clamps_to_zero_when_the_candidate_is_unroutable(): void
+    {
+        // The candidate's stops are unreachable while the prior tour's return to the warehouse is a
+        // long routable drive — the raw with−without delta is negative, so added_break clamps to 0.
+        Http::fake(function (Request $request) {
+            $url = $request->url();
+            if (str_contains($url, 'destination=48.85') || str_contains($url, 'destination=48.86')) {
+                return Http::response('', 500); // any connection into a candidate stop fails
+            }
+            if (str_contains($url, 'origin=48.71') && str_contains($url, 'destination=48.5')) {
+                return Http::response(['status' => 'OK', 'total_time' => 22000, 'total_distance' => 1000]);
+            }
+
+            return Http::response(['status' => 'OK', 'total_time' => 60, 'total_distance' => 1000]);
+        });
+
+        $user = User::factory()->create();
+        $tour = $this->candidateTour($user, loop: true, travelS: 300); // stops at 48.85 / 48.86
+        $warehouse = Warehouse::factory()->create(['latitude' => 48.5, 'longitude' => 2.5]);
+        $driver = Driver::factory()->for($warehouse)->withModes(['driving'])->withDays(['monday'])->create(['name' => 'Amelie']);
+
+        $prior = Tour::factory()->withMode('driving')->withStops(1)->create(['travel_duration_s' => 300]);
+        $prior->stops()->update(['duration_s' => 100]);
+        $prior->drivers()->sync([$driver->id => [
+            'date' => self::MONDAY,
+            'start_latitude' => 48.70, 'start_longitude' => 2.10,
+            'end_latitude' => 48.71, 'end_longitude' => 2.11,
+            'sequence' => 0,
+        ]]);
+
+        // Prior-only day crosses the driving/workday threshold (long 22000 s return) → break > 0;
+        // the with-candidate day loses that return and its candidate legs fail → break 0. Clamp to 0.
+        $this->actingAs($user)
+            ->getJson($this->driversRoute('driving', self::MONDAY, $tour->id))
+            ->assertOk()
+            ->assertJsonPath('data.0.added_break', 0);
+    }
+
     public function test_the_database_query_count_does_not_grow_with_drivers_or_prior_tours(): void
     {
         $this->fakeEveryConnection(60);

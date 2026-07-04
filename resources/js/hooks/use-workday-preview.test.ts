@@ -38,6 +38,7 @@ function driver(id: number, legs: WorkdayLeg[]): Driver {
         startIndex: 0,
         warehouseCoordinate: [48.85, 2.35],
         previousTourEnd: null,
+        addedBreak: 0,
         legs,
     };
 }

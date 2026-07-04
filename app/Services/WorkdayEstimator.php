@@ -19,7 +19,26 @@ class WorkdayEstimator
         $knownSeconds = (int) array_sum(array_filter($durations, is_int(...)));
         $hasUnknownDuration = in_array(null, $durations, true);
 
-        return new WorkdayEstimate($knownSeconds, $hasUnknownDuration);
+        return new WorkdayEstimate($knownSeconds, $this->drivingSeconds($knownSeconds, $segments), $hasUnknownDuration);
+    }
+
+    /**
+     * Driving time = the day's known total minus the stop/service seconds of the tours whose own
+     * duration was counted. A tour with an unknown duration contributed 0 to the total, so its
+     * stops are not subtracted — keeping driving a consistent best-effort lower bound (never < 0).
+     *
+     * @param  array<int, TourSegment>  $segments
+     */
+    private function drivingSeconds(int $knownSeconds, array $segments): int
+    {
+        $countedStopSeconds = 0;
+        foreach ($segments as $segment) {
+            if ($segment->durationS !== null) {
+                $countedStopSeconds += $segment->stopSecondsS;
+            }
+        }
+
+        return $knownSeconds - $countedStopSeconds;
     }
 
     /**

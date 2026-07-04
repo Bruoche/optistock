@@ -35,6 +35,7 @@ function driver(overrides: Partial<Driver> = {}): Driver {
         startIndex: 0,
         warehouseCoordinate: [48.5, 2.5],
         previousTourEnd: null,
+        addedBreak: 0,
         legs: [],
         ...overrides,
     };
