@@ -33,7 +33,7 @@ driving, and its stop seconds are not subtracted. `drivingDurationS ≥ 0` alway
 | Field | Type | Meaning |
 |-------|------|---------|
 | `projected_seconds` | `int` | **Changed**: now the working time **plus** the with-candidate mandatory break (`withTotal + breakWith`). |
-| `added_break` | `int` (`≥ 0`, seconds) | **New**: the marginal break the candidate adds — `breakWith − breakWithout`. |
+| `added_break` | `int` (`≥ 0`, seconds) | **New**: the marginal break the candidate adds — `max(0, breakWith − breakWithout)` (clamped so an unroutable candidate leg never yields a negative gained break). |
 
 ## Frontend view-model — `Driver` (types/tour.ts)
 
@@ -55,7 +55,7 @@ Order left→right: **Required break** (conditional) · To tour · To warehouse 
 
 ## Invariants
 
-- `added_break ≥ 0` (monotonic: without-day ⊆ with-day).
+- `added_break ≥ 0` (clamped; without-day ⊆ with-day makes it non-negative in the routable case, and `max(0, …)` guarantees it under unroutable candidate legs).
 - `added_break === 0` ⟺ the Required break figure is absent.
 - `projected_seconds` = working time + `breakWith`; equals the pre-019 value only when `breakWith = 0`.
 - Break math depends only on `(workdayS, drivingS)`; the added break never re-enters the thresholds.

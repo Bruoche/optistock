@@ -57,7 +57,8 @@ other values reuse the already-preloaded cache. Break math is integer arithmetic
   calls the estimator twice with the two segment lists. Single responsibility each. PASS.
 - **IV. Robustness** — break derived from best-effort known seconds; when travel is unknown the
   existing `projected_incomplete` flag stays and the break is a lower bound; `added_break` is
-  monotonic (`≥ 0`) because the without-day is a strict sub-day of the with-day. PASS.
+  clamped to `≥ 0` (`max(0, …)`) so an unroutable candidate leg can never surface a negative
+  "gained" break, even though the without-day is otherwise a strict sub-day of the with-day. PASS.
 - **V. Performance with Clarity** — integer math; one extra preloaded connection class for the
   counterfactual, batched; no new per-row network. The added routing is justified and documented
   (it is the counterfactual the feature requires). PASS.
@@ -79,9 +80,10 @@ Full rationale + alternatives in [research.md](research.md); condensed:
   (workdayS > 21600 ? 1800 : 0)`; `return max(...)`. One function, called for both days
   (mutualised). (research D2)
 - **D3 — Controller computes the break twice**: `withSegments` (prior + candidate, existing) and
-  `priorSegments` (prior only, the counterfactual). `added_break = breakWith − breakWithout`;
-  `projected_seconds = withTotal + breakWith`. Preload extends by the without-chain connections
-  (adds only `lastPriorEnd → warehouse`). (research D3)
+  `priorSegments` (prior only, the counterfactual). `added_break = max(0, breakWith − breakWithout)`
+  (clamped — unroutable candidate legs can make the raw delta negative); `projected_seconds =
+  withTotal + breakWith`. Preload extends by the without-chain connections (adds only
+  `lastPriorEnd → warehouse`). (research D3)
 - **D4 — Frontend `addedBreak: number`**; `driver-list` renders a "Required break" figure (orange
   `--primary`, "+"-prefixed, `formatDurationHm`) as the leftmost of the right-hand group, only when
   `addedBreak > 0`. (research D4)

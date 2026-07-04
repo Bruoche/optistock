@@ -18,7 +18,7 @@ Request and validation unchanged. One field changes meaning, one is added.
 | Field | Type | Rule |
 |-------|------|------|
 | `projected_seconds` | `int` | Working time **plus** `breakWith = max(workdayBreak, drivingBreak)` for the with-candidate day. Equals the pre-019 value only when that break is 0. Still `projected_incomplete`-flagged when travel is unknown. |
-| `added_break` | `int` (`≥ 0`) | `breakWith − breakWithout`, where `breakWithout` is the break of the day **without** the candidate (warehouse → prior tours → warehouse). `0` when the candidate crosses no threshold; equals `breakWith` when the driver has no prior tours. |
+| `added_break` | `int` (`≥ 0`) | `max(0, breakWith − breakWithout)`, where `breakWithout` is the break of the day **without** the candidate (warehouse → prior tours → warehouse). `0` when the candidate crosses no threshold; equals `breakWith` when the driver has no prior tours; clamped to 0 in the rare unroutable-candidate case where the raw delta would be negative. |
 
 ## Break definition (both days)
 
