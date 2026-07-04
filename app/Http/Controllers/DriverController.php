@@ -62,10 +62,11 @@ class DriverController extends Controller
         $driverRows = $workdays->map(function (array $workday) use ($travelTime, $workdayEstimator, $legsBuilder, $mode): array {
             $driver = $workday['driver'];
             $warehouse = $driver->warehouse->coordinate;
+            $projected = $workday['start']; // TourStart: the projected tour's selected start/end stops.
             $estimate = $workdayEstimator->total($warehouse, $workday['segments'], $mode->value);
-            $legs = $legsBuilder->build($warehouse, $workday['prior_tours']->all(), $workday['start']->start, $workday['start']->end, $mode->value);
+            $legs = $legsBuilder->build($warehouse, $workday['prior_tours']->all(), $projected->start, $projected->end, $mode->value);
 
-            // The two connections bracketing the candidate tour (feature 017), read from the
+            // The two connections bracketing the projected tour (feature 017), read from the
             // cache already preloaded for the projection — no extra routing call.
             $incoming = $this->incomingPoint($driver, $workday['prior_tours']);
 
@@ -77,9 +78,9 @@ class DriverController extends Controller
                 'warehouse_name' => $driver->warehouse->name,
                 'projected_seconds' => $estimate->projectedDurationS,
                 'projected_incomplete' => $estimate->incomplete,
-                'time_to_tour' => $travelTime->durationBetween($incoming, $workday['start']->start, $mode->value),
-                'time_from_tour' => $travelTime->durationBetween($workday['start']->end, $warehouse, $mode->value),
-                'start_index' => $workday['start']->startIndex,
+                'time_to_tour' => $travelTime->durationBetween($incoming, $projected->start, $mode->value),
+                'time_from_tour' => $travelTime->durationBetween($projected->end, $warehouse, $mode->value),
+                'start_index' => $projected->startIndex,
                 'legs' => array_map(fn (WorkdayLeg $leg): array => $leg->toArray(), $legs),
             ];
         });
