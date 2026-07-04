@@ -34,4 +34,12 @@ class MandatoryBreakTest extends TestCase
     {
         $this->assertSame(0, MandatoryBreak::secondsFor(21600, 16199));
     }
+
+    public function test_a_walked_day_gets_the_workday_break_but_not_the_driving_break(): void
+    {
+        // Driving rule off: 32400 s of driving contributes nothing; only the workday rule applies.
+        $this->assertSame(0, MandatoryBreak::secondsFor(21600, 32400, drivingRuleApplies: false));
+        $this->assertSame(1800, MandatoryBreak::secondsFor(21601, 32400, drivingRuleApplies: false));
+        $this->assertSame(2700, MandatoryBreak::secondsFor(32401, 32400, drivingRuleApplies: false));
+    }
 }

@@ -5,7 +5,8 @@ namespace App\Services;
 /**
  * Legally mandated rest break for a driver's day, in seconds. The larger of two rules,
  * never their sum: 45 min per completed 4 h 30 of driving, and a workday break of 30 min
- * over 6 h or 45 min over 9 h of total working time.
+ * over 6 h or 45 min over 9 h of total working time. The driving rule is a road-transport
+ * regulation, so it does not apply to walked tours (`$drivingRuleApplies = false`).
  */
 final class MandatoryBreak
 {
@@ -21,9 +22,11 @@ final class MandatoryBreak
 
     private const BREAK_45_S = 2700;
 
-    public static function secondsFor(int $workdayS, int $drivingS): int
+    public static function secondsFor(int $workdayS, int $drivingS, bool $drivingRuleApplies = true): int
     {
-        $drivingBreak = intdiv($drivingS, self::DRIVING_BLOCK_S) * self::DRIVING_BREAK_S;
+        $drivingBreak = $drivingRuleApplies
+            ? intdiv($drivingS, self::DRIVING_BLOCK_S) * self::DRIVING_BREAK_S
+            : 0;
 
         $workdayBreak = match (true) {
             $workdayS > self::WORKDAY_9H_S => self::BREAK_45_S,

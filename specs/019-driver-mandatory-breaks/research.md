@@ -38,19 +38,21 @@ and stays a consistent best-effort lower bound — mirroring the existing approx
 chain walk and re-derives what the estimator already has. Store driving on the tour — rejected, it
 is day-scoped (depends on the chain), not tour-scoped.
 
-### D2 — One pure `MandatoryBreak::secondsFor(int workdayS, int drivingS): int`
+### D2 — One pure `MandatoryBreak::secondsFor(int workdayS, int drivingS, bool drivingRuleApplies = true): int`
 
 ```
-drivingBreak = intdiv(drivingS, 16200) * 2700          // 45 min per completed 4h30
+drivingBreak = drivingRuleApplies ? intdiv(drivingS, 16200) * 2700 : 0   // 45 min per 4h30, driven modes only
 workdayBreak = workdayS > 32400 ? 2700                  // >9h → 45 min
              : (workdayS > 21600 ? 1800 : 0)            // >6h → 30 min, else 0
 return max(drivingBreak, workdayBreak)                  // larger, never the sum
 ```
 
 Thresholds are strict (`>`), matching "above 6h/9h"; driving uses completed blocks (`intdiv`). The
-function takes only the two scalars, so it is **mutualised** verbatim for the with- and
-without-candidate days (Constitution II/III — no duplicated threshold logic). Break is measured on
-working/driving seconds only, so it never recurses into the thresholds (FR-006).
+function is **mutualised** verbatim for the with- and without-candidate days (Constitution II/III —
+no duplicated threshold logic). Break is measured on working/driving seconds only, so it never
+recurses into the thresholds (FR-006). The driving rule is road-transport only, so
+`drivingRuleApplies` is `false` for walked tours (the controller passes `$mode !== Walking`); the
+flag (not the mode enum) keeps the calculator decoupled from the delivery-mode type (FR-005a).
 
 *Alternatives*: inline the math twice in the controller — rejected, duplication. Fold into the
 estimator — rejected, the break is a policy separate from day totalling (single responsibility).

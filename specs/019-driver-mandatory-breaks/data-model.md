@@ -15,10 +15,14 @@ No database change. New/extended in-memory value objects + one additive API fiel
 ### `MandatoryBreak::secondsFor`
 
 ```
-drivingBreak = intdiv(drivingS, 16200) * 2700
-workdayBreak = workdayS > 32400 ? 2700 : (workdayS > 21600 ? 1800 : 0)
-return max(drivingBreak, workdayBreak)
+secondsFor(workdayS, drivingS, drivingRuleApplies = true):
+  drivingBreak = drivingRuleApplies ? intdiv(drivingS, 16200) * 2700 : 0
+  workdayBreak = workdayS > 32400 ? 2700 : (workdayS > 21600 ? 1800 : 0)
+  return max(drivingBreak, workdayBreak)
 ```
+
+`drivingRuleApplies` is `false` for walked tours (the controller passes `$mode !== Walking`) — a
+road-transport regulation, so on foot only the workday break stands.
 
 Constants: 4h30 = 16200 s, 45 min = 2700 s, 30 min = 1800 s, 6 h = 21600 s, 9 h = 32400 s.
 

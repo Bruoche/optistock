@@ -454,6 +454,38 @@ class DriverAvailabilityTest extends TestCase
             ->assertJsonPath('data.0.projected_seconds', 19700); // 17000 + 2700
     }
 
+    public function test_a_walked_day_gets_no_driving_break(): void
+    {
+        $this->fakeEveryConnection(8200);
+        $user = User::factory()->create();
+        $tour = $this->candidateTour($user, loop: true, travelS: 300); // total 600
+        Driver::factory()->withModes(['walking'])->withDays(['monday'])->create(['name' => 'Amelie']);
+
+        // Same 17000 s day as the driving-rule test, but walking: the driving rule does not apply and
+        // the total is under 6 h → no break at all.
+        $this->actingAs($user)
+            ->getJson($this->driversRoute('walking', self::MONDAY, $tour->id))
+            ->assertOk()
+            ->assertJsonPath('data.0.projected_seconds', 17000)
+            ->assertJsonPath('data.0.added_break', 0);
+    }
+
+    public function test_a_walked_day_still_gets_the_workday_break(): void
+    {
+        $this->fakeEveryConnection(60);
+        $user = User::factory()->create();
+        $tour = $this->candidateTour($user, loop: true, travelS: 300);
+        $tour->stops()->update(['duration_s' => 11000]); // day 22420 (> 6 h)
+        Driver::factory()->withModes(['walking'])->withDays(['monday'])->create(['name' => 'Amelie']);
+
+        // Walking keeps the workday break: 22420 (> 6 h) → +30 min.
+        $this->actingAs($user)
+            ->getJson($this->driversRoute('walking', self::MONDAY, $tour->id))
+            ->assertOk()
+            ->assertJsonPath('data.0.projected_seconds', 24220) // 22420 + 1800
+            ->assertJsonPath('data.0.added_break', 1800);
+    }
+
     public function test_added_break_equals_the_whole_break_for_a_driver_with_no_prior_tour(): void
     {
         $this->fakeEveryConnection(60);

@@ -80,8 +80,10 @@ class DriverController extends Controller
             // clamped at 0 since an unroutable candidate leg can make the raw delta negative.
             $priorSegments = $workday['prior_tours']->map(fn (PriorTourLeg $prior): TourSegment => $prior->toSegment())->all();
             $withoutEstimate = $workdayEstimator->total($warehouse, $priorSegments, $mode->value);
-            $projectedBreak = MandatoryBreak::secondsFor($estimate->projectedDurationS, $estimate->drivingDurationS);
-            $currentBreak = MandatoryBreak::secondsFor($withoutEstimate->projectedDurationS, $withoutEstimate->drivingDurationS);
+            // The driving-hours rule is road-transport only; a walked day gets the workday break alone.
+            $drivingRuleApplies = $mode !== DeliveryModeEnum::Walking;
+            $projectedBreak = MandatoryBreak::secondsFor($estimate->projectedDurationS, $estimate->drivingDurationS, $drivingRuleApplies);
+            $currentBreak = MandatoryBreak::secondsFor($withoutEstimate->projectedDurationS, $withoutEstimate->drivingDurationS, $drivingRuleApplies);
 
             // The two connections bracketing the projected tour (feature 017), read from the
             // cache already preloaded for the projection — no extra routing call.

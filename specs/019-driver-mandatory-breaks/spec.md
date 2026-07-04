@@ -64,6 +64,7 @@ When assigning this candidate tour is what pushes the driver across a break thre
 - **Whichever is bigger**: when the driving break and workday break differ, only the larger is applied — never the sum (the description's "the 45 min break counts in the workday break too").
 - **No prior tours**: the "without candidate" day is empty, so the whole of the candidate day's break is the marginal "Required break".
 - **Unknown/unroutable travel** (existing approximate projection): break is computed on the best-effort known time and the Projected workday keeps its existing approximate marking; the break may be understated when travel is unknown.
+- **Walked tours**: the driving-hours rule does not apply on foot — a walking driver's day gets only the workday break (0/30/45 min), even if the on-foot travel time alone would exceed 4 h 30 min.
 - **Exactly on a threshold**: 6 h and 9 h are strict — a day of *exactly* 6 h adds no workday break; *just over* 6 h adds 30 min. Driving uses completed blocks — exactly 4 h 30 min driving is one block (45 min); 4 h 29 min is none.
 
 ## Requirements *(mandatory)*
@@ -75,6 +76,7 @@ When assigning this candidate tour is what pushes the driver across a break thre
 - **FR-003**: The day's **total mandatory break** MUST be the larger of the workday break and the driving break (`max`), never their sum.
 - **FR-004**: The **Projected workday** figure MUST include the total mandatory break added to the working time.
 - **FR-005**: Driving time MUST count all road travel (inter-tour connection drives plus each tour's own travel); non-driving time (stop/service durations) MUST NOT count toward the driving break but MUST count toward the workday break.
+- **FR-005a**: The driving break is a road-transport regulation and MUST apply only to driven modes (driving, trucking). A **walked** day MUST receive the workday break (30/45 min by the 6 h / 9 h thresholds) only — never a driving break, regardless of how much distance is covered on foot.
 - **FR-006**: The mandatory break MUST be derived from working/driving time only; the added break MUST NOT itself feed back into the 6 h / 9 h / 4 h 30 min threshold checks.
 - **FR-007**: Each driver row MUST display a **Required break** figure equal to the **increase** in the day's total mandatory break caused by adding the candidate tour: `break(day with candidate) − break(prior tours only)`.
 - **FR-008**: The Required break figure MUST be **hidden when the increase is zero** and shown otherwise.

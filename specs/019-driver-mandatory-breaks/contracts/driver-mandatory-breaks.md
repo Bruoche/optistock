@@ -24,6 +24,7 @@ Request and validation unchanged. One field changes meaning, one is added.
 
 - `workdayBreak` = `0` if total ≤ 6 h, `30 min` if 6 h < total ≤ 9 h, `45 min` if total > 9 h.
 - `drivingBreak` = `45 min × floor(driving / 4h30)`; driving = total − all stop/service seconds.
+  **Driven modes only** — a walked tour gets no driving break (`drivingBreak = 0`).
 - day break = `max(workdayBreak, drivingBreak)`.
 
 ## Frontend mapping
