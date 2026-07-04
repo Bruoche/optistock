@@ -9,6 +9,7 @@ use App\Models\Driver;
 use App\Models\Stop;
 use App\Models\Tour;
 use App\Services\Coordinate;
+use App\Services\MandatoryBreak;
 use App\Services\PriorTourLeg;
 use App\Services\TourSegment;
 use App\Services\TourStartSelector;
@@ -44,7 +45,7 @@ class DriverController extends Controller
             $priorTours = $priorToursByDriver->get($driver->id, collect());
             $incoming = $this->incomingPoint($driver, $priorTours);
             $start = $startSelector->select($incoming, $candidateTour, $mode->value);
-            $candidateSegment = new TourSegment($start->start, $start->end, $candidateTour->total_duration_s);
+            $candidateSegment = new TourSegment($start->start, $start->end, $candidateTour->total_duration_s, (int) $candidateTour->stops->sum('duration_s'));
 
             return [
                 'driver' => $driver,
@@ -54,9 +55,17 @@ class DriverController extends Controller
             ];
         });
 
-        $chainConnections = $workdays->flatMap(
-            fn (array $workday): array => $this->connectionsAlongChain($workday['driver']->warehouse->coordinate, $workday['segments'])
-        );
+        // Both the chained day and the counterfactual prior-only day (feature 019); the latter adds
+        // only the lastPriorEnd → warehouse return, kept a cache hit rather than a per-row fetch.
+        $chainConnections = $workdays->flatMap(function (array $workday): array {
+            $warehouse = $workday['driver']->warehouse->coordinate;
+            $priorSegments = $workday['prior_tours']->map(fn (PriorTourLeg $prior): TourSegment => $prior->toSegment())->all();
+
+            return [
+                ...$this->connectionsAlongChain($warehouse, $workday['segments']),
+                ...$this->connectionsAlongChain($warehouse, $priorSegments),
+            ];
+        });
         $travelTime->preload($chainConnections->all(), $mode->value);
 
         $driverRows = $workdays->map(function (array $workday) use ($travelTime, $workdayEstimator, $legsBuilder, $mode): array {
@@ -65,6 +74,16 @@ class DriverController extends Controller
             $projected = $workday['start']; // TourStart: the projected tour's selected start/end stops.
             $estimate = $workdayEstimator->total($warehouse, $workday['segments'], $mode->value);
             $legs = $legsBuilder->build($warehouse, $workday['prior_tours']->all(), $projected->start, $projected->end, $mode->value);
+
+            // Mandatory break for the day with the candidate, and for the counterfactual day of only
+            // the prior tours (feature 019). added_break is the marginal break this tour introduces;
+            // clamped at 0 since an unroutable candidate leg can make the raw delta negative.
+            $priorSegments = $workday['prior_tours']->map(fn (PriorTourLeg $prior): TourSegment => $prior->toSegment())->all();
+            $withoutEstimate = $workdayEstimator->total($warehouse, $priorSegments, $mode->value);
+            // The driving-hours rule is road-transport only; a walked day gets the workday break alone.
+            $drivingRuleApplies = $mode !== DeliveryModeEnum::Walking;
+            $projectedBreak = MandatoryBreak::secondsFor($estimate->projectedDurationS, $estimate->drivingDurationS, $drivingRuleApplies);
+            $currentBreak = MandatoryBreak::secondsFor($withoutEstimate->projectedDurationS, $withoutEstimate->drivingDurationS, $drivingRuleApplies);
 
             // The two connections bracketing the projected tour (feature 017), read from the
             // cache already preloaded for the projection — no extra routing call.
@@ -76,8 +95,9 @@ class DriverController extends Controller
                 'image_url' => $driver->image_url,
                 'modes' => $driver->deliveryModes->pluck('label')->all(),
                 'warehouse_name' => $driver->warehouse->name,
-                'projected_seconds' => $estimate->projectedDurationS,
+                'projected_seconds' => $estimate->projectedDurationS + $projectedBreak,
                 'projected_incomplete' => $estimate->incomplete,
+                'added_break' => max(0, $projectedBreak - $currentBreak),
                 'time_to_tour' => $travelTime->durationBetween($incoming, $projected->start, $mode->value),
                 'time_from_tour' => $travelTime->durationBetween($projected->end, $warehouse, $mode->value),
                 'start_index' => $projected->startIndex,
@@ -153,6 +173,7 @@ class DriverController extends Controller
                 fn (object $stop): Coordinate => new Coordinate((float) $stop->latitude, (float) $stop->longitude)
             )->values()->all(),
             durationS: $tourDurationS,
+            stopSecondsS: (int) $stops->sum('duration_s'),
         );
     }
 

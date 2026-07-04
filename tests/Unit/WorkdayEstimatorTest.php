@@ -109,6 +109,41 @@ class WorkdayEstimatorTest extends TestCase
         $this->assertGreaterThanOrEqual(100, $estimate->projectedDurationS);
     }
 
+    public function test_driving_seconds_are_the_total_minus_counted_stop_time(): void
+    {
+        $estimator = new WorkdayEstimator($this->fakeTravel([
+            $this->connection($this->warehouse, $this->a) => 10,
+            $this->connection($this->b, $this->warehouse) => 20,
+        ]));
+
+        // total = 10 + 100 + 20 = 130; the tour holds 40 s of stops → driving = 90.
+        $estimate = $estimator->total($this->warehouse, [
+            new TourSegment($this->a, $this->b, 100, stopSecondsS: 40),
+        ]);
+
+        $this->assertSame(130, $estimate->projectedDurationS);
+        $this->assertSame(90, $estimate->drivingDurationS);
+        $this->assertLessThanOrEqual($estimate->projectedDurationS, $estimate->drivingDurationS);
+    }
+
+    public function test_an_unknown_tour_duration_does_not_subtract_its_stops_from_driving(): void
+    {
+        $estimator = new WorkdayEstimator($this->fakeTravel([
+            $this->connection($this->warehouse, $this->a) => 10,
+            $this->connection($this->b, $this->warehouse) => 20,
+        ]));
+
+        // Tour duration unknown → counts 0 in the total, so its 40 s of stops are NOT subtracted;
+        // total = 10 + 0 + 20 = 30, driving = 30 (never negative).
+        $estimate = $estimator->total($this->warehouse, [
+            new TourSegment($this->a, $this->b, null, stopSecondsS: 40),
+        ]);
+
+        $this->assertSame(30, $estimate->projectedDurationS);
+        $this->assertSame(30, $estimate->drivingDurationS);
+        $this->assertGreaterThanOrEqual(0, $estimate->drivingDurationS);
+    }
+
     /**
      * @param  array<string, int|null>  $map  connectionKey → duration
      */

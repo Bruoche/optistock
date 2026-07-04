@@ -22,6 +22,7 @@ const apiDriver = (overrides: Record<string, unknown> = {}) => ({
     start_index: 0,
     warehouse_coordinate: [48.85, 2.35],
     previous_tour_end: null,
+    added_break: 0,
     legs: [],
     ...overrides,
 });
@@ -93,5 +94,19 @@ describe('useTourDrivers', () => {
 
         await waitFor(() => expect(result.current.status).toBe('ready'));
         expect(result.current.drivers[0].previousTourEnd).toBeNull();
+    });
+
+    it('maps added_break onto the driver view model', async () => {
+        vi.stubGlobal(
+            'fetch',
+            fakeFetchOnce([apiDriver({ added_break: 900 })]),
+        );
+
+        const { result } = renderHook(() =>
+            useTourDrivers('driving', '2026-07-06', 42),
+        );
+
+        await waitFor(() => expect(result.current.status).toBe('ready'));
+        expect(result.current.drivers[0].addedBreak).toBe(900);
     });
 });

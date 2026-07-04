@@ -78,6 +78,22 @@ function RoadFigure({
     );
 }
 
+// The extra rest break this candidate tour adds to the driver's day (feature 019). Shown only when
+// positive, in the primary emphasis role with a "+" — it appears only sometimes and is the delta,
+// not the day's total break.
+function BreakFigure({ seconds }: { seconds: number }) {
+    return (
+        <div>
+            <p className="text-xs tracking-wide text-muted-foreground uppercase">
+                Required break
+            </p>
+            <p className="font-semibold text-primary">
+                +{formatDurationHm(seconds)}
+            </p>
+        </div>
+    );
+}
+
 export function DriverList({
     mode,
     date,
@@ -166,6 +182,9 @@ export function DriverList({
                             </div>
 
                             <div className="ml-auto flex shrink-0 items-start gap-4 text-right">
+                                {driver.addedBreak > 0 && (
+                                    <BreakFigure seconds={driver.addedBreak} />
+                                )}
                                 <RoadFigure
                                     label="To tour"
                                     seconds={driver.timeToTour}

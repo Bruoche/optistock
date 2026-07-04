@@ -62,6 +62,9 @@ export type Driver = {
     /** End of the driver's last prior tour that day `[lat, lng]`, or null when the driver departs
      *  from the warehouse (no prior tour) — the "0" origin marker is drawn only when non-null (018). */
     previousTourEnd: [number, number] | null;
+    /** Seconds of mandatory rest break this candidate tour adds to the driver's day (feature 019);
+     *  0 when it crosses no break threshold. Shown as the "+Required break" figure when > 0. */
+    addedBreak: number;
     /** The drawable pieces of this driver's projected workday (feature 014). */
     legs: WorkdayLeg[];
 };

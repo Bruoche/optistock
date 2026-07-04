@@ -18,10 +18,11 @@ final class PriorTourLeg
         public readonly bool $loop,
         public readonly array $stopCoordinates,
         public readonly ?int $durationS,
+        public readonly int $stopSecondsS = 0,
     ) {}
 
     public function toSegment(): TourSegment
     {
-        return new TourSegment($this->start, $this->end, $this->durationS);
+        return new TourSegment($this->start, $this->end, $this->durationS, $this->stopSecondsS);
     }
 }

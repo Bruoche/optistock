@@ -24,6 +24,7 @@ function driver(overrides: Partial<Driver> = {}): Driver {
         startIndex: 0,
         warehouseCoordinate: [48.85, 2.35],
         previousTourEnd: null,
+        addedBreak: 0,
         legs: [],
         ...overrides,
     };
@@ -175,6 +176,38 @@ describe('DriverList', () => {
             toWarehouse.compareDocumentPosition(total) &
                 Node.DOCUMENT_POSITION_FOLLOWING,
         ).toBeTruthy();
+    });
+
+    it('shows a "+"-prefixed orange Required break figure, left of To tour, when addedBreak > 0 (US2)', () => {
+        mockUseTourDrivers.mockReturnValue({
+            status: 'ready',
+            drivers: [driver({ name: 'Amelie', addedBreak: 2700 })],
+        });
+
+        renderList();
+
+        expect(screen.getByText('Required break')).toBeInTheDocument();
+        const value = screen.getByText('+45 min');
+        expect(value.className).toContain('text-primary');
+
+        // Leftmost of the right-hand group: before "To tour".
+        const required = screen.getByText('Required break');
+        const toTour = screen.getByText('To tour');
+        expect(
+            required.compareDocumentPosition(toTour) &
+                Node.DOCUMENT_POSITION_FOLLOWING,
+        ).toBeTruthy();
+    });
+
+    it('hides the Required break figure when addedBreak is 0 (US2)', () => {
+        mockUseTourDrivers.mockReturnValue({
+            status: 'ready',
+            drivers: [driver({ name: 'Amelie', addedBreak: 0 })],
+        });
+
+        renderList();
+
+        expect(screen.queryByText('Required break')).not.toBeInTheDocument();
     });
 
     it('marks an incomplete projection as approximate', () => {
