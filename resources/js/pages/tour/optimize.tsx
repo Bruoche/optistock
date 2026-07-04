@@ -38,9 +38,8 @@ export default function TourOptimize() {
     const [tourDate, setTourDate] = useState<string>(todayDate);
     // Mode chosen in the result view (016); null follows the tour's optimization mode.
     // Switching it reloads the driver list only — the tour is never re-optimized.
-    const [presentationMode, setPresentationMode] = useState<DeliveryMode | null>(
-        null,
-    );
+    const [presentationMode, setPresentationMode] =
+        useState<DeliveryMode | null>(null);
     // The driver whose projected workday is previewed on the map (014); row click
     // toggles, and any change that reloads the driver list clears it (FR-012).
     const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null);
