@@ -80,8 +80,8 @@ class DriverController extends Controller
             // clamped at 0 since an unroutable candidate leg can make the raw delta negative.
             $priorSegments = $workday['prior_tours']->map(fn (PriorTourLeg $prior): TourSegment => $prior->toSegment())->all();
             $withoutEstimate = $workdayEstimator->total($warehouse, $priorSegments, $mode->value);
-            $breakWith = MandatoryBreak::secondsFor($estimate->projectedDurationS, $estimate->drivingDurationS);
-            $breakWithout = MandatoryBreak::secondsFor($withoutEstimate->projectedDurationS, $withoutEstimate->drivingDurationS);
+            $projectedBreak = MandatoryBreak::secondsFor($estimate->projectedDurationS, $estimate->drivingDurationS);
+            $currentBreak = MandatoryBreak::secondsFor($withoutEstimate->projectedDurationS, $withoutEstimate->drivingDurationS);
 
             // The two connections bracketing the projected tour (feature 017), read from the
             // cache already preloaded for the projection — no extra routing call.
@@ -93,9 +93,9 @@ class DriverController extends Controller
                 'image_url' => $driver->image_url,
                 'modes' => $driver->deliveryModes->pluck('label')->all(),
                 'warehouse_name' => $driver->warehouse->name,
-                'projected_seconds' => $estimate->projectedDurationS + $breakWith,
+                'projected_seconds' => $estimate->projectedDurationS + $projectedBreak,
                 'projected_incomplete' => $estimate->incomplete,
-                'added_break' => max(0, $breakWith - $breakWithout),
+                'added_break' => max(0, $projectedBreak - $currentBreak),
                 'time_to_tour' => $travelTime->durationBetween($incoming, $projected->start, $mode->value),
                 'time_from_tour' => $travelTime->durationBetween($projected->end, $warehouse, $mode->value),
                 'start_index' => $projected->startIndex,
