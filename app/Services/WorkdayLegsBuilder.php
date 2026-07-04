@@ -32,15 +32,15 @@ class WorkdayLegsBuilder
             $legs[] = WorkdayLeg::tour($this->tourPath($priorTour), $priorTour->loop);
             $previous = $priorTour->end;
         }
-        $legs[] = $this->connection($previous, $candidateStart, $mode);
-        $legs[] = $this->connection($candidateEnd, $warehouse, $mode);
+        $legs[] = $this->connection($previous, $candidateStart, $mode, highlight: true);
+        $legs[] = $this->connection($candidateEnd, $warehouse, $mode, highlight: true);
 
         return $legs;
     }
 
-    private function connection(Coordinate $from, Coordinate $to, ?string $mode): WorkdayLeg
+    private function connection(Coordinate $from, Coordinate $to, ?string $mode, bool $highlight = false): WorkdayLeg
     {
-        return WorkdayLeg::connection($from, $to, $this->travelTime->geometryBetween($from, $to, $mode));
+        return WorkdayLeg::connection($from, $to, $this->travelTime->geometryBetween($from, $to, $mode), $highlight);
     }
 
     /**

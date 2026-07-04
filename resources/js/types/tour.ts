@@ -27,6 +27,9 @@ export type WorkdayLeg = {
     geometry: Array<[number, number]> | null;
     /** Trace flag: true only for a looping tour leg. */
     loop: boolean;
+    /** True only for the connection drives bracketing the candidate tour;
+     *  drawn in the primary role color at full opacity (feature 015). */
+    highlight: boolean;
 };
 
 /** A delivery driver available for an optimized tour (feature 006). `modes` are

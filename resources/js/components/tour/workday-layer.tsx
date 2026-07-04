@@ -9,6 +9,7 @@ import type { WorkdayLeg } from '@/types/tour';
 
 // Used only if the CSS var can't be read (SSR / before styles apply).
 const NEUTRAL_FALLBACK = '#1a1a1a';
+const PRIMARY_FALLBACK = '#ff9a3c';
 
 // Dash patterns are set explicitly on every leg (a solid line is dash [1, 0]):
 // conditionally omitting line-dasharray leaves its reset to paint diffing, which
@@ -31,12 +32,27 @@ function neutralColor(): string {
     return value || NEUTRAL_FALLBACK;
 }
 
+// The candidate tour's connecting drives share the candidate's primary color;
+// resolved locally the same way as neutralColor (RouteLayer stays untouched).
+function primaryColor(): string {
+    if (typeof window === 'undefined') {
+        return PRIMARY_FALLBACK;
+    }
+
+    const value = getComputedStyle(document.documentElement)
+        .getPropertyValue('--primary')
+        .trim();
+
+    return value || PRIMARY_FALLBACK;
+}
+
 type WorkdayLayerProps = {
     legs: WorkdayLeg[];
 };
 
 export function WorkdayLayer({ legs }: WorkdayLayerProps) {
-    const color = neutralColor();
+    const neutral = neutralColor();
+    const primary = primaryColor();
 
     return (
         <>
@@ -77,8 +93,9 @@ export function WorkdayLayer({ legs }: WorkdayLayerProps) {
                                 'line-join': 'round',
                             }}
                             paint={{
-                                'line-color': color,
+                                'line-color': leg.highlight ? primary : neutral,
                                 'line-width': 3,
+                                'line-opacity': leg.highlight ? 1 : 0.5,
                                 'line-dasharray': leg.dotted
                                     ? DASH_DOTTED
                                     : DASH_SOLID,

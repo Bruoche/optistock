@@ -19,6 +19,7 @@ function leg(overrides: Partial<WorkdayLeg> = {}): WorkdayLeg {
         ],
         geometry: null,
         loop: false,
+        highlight: false,
         ...overrides,
     };
 }
