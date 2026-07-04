@@ -324,6 +324,39 @@ class DriverAvailabilityTest extends TestCase
         Http::assertSentCount(3);
     }
 
+    public function test_it_exposes_the_two_bracketing_road_times(): void
+    {
+        $this->fakeEveryConnection(60);
+        $user = User::factory()->create();
+        $tour = $this->candidateTour($user, loop: true, travelS: 300); // total = 600
+        Driver::factory()->withModes(['driving'])->withDays(['monday'])->create(['name' => 'Amelie']);
+
+        // No prior tours → road to tour = W→start = 60, road to warehouse = end→W = 60.
+        // These are the same two connections summed into projected_seconds (720), unchanged.
+        $response = $this->actingAs($user)
+            ->getJson($this->driversRoute('driving', self::MONDAY, $tour->id));
+
+        $response->assertOk()
+            ->assertJsonPath('data.0.time_to_tour', 60)
+            ->assertJsonPath('data.0.time_from_tour', 60)
+            ->assertJsonPath('data.0.projected_seconds', 720);
+    }
+
+    public function test_an_unroutable_bracketing_connection_is_null(): void
+    {
+        Http::fake(['*' => Http::response('', 500)]); // every routing call fails
+        $user = User::factory()->create();
+        $tour = $this->candidateTour($user, loop: true, travelS: 300);
+        Driver::factory()->withModes(['driving'])->withDays(['monday'])->create(['name' => 'Amelie']);
+
+        $this->actingAs($user)
+            ->getJson($this->driversRoute('driving', self::MONDAY, $tour->id))
+            ->assertOk()
+            ->assertJsonPath('data.0.time_to_tour', null)
+            ->assertJsonPath('data.0.time_from_tour', null)
+            ->assertJsonPath('data.0.projected_incomplete', true);
+    }
+
     public function test_the_database_query_count_does_not_grow_with_drivers_or_prior_tours(): void
     {
         $this->fakeEveryConnection(60);

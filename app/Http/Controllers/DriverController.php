@@ -59,11 +59,15 @@ class DriverController extends Controller
         );
         $travelTime->preload($chainConnections->all(), $mode->value);
 
-        $driverRows = $workdays->map(function (array $workday) use ($workdayEstimator, $legsBuilder, $mode): array {
+        $driverRows = $workdays->map(function (array $workday) use ($travelTime, $workdayEstimator, $legsBuilder, $mode): array {
             $driver = $workday['driver'];
             $warehouse = $driver->warehouse->coordinate;
             $estimate = $workdayEstimator->total($warehouse, $workday['segments'], $mode->value);
             $legs = $legsBuilder->build($warehouse, $workday['prior_tours']->all(), $workday['start']->start, $workday['start']->end, $mode->value);
+
+            // The two connections bracketing the candidate tour (feature 017), read from the
+            // cache already preloaded for the projection — no extra routing call.
+            $incoming = $this->incomingPoint($driver, $workday['prior_tours']);
 
             return [
                 'id' => $driver->id,
@@ -73,6 +77,8 @@ class DriverController extends Controller
                 'warehouse_name' => $driver->warehouse->name,
                 'projected_seconds' => $estimate->projectedDurationS,
                 'projected_incomplete' => $estimate->incomplete,
+                'time_to_tour' => $travelTime->durationBetween($incoming, $workday['start']->start, $mode->value),
+                'time_from_tour' => $travelTime->durationBetween($workday['start']->end, $warehouse, $mode->value),
                 'start_index' => $workday['start']->startIndex,
                 'legs' => array_map(fn (WorkdayLeg $leg): array => $leg->toArray(), $legs),
             ];

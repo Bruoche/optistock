@@ -13,6 +13,8 @@ type ApiDriver = {
     warehouse_name: string;
     projected_seconds: number;
     projected_incomplete: boolean;
+    time_to_tour: number | null;
+    time_from_tour: number | null;
     start_index: number;
     legs: WorkdayLeg[];
 };
@@ -69,6 +71,8 @@ export function useTourDrivers(
                     warehouseName: driver.warehouse_name,
                     projectedSeconds: driver.projected_seconds,
                     projectedIncomplete: driver.projected_incomplete,
+                    timeToTour: driver.time_to_tour,
+                    timeFromTour: driver.time_from_tour,
                     startIndex: driver.start_index,
                     legs: driver.legs,
                 }));

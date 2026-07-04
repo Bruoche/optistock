@@ -19,6 +19,8 @@ function driver(overrides: Partial<Driver> = {}): Driver {
         warehouseName: 'North Depot',
         projectedSeconds: 0,
         projectedIncomplete: false,
+        timeToTour: null,
+        timeFromTour: null,
         startIndex: 0,
         legs: [],
         ...overrides,
@@ -127,6 +129,51 @@ describe('DriverList', () => {
         renderList();
         // 5400 s → 1 h 30 min.
         expect(screen.getByText(/1 h 30 min/)).toBeInTheDocument();
+    });
+
+    it('shows the two bracketing road times, and Unavailable for an unroutable leg (US1)', () => {
+        mockUseTourDrivers.mockReturnValue({
+            status: 'ready',
+            drivers: [
+                driver({
+                    name: 'Amelie',
+                    timeToTour: 1320,
+                    timeFromTour: null,
+                }),
+            ],
+        });
+
+        renderList();
+
+        expect(screen.getByText('Road to tour')).toBeInTheDocument();
+        expect(screen.getByText('Road to warehouse')).toBeInTheDocument();
+        // 1320 s → 22 min; null → "Unavailable".
+        expect(screen.getByText(/22 min/)).toBeInTheDocument();
+        expect(screen.getByText('Unavailable')).toBeInTheDocument();
+    });
+
+    it('labels the total "Total projected workday" and orders the three figures (US2)', () => {
+        mockUseTourDrivers.mockReturnValue({
+            status: 'ready',
+            drivers: [driver({ name: 'Amelie' })],
+        });
+
+        renderList();
+
+        expect(screen.getByText('Total projected workday')).toBeInTheDocument();
+        expect(screen.queryByText('Projected')).not.toBeInTheDocument();
+
+        const toTour = screen.getByText('Road to tour');
+        const toWarehouse = screen.getByText('Road to warehouse');
+        const total = screen.getByText('Total projected workday');
+        expect(
+            toTour.compareDocumentPosition(toWarehouse) &
+                Node.DOCUMENT_POSITION_FOLLOWING,
+        ).toBeTruthy();
+        expect(
+            toWarehouse.compareDocumentPosition(total) &
+                Node.DOCUMENT_POSITION_FOLLOWING,
+        ).toBeTruthy();
     });
 
     it('marks an incomplete projection as approximate', () => {

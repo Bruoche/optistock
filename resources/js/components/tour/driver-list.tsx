@@ -57,6 +57,27 @@ function StatusLine({
     );
 }
 
+// A bracketing-connection time figure (feature 017): muted label + value, matching the
+// total's structure. A null (unroutable) leg reads "Unavailable" rather than a false 0.
+function RoadFigure({
+    label,
+    seconds,
+}: {
+    label: string;
+    seconds: number | null;
+}) {
+    return (
+        <div>
+            <p className="text-xs tracking-wide text-muted-foreground uppercase">
+                {label}
+            </p>
+            <p className="font-semibold">
+                {seconds === null ? 'Unavailable' : formatDurationHm(seconds)}
+            </p>
+        </div>
+    );
+}
+
 export function DriverList({
     mode,
     date,
@@ -144,20 +165,32 @@ export function DriverList({
                                 </div>
                             </div>
 
-                            <div className="ml-auto shrink-0 text-right">
-                                <p className="text-xs tracking-wide text-muted-foreground uppercase">
-                                    Projected
-                                </p>
-                                <p className="flex items-center justify-end gap-1 font-semibold">
-                                    {driver.projectedIncomplete && (
-                                        <TriangleAlert
-                                            className="size-4 text-accent"
-                                            aria-label="Approximate — some travel time could not be calculated"
-                                        />
-                                    )}
-                                    {driver.projectedIncomplete && '≥ '}
-                                    {formatDurationHm(driver.projectedSeconds)}
-                                </p>
+                            <div className="ml-auto flex shrink-0 items-start gap-4 text-right">
+                                <RoadFigure
+                                    label="Road to tour"
+                                    seconds={driver.timeToTour}
+                                />
+                                <RoadFigure
+                                    label="Road to warehouse"
+                                    seconds={driver.timeFromTour}
+                                />
+                                <div>
+                                    <p className="text-xs tracking-wide text-muted-foreground uppercase">
+                                        Total projected workday
+                                    </p>
+                                    <p className="flex items-center justify-end gap-1 font-semibold">
+                                        {driver.projectedIncomplete && (
+                                            <TriangleAlert
+                                                className="size-4 text-accent"
+                                                aria-label="Approximate — some travel time could not be calculated"
+                                            />
+                                        )}
+                                        {driver.projectedIncomplete && '≥ '}
+                                        {formatDurationHm(
+                                            driver.projectedSeconds,
+                                        )}
+                                    </p>
+                                </div>
                             </div>
                         </button>
                     </li>
