@@ -23,6 +23,8 @@ const driver: Driver = {
     warehouseName: 'North Depot',
     projectedSeconds: 0,
     projectedIncomplete: false,
+    timeToTour: null,
+    timeFromTour: null,
     startIndex: 3,
     legs: [],
 };

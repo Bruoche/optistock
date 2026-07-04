@@ -51,6 +51,11 @@ export type Driver = {
     /** The stop position chosen as this driver's start for the current tour — sent
      *  back on assignment so the start is not recomputed (feature 013). */
     startIndex: number;
+    /** Road time from the driver's incoming point (warehouse, or last prior tour's end)
+     *  to the candidate tour; null when that connection is unroutable (feature 017). */
+    timeToTour: number | null;
+    /** Road time from the candidate tour back to the warehouse; null when unroutable (017). */
+    timeFromTour: number | null;
     /** The drawable pieces of this driver's projected workday (feature 014). */
     legs: WorkdayLeg[];
 };

@@ -33,6 +33,8 @@ function driver(id: number, legs: WorkdayLeg[]): Driver {
         warehouseName: 'North Depot',
         projectedSeconds: 0,
         projectedIncomplete: false,
+        timeToTour: null,
+        timeFromTour: null,
         startIndex: 0,
         legs,
     };
