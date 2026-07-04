@@ -1,8 +1,9 @@
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read the current plan:
-`specs/015-projected-path-emphasis/plan.md` (recolor the candidate tour's two bracketing connection legs to primary orange + dim other workday legs to 50%; adds a `highlight` flag to each leg;
-design artifacts: `research.md`, `data-model.md`, `contracts/driver-workday.md`, `quickstart.md`). Prior features:
+`specs/016-tour-confirm-and-mode/plan.md` (frontend-only: confirm pop-up before "New tour" drops the on-going tour + a delivery-mode selector in the result view that reloads the driver list; shared `ConfirmDialog`, `presentationMode` page state;
+design artifacts: `research.md`, `data-model.md`, `contracts/ui-contract.md`, `quickstart.md`). Prior features:
+`specs/015-projected-path-emphasis/plan.md` (recolor the candidate tour's two bracketing connection legs to primary orange + dim other workday legs to 50%; adds a `highlight` flag to each leg),
 `specs/014-driver-workday-preview/plan.md` (map preview of a selected driver's projected workday legs + "Assign Driver" button),
 `specs/013-inter-tour-travel/plan.md` (warehouse origin + chained driver workday incl. inter-tour travel & start/end stop selection),
 `specs/012-tour-driver-assignment/plan.md` (assign tours to drivers + persist tours/stops),
