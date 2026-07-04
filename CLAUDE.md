@@ -1,6 +1,7 @@
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read the current plan:
+`specs/018-warehouse-origin-markers/plan.md` (when a driver is selected, draw two map point markers — a warehouse `Building2` marker and a "0" marker at the end of the last prior tour, shown only when `previous_tour_end` is non-null — same size as numbered stop markers, `--route-neutral` at 50% opacity; adds additive `warehouse_coordinate` + `previous_tour_end` fields to the drivers row from locals already in the closure, no new routing; new `WorkdayMarkers` component; design artifacts: `research.md`, `data-model.md`, `contracts/warehouse-origin-markers.md`, `quickstart.md`). Prior features:
 `specs/017-driver-road-times/plan.md` (driver rows show two grey road-time figures — `time_to_tour` + `time_from_tour`, read from the preloaded connection cache so `projected_seconds` + routing-call count stay unchanged — left of the renamed "Total projected workday" total; only `DriverController`'s row closure changes backend-side;
 design artifacts: `research.md`, `data-model.md`, `contracts/driver-road-times.md`, `quickstart.md`). Prior features:
 `specs/016-tour-confirm-and-mode/plan.md` (frontend-only: confirm pop-up before "New tour" drops the on-going tour + a delivery-mode selector in the result view that reloads the driver list; shared `ConfirmDialog`, `presentationMode` page state),
