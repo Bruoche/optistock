@@ -94,6 +94,12 @@ export function ResultSummary({
                     <Figure label="Tour duration">
                         {formatDuration(tourDurationS)}
                     </Figure>
+                    <Figure label="Mode">
+                        <ModeSelect
+                            value={driverMode}
+                            onChange={onDriverModeChange}
+                        />
+                    </Figure>
                     <Figure label="Selected date">
                         <TourDateInput
                             date={date}
@@ -103,10 +109,6 @@ export function ResultSummary({
                     </Figure>
                 </div>
                 <div className="flex items-center gap-2">
-                    <ModeSelect
-                        value={driverMode}
-                        onChange={onDriverModeChange}
-                    />
                     <ActionButton onClick={() => setConfirmingNewTour(true)}>
                         New tour
                     </ActionButton>

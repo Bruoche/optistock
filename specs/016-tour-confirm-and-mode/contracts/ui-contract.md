@@ -8,8 +8,10 @@ is unchanged; see `specs/014-driver-workday-preview/contracts/driver-workday.md`
 ## Result view (`ResultSummary`) — behavior contract
 
 ### Header bar
-- Contains, left→right: tour figures (time on road, tour duration, selected date) · a
-  **delivery-mode selector** (`ModeSelect`) · **New tour** button · **Assign Driver** button.
+- Left group (tour info/options figures, left→right): time on road · tour duration · **Mode**
+  (the `ModeSelect` selector, left of "Selected date") · selected date. Right group (action
+  buttons): **New tour** · **Assign Driver**. Mirrors the editing control bar's split (options
+  left, action right).
 - The mode selector shows the effective driver mode; on first display of a tour it equals the
   mode the tour was optimized with.
 
