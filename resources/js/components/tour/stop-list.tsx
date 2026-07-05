@@ -24,11 +24,11 @@ export function StopList({
     locked = false,
 }: StopListProps) {
     return (
-        <div className="flex h-full flex-col gap-3">
+        <div className="flex h-full flex-col gap-3 max-md:h-auto">
             <ul
                 aria-disabled={locked}
                 className={cn(
-                    'flex-1 space-y-1 overflow-y-auto',
+                    'flex-1 space-y-1 overflow-y-auto max-md:flex-none',
                     locked && 'pointer-events-none opacity-50',
                 )}
             >

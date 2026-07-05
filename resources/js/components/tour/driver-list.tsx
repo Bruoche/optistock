@@ -125,7 +125,7 @@ export function DriverList({
     }
 
     return (
-        <ul className="flex-1 space-y-1 overflow-y-auto">
+        <ul className="min-h-0 flex-1 space-y-1 overflow-y-auto max-md:flex-none">
             {drivers.map((driver) => {
                 const selected = driver.id === selectedDriver?.id;
 
@@ -136,7 +136,7 @@ export function DriverList({
                             onClick={() => onSelect(driver)}
                             aria-pressed={selected}
                             className={cn(
-                                'flex w-full items-center gap-3 rounded-md border px-3 py-2 text-left transition-colors hover:bg-secondary hover:text-secondary-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-hidden',
+                                'flex w-full items-center gap-3 scroll-x-contained rounded-md border px-3 py-2 text-left transition-colors hover:bg-secondary hover:text-secondary-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-hidden',
                                 selected
                                     ? 'border-primary bg-secondary text-secondary-foreground'
                                     : 'border-border',

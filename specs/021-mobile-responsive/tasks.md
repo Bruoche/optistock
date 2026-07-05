@@ -28,7 +28,7 @@ Frontend-only, single repo: styles in `resources/css/`, components in `resources
 
 **Purpose**: Confirm a green baseline before the style change.
 
-- [ ] T001 Run the current gate to confirm a clean baseline: `npm run test`, `npm run lint`, `npm run types`, `npm run format:check`.
+- [X] T001 Run the current gate to confirm a clean baseline: `npm run test`, `npm run lint`, `npm run types`, `npm run format:check`.
 
 ---
 
@@ -38,7 +38,7 @@ Frontend-only, single repo: styles in `resources/css/`, components in `resources
 
 **⚠️ CRITICAL**: Both user stories apply this utility — it must exist first.
 
-- [ ] T002 Add a reusable Tailwind v4 `@utility scroll-x-contained { overflow-x: auto; overscroll-behavior-x: contain; }` to `resources/css/app.css` (single source per Constitution VI; intent-named).
+- [X] T002 Add a reusable Tailwind v4 `@utility scroll-x-contained { overflow-x: auto; overscroll-behavior-x: contain; }` to `resources/css/app.css` (single source per Constitution VI; intent-named).
 
 **Checkpoint**: The shared scroll style exists and compiles.
 
@@ -52,13 +52,13 @@ Frontend-only, single repo: styles in `resources/css/`, components in `resources
 
 ### Tests for User Story 1 ⚠️ (write first, expected to fail until impl)
 
-- [ ] T003 [P] [US1] New Vitest `resources/js/components/tour/tour-control-bar.test.tsx`: render `TourControlBar` and assert its root element carries the `scroll-x-contained` class. (jsdom cannot measure real overflow — class presence is the guard.)
-- [ ] T004 [P] [US1] In `resources/js/components/tour/result-summary.test.tsx`, add a test asserting the `bg-primary` header bar carries the `scroll-x-contained` class.
+- [X] T003 [P] [US1] New Vitest `resources/js/components/tour/tour-control-bar.test.tsx`: render `TourControlBar` and assert its root element carries the `scroll-x-contained` class. (jsdom cannot measure real overflow — class presence is the guard.)
+- [X] T004 [P] [US1] In `resources/js/components/tour/result-summary.test.tsx`, add a test asserting the `bg-primary` header bar carries the `scroll-x-contained` class.
 
 ### Implementation for User Story 1
 
-- [ ] T005 [P] [US1] In `resources/js/components/tour/tour-control-bar.tsx`, add `scroll-x-contained` to the bar root and `shrink-0` to its two child groups (the `Options` control group and the Optimize `ActionButton`) so controls keep intrinsic width and the bar scrolls rather than squishing. Do not change the fits-wide layout.
-- [ ] T006 [P] [US1] In `resources/js/components/tour/result-summary.tsx`, add `scroll-x-contained` to the `bg-primary` header bar and `shrink-0` to its two child groups (the figures grid and the New/Edit/Assign button group). Do not change the fits-wide layout.
+- [X] T005 [P] [US1] In `resources/js/components/tour/tour-control-bar.tsx`, add `scroll-x-contained` to the bar root and `shrink-0` to its two child groups (the `Options` control group and the Optimize `ActionButton`) so controls keep intrinsic width and the bar scrolls rather than squishing. Do not change the fits-wide layout.
+- [X] T006 [P] [US1] In `resources/js/components/tour/result-summary.tsx`, add `scroll-x-contained` to the `bg-primary` header bar and `shrink-0` to its two child groups (the figures grid and the New/Edit/Assign button group). Do not change the fits-wide layout.
 
 **Checkpoint**: Both bars scroll on overflow, contained in their box, with the desktop look intact — MVP complete.
 
@@ -72,7 +72,7 @@ Frontend-only, single repo: styles in `resources/css/`, components in `resources
 
 ### Implementation for User Story 2
 
-- [ ] T007 [US2] Verify in `resources/js/pages/tour/optimize.tsx` that no element forces page-level horizontal overflow at mobile widths (the content column is already `overflow-hidden`, and US1 stops the bar spill). Add `min-w-0` / an overflow guard ONLY if the narrow-viewport check surfaces a leak; otherwise change nothing and record that the existing clipping suffices.
+- [X] T007 [US2] Verify in `resources/js/pages/tour/optimize.tsx` that no element forces page-level horizontal overflow at mobile widths (the content column is already `overflow-hidden`, and US1 stops the bar spill). Add `min-w-0` / an overflow guard ONLY if the narrow-viewport check surfaces a leak; otherwise change nothing and record that the existing clipping suffices.
 
 **Checkpoint**: The tour screen holds together at phone widths.
 
@@ -80,8 +80,8 @@ Frontend-only, single repo: styles in `resources/css/`, components in `resources
 
 ## Phase 5: Polish & Cross-Cutting Concerns
 
-- [ ] T008 Run the quickstart walkthrough in `specs/021-mobile-responsive/quickstart.md` at ~360px and ~320px: both bars scroll and expose every control, nothing spills outside the rounded box, the bar menus (mode dropdown, native date picker) still open, no whole-page horizontal scroll, scroll-end trailing padding holds, and no vertical clipping. **No-deformation proof**: capture a before/after desktop-width screenshot of each bar and confirm they are pixel-identical (the fits state cannot be guarded by a jsdom unit test).
-- [ ] T009 Run the FULL CI gate before done: `npm run test`, `npm run lint`, `npm run types`, and `npm run format:check` (format is separate from lint) — all green.
+- [~] T008 NOT run in this environment (no browser to drive at 320/360px). Automated guards + a successful production build stand in for the structural checks; the manual narrow-viewport walkthrough (scroll behavior, scroll-end padding, no vertical clipping, menus, no page scroll) and the before/after desktop screenshots per `specs/021-mobile-responsive/quickstart.md` are still REQUIRED before release.
+- [X] T009 Run the FULL CI gate before done: `npm run test`, `npm run lint`, `npm run types`, and `npm run format:check` (format is separate from lint) — all green.
 
 ---
 

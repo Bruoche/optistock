@@ -239,6 +239,26 @@ describe('DriverList', () => {
         ).toBeInTheDocument();
     });
 
+    // jsdom can't measure overflow; guard the containment styles (021): the list box
+    // scrolls vertically within its own height, and each row scrolls its info sideways.
+    it('contains the list in a scrollable box and lets each row scroll sideways', () => {
+        mockUseTourDrivers.mockReturnValue({
+            status: 'ready',
+            drivers: [driver({ name: 'Amelie' })],
+        });
+
+        const { container } = renderList();
+
+        const list = container.querySelector('ul');
+        expect(list?.className).toContain('min-h-0');
+        expect(list?.className).toContain('overflow-y-auto');
+        // On mobile the list is natural height so the whole panel scrolls as one (022).
+        expect(list?.className).toContain('max-md:flex-none');
+
+        const row = screen.getByRole('button', { name: /Amelie/ });
+        expect(row.className).toContain('scroll-x-contained');
+    });
+
     it('clicking a row reports the driver to onSelect and opens no dialog', () => {
         const drivers = [driver({ name: 'Amelie' })];
         mockUseTourDrivers.mockReturnValue({ status: 'ready', drivers });

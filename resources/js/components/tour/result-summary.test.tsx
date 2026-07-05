@@ -154,6 +154,31 @@ describe('ResultSummary', () => {
         ).toBeTruthy();
     });
 
+    // jsdom can't measure reflow; guard that the result bar wraps its figures + actions
+    // onto multiple rows when they overflow on narrow screens (021).
+    it('wraps the header bar instead of overflowing', () => {
+        mockUseTourDrivers.mockReturnValue({ drivers: [], status: 'ready' });
+
+        const { container } = renderSummary();
+
+        expect(container.querySelector('.flex-wrap.bg-primary')).not.toBeNull();
+    });
+
+    // jsdom evaluates no media queries; guard the mobile panel-scroll overrides (022):
+    // the root is content-height and the bar is flush edge-to-edge on phones.
+    it('applies the mobile content-height + flush-bar overrides', () => {
+        mockUseTourDrivers.mockReturnValue({ drivers: [], status: 'ready' });
+
+        const { container } = renderSummary();
+
+        expect(container.firstElementChild?.className).toContain(
+            'max-md:h-auto',
+        );
+        expect(
+            container.querySelector('.max-md\\:rounded-none.bg-primary'),
+        ).not.toBeNull();
+    });
+
     it('shows exactly three actions labelled New, Edit, Assign in that order (US2)', () => {
         mockUseTourDrivers.mockReturnValue({ drivers: [], status: 'ready' });
 

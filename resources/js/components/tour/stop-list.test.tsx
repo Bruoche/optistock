@@ -16,6 +16,21 @@ describe('StopList', () => {
         expect(screen.getAllByRole('listitem')).toHaveLength(2);
     });
 
+    // jsdom evaluates no media queries; guard the mobile panel-scroll overrides (022):
+    // the wrapper is content-height and the list is natural height so the panel scrolls as one.
+    it('applies the mobile content-height overrides', () => {
+        const { container } = render(
+            <StopList stops={STOPS} onRemove={noop} />,
+        );
+
+        expect(container.firstElementChild?.className).toContain(
+            'max-md:h-auto',
+        );
+        expect(screen.getByRole('list').className).toContain(
+            'max-md:flex-none',
+        );
+    });
+
     it('shows an empty hint with no stops', () => {
         render(<StopList stops={[]} onRemove={noop} />);
         expect(

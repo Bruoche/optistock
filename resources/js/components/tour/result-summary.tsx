@@ -42,11 +42,12 @@ type ResultSummaryProps = {
     onAssigned: () => void;
 };
 
-// Subgrid cell: label and value snap to the header's two shared rows, so all
-// figures stay aligned even though the date input is taller than the text values.
+// Label above value. Uniform single-line labels keep the values top-aligned across
+// figures, so the header reads as one row on desktop and wraps figure-by-figure on
+// narrow screens (021).
 function Figure({ label, children }: { label: string; children: ReactNode }) {
     return (
-        <div className="row-span-2 grid grid-rows-subgrid">
+        <div>
             <p className="text-xs tracking-wide uppercase">{label}</p>
             <div className="flex items-center gap-2 text-lg font-semibold">
                 {children}
@@ -87,9 +88,9 @@ export function ResultSummary({
     const [confirmingNewTour, setConfirmingNewTour] = useState(false);
 
     return (
-        <div className="flex h-full flex-col gap-3">
-            <div className="flex items-center justify-between gap-6 rounded-md bg-primary px-4 py-3 text-text-on-color">
-                <div className="grid auto-cols-max grid-flow-col grid-rows-[auto_auto] items-center gap-x-6 gap-y-1">
+        <div className="flex h-full flex-col gap-3 max-md:h-auto">
+            <div className="flex flex-wrap items-center justify-between gap-6 rounded-md bg-primary px-4 py-3 text-text-on-color max-md:rounded-none">
+                <div className="flex flex-wrap items-center gap-x-6 gap-y-1">
                     <Figure label="Time on road">
                         {formatDuration(durationS)}
                     </Figure>
@@ -110,7 +111,7 @@ export function ResultSummary({
                         {formatWeekday(date)}
                     </Figure>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                     <ActionButton onClick={() => setConfirmingNewTour(true)}>
                         New
                     </ActionButton>

@@ -127,7 +127,7 @@ export default function TourOptimize({ editTour = null }: TourOptimizeProps) {
                     </TourMap>
                 </div>
 
-                <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden border-t border-border p-4">
+                <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden border-t border-border p-4 max-md:overflow-y-auto max-md:p-0">
                     {isDone ? (
                         <ResultSummary
                             result={state.result}
