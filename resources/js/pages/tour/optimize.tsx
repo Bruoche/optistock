@@ -15,11 +15,16 @@ import { useTourGeometry } from '@/hooks/use-tour-geometry';
 import { useTourOptimization } from '@/hooks/use-tour-optimization';
 import { useWorkdayPreview } from '@/hooks/use-workday-preview';
 import { todayDate } from '@/types/tour';
-import type { DeliveryMode, Driver } from '@/types/tour';
+import type { DeliveryMode, Driver, EditTour } from '@/types/tour';
 
 const MIN_STOPS = 2;
 
-export default function TourOptimize() {
+type TourOptimizeProps = {
+    /** The tour being edited (feature 020); null/absent when building a fresh tour. */
+    editTour?: EditTour | null;
+};
+
+export default function TourOptimize({ editTour = null }: TourOptimizeProps) {
     const userId = usePage().props.auth.user.id;
     const {
         stops,
@@ -30,11 +35,14 @@ export default function TourOptimize() {
         reset,
         state,
         waitTimeS,
-    } = useTourOptimization(userId);
+    } = useTourOptimization(userId, editTour);
 
     // Defaults apply on first load and are retained across a reset (reset clears the tour, not these).
-    const [mode, setMode] = useState<DeliveryMode>('trucking');
-    const [loop, setLoop] = useState<boolean>(true);
+    // When editing, seed the controls from the tour so it re-optimizes exactly as saved (020).
+    const [mode, setMode] = useState<DeliveryMode>(
+        editTour?.mode ?? 'trucking',
+    );
+    const [loop, setLoop] = useState<boolean>(editTour?.loop ?? true);
     // Tour date (011); defaults to today and persists across resets, like mode/loop.
     const [tourDate, setTourDate] = useState<string>(todayDate);
     // Mode chosen in the result view (016); null follows the tour's optimization mode.

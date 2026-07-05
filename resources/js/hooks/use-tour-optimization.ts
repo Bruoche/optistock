@@ -12,6 +12,7 @@ import {
 } from '@/types/tour';
 import type {
     DeliveryMode,
+    EditTour,
     OptimizeState,
     Stop,
     TourError,
@@ -19,6 +20,20 @@ import type {
 } from '@/types/tour';
 
 const POLL_INTERVAL_MS = 3000;
+
+// Seed the stop list from the tour being edited (feature 020); a fresh tour starts empty.
+function initialStops(editTour?: EditTour | null): Stop[] {
+    if (!editTour) {
+        return [];
+    }
+
+    return editTour.stops.map((stop) => ({
+        id: crypto.randomUUID(),
+        lat: stop.lat,
+        lng: stop.lng,
+        durationMinutes: stop.duration_minutes,
+    }));
+}
 
 // Keep a stop duration a valid non-negative whole number (CR-2): empty/NaN/negative
 // reads as 0 ("no time here"), non-integers floor, and the 24 h ceiling clamps.
@@ -30,13 +45,19 @@ function normalizeStopDuration(minutes: number): number {
     return Math.min(Math.floor(minutes), MAX_STOP_DURATION_MINUTES);
 }
 
-export function useTourOptimization(userId: number) {
-    const [stops, setStops] = useState<Stop[]>([]);
+export function useTourOptimization(
+    userId: number,
+    editTour?: EditTour | null,
+) {
+    const [stops, setStops] = useState<Stop[]>(() => initialStops(editTour));
     const [state, setState] = useState<OptimizeState>({ status: 'idle' });
 
     const channelName = `App.Models.User.${userId}`;
     const pollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
     const activeJob = useRef<string | null>(null);
+    // The tour being edited (feature 020): re-optimizing updates it in place. Cleared by
+    // reset() so a "New tour" from the edit page creates a fresh tour instead.
+    const editTourId = useRef<number | null>(editTour?.id ?? null);
     // Snapshot of the shape a pending optimization was started with, so a result
     // arriving via broadcast/poll is settled with the values it was optimized for (FR-007).
     const optimizedMode = useRef<DeliveryMode>('trucking');
@@ -105,6 +126,7 @@ export function useTourOptimization(userId: number) {
 
     const reset = useCallback(() => {
         cleanup();
+        editTourId.current = null;
         setStops([]);
         setState({ status: 'idle' });
     }, [cleanup]);
@@ -173,7 +195,7 @@ export function useTourOptimization(userId: number) {
             setState({ status: 'submitting', mode, loop });
 
             try {
-                const response = await postJson('/api/tour/optimize', {
+                const body: Record<string, unknown> = {
                     stops: stops.map((stop) => ({
                         lat: stop.lat,
                         lng: stop.lng,
@@ -181,7 +203,14 @@ export function useTourOptimization(userId: number) {
                     })),
                     mode,
                     loop,
-                });
+                };
+
+                // Editing an existing tour → target it so persistence updates in place (020).
+                if (editTourId.current !== null) {
+                    body.tour_id = editTourId.current;
+                }
+
+                const response = await postJson('/api/tour/optimize', body);
 
                 if (response.status === 200) {
                     const payload = await response.json();

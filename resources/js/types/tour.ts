@@ -122,6 +122,24 @@ export type OptimizedStop = {
     order: number;
 };
 
+/** One stop hydrated into the editing menu from a persisted tour (feature 020).
+ *  Wire shape from the server: coordinate + delivery duration in minutes. */
+export type EditTourStop = {
+    lat: number;
+    lng: number;
+    duration_minutes: number;
+};
+
+/** The persisted tour being edited (feature 020), passed as a page prop so the
+ *  optimize controls hydrate exactly as the tour was saved. No date — an unassigned
+ *  tour carries none, so the page keeps its default (today). */
+export type EditTour = {
+    id: number;
+    mode: DeliveryMode;
+    loop: boolean;
+    stops: EditTourStop[];
+};
+
 /** Success payload `data`. Metrics are null for a 2-point tour (no routing call
  *  yet — pending the /route/ endpoint). */
 export type TourResult = {

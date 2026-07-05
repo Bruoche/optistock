@@ -335,6 +335,64 @@ describe('useTourOptimization', () => {
         expect(body.stops[0]).toHaveProperty('duration_s', 600);
     });
 
+    // --- Editing an existing tour (020) ----------------------------------
+
+    const EDIT_TOUR = {
+        id: 42,
+        mode: 'walking' as const,
+        loop: false,
+        stops: [
+            { lat: 48.1, lng: 2.1, duration_minutes: 15 },
+            { lat: 48.2, lng: 2.2, duration_minutes: 20 },
+        ],
+    };
+
+    it('seeds the stop list from the tour being edited (020)', () => {
+        const { result } = renderHook(() => useTourOptimization(7, EDIT_TOUR));
+
+        expect(
+            result.current.stops.map((s) => [s.lat, s.durationMinutes]),
+        ).toEqual([
+            [48.1, 15],
+            [48.2, 20],
+        ]);
+    });
+
+    it('sends tour_id when editing and settles to done, driving the result view (020/FR-011)', async () => {
+        (fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
+            jsonResponse(200, { status: 'done', data: RESULT }),
+        );
+        const { result } = renderHook(() => useTourOptimization(7, EDIT_TOUR));
+
+        await act(async () => {
+            await result.current.optimize('walking', false);
+        });
+
+        const [, options] = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+        expect(
+            JSON.parse((options as RequestInit).body as string).tour_id,
+        ).toBe(42);
+        expect(result.current.state.status).toBe('done');
+    });
+
+    it('drops tour_id after reset so a new tour is created, not the edited one (020)', async () => {
+        (fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
+            jsonResponse(200, { status: 'done', data: RESULT }),
+        );
+        const { result } = renderHook(() => useTourOptimization(7, EDIT_TOUR));
+
+        act(() => result.current.reset());
+        await addTwoStops(result);
+        await act(async () => {
+            await result.current.optimize('trucking', true);
+        });
+
+        const [, options] = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+        expect(
+            JSON.parse((options as RequestInit).body as string),
+        ).not.toHaveProperty('tour_id');
+    });
+
     it('surfaces a cache-hit persist failure without entering the done state (FR-014)', async () => {
         (fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
             jsonResponse(200, {
