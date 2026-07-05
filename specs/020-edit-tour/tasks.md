@@ -55,7 +55,7 @@ Web app, single repo: PHP under `app/`, `routes/`, `tests/`; frontend under `res
 - [ ] T003 [P] [US1] Feature test in `tests/Feature/EditTourOptimizeTest.php`: `POST /api/tour/optimize` with a valid owned unassigned `tour_id` updates that tour + replaces its stops (tour count unchanged, `data.id === tour_id`); an assigned `tour_id` → 422; a foreign/missing `tour_id` → 404; no `tour_id` still creates (regression).
 - [ ] T004 [P] [US1] Unit test in `tests/Unit/TourRecorderEditTest.php`: `TourRecorder::record` with `editTourId` updates the tour's mode/loop/totals, deletes prior stops, recreates ordered stops; a missing target throws (no create).
 - [ ] T005 [P] [US1] Feature test in `tests/Feature/EditTourPageTest.php`: `GET /tour/{tour}/edit` for an owned unassigned tour returns the optimize page with an `editTour` prop carrying stops (ascending position, `duration_minutes`), mode, and loop; foreign tour → 404; assigned tour → not editable (redirect/404); plain tour page has `editTour = null`.
-- [ ] T006 [P] [US1] Vitest in `resources/js/hooks/use-tour-optimization.test.ts`: when seeded with an `editTour`, the hook initializes the stop list from it and includes `tour_id` in the optimize POST body; without one, no `tour_id` is sent.
+- [ ] T006 [P] [US1] Vitest in `resources/js/hooks/use-tour-optimization.test.ts`: when seeded with an `editTour`, the hook initializes the stop list from it and includes `tour_id` in the optimize POST body; without one, no `tour_id` is sent; a successful edit re-optimize settles to `state.status === 'done'` (which drives the result view — FR-011).
 
 ### Implementation for User Story 1
 

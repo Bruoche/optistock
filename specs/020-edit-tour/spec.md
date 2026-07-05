@@ -20,7 +20,7 @@ A planner has optimized a tour and is looking at the result view, but realizes a
 
 **Acceptance Scenarios**:
 
-1. **Given** an optimized tour shown in the result view, **When** the planner clicks Edit, **Then** the optimization menu reopens pre-populated with that tour's stops, per-stop durations, and the mode, loop, and date it was optimized with.
+1. **Given** an optimized tour shown in the result view, **When** the planner clicks Edit, **Then** the optimization menu reopens pre-populated with that tour's stops, per-stop durations, and the mode and loop it was optimized with (date defaults to today, since an unassigned tour has none).
 2. **Given** the editing menu opened via Edit, **When** the planner changes stops or options and re-optimizes, **Then** the existing tour is updated in place and no additional tour is created.
 3. **Given** an edited tour has been re-optimized, **When** the result view reopens, **Then** it reflects the edited stops and options.
 
@@ -58,7 +58,7 @@ In the result view the planner sees three action buttons in a consistent, compac
 - **FR-002**: The button previously labeled "New tour" MUST be relabeled "New" while keeping its existing confirm-and-reset behavior.
 - **FR-003**: The button previously labeled "Assign Driver" MUST be relabeled "Assign" while keeping its existing driver-assignment behavior.
 - **FR-004**: The Edit button MUST return the planner to the tour optimization menu.
-- **FR-005**: On entering the editing menu, the system MUST pre-populate the stop coordinates, per-stop delivery durations, and the mode, loop, and date the tour was optimized with.
+- **FR-005**: On entering the editing menu, the system MUST pre-populate the stop coordinates, per-stop delivery durations, and the mode and loop the tour was optimized with. Date is not stored on an unassigned tour, so it is not restored and defaults to today.
 - **FR-006**: While editing, the planner MUST be able to change stops (add, remove, reorder via the existing controls) and options exactly as when building a new tour.
 - **FR-007**: Re-optimizing a tour opened via Edit MUST update that existing tour in place and MUST NOT create a new tour.
 - **FR-008**: Re-optimizing an edited tour MUST NOT leave the original pre-edit tour as a separate persisted record.
@@ -70,7 +70,7 @@ In the result view the planner sees three action buttons in a consistent, compac
 
 - **Tour**: The persisted optimized route (created when first optimized). It carries a stable identity that editing preserves — a re-optimization from the editing menu updates this same record's stops and options rather than inserting a new one. Remains unassigned throughout the edit flow.
 - **Stop**: A coordinate on the tour with a per-stop delivery duration. Editing restores and can modify the full set of stops.
-- **Tour options**: The mode, loop, and date the tour was optimized with; restored into the editing controls and updatable before re-optimization.
+- **Tour options**: The mode and loop the tour was optimized with; restored into the editing controls and updatable before re-optimization. (Date is not a stored tour option before assignment.)
 
 ## Success Criteria *(mandatory)*
 
@@ -78,14 +78,15 @@ In the result view the planner sees three action buttons in a consistent, compac
 
 - **SC-001**: A planner can correct a single stop on an existing tour and re-optimize without re-entering any of the other stops or options.
 - **SC-002**: Editing and re-optimizing a tour results in exactly one persisted tour for that route (no duplicates), verifiable by tour count before and after.
-- **SC-003**: 100% of the tour's stops, durations, mode, loop, and date are restored into the editing menu when Edit is clicked.
+- **SC-003**: 100% of the tour's stops, durations, mode, and loop are restored into the editing menu when Edit is clicked.
 - **SC-004**: The result view shows exactly three actions labeled New, Edit, Assign in that order.
 - **SC-005**: A planner can go from viewing a result to an editable, pre-populated menu in a single click.
 
 ## Assumptions
 
 - Editing applies only to tours in the result view (optimized but not yet assigned); once a tour is assigned to a driver it leaves this flow, so no separate "edit an assigned tour" path is in scope.
-- The client still holds the tour's stops (coordinates and per-stop durations) and the mode/loop/date it was optimized with from the current session, so restoring them into the editing menu does not require re-fetching the tour.
+- Edit is a page navigation to the tour's edit route; the editing menu is hydrated server-side from the tour itself (its stops, per-stop durations, mode, and loop), so a deep-linked edit works and does not rely on in-session state.
+- An unassigned tour has no date of its own (date is captured at assignment time), so the editing menu's date is not restored from the tour and defaults to today.
 - Re-optimization reuses the existing optimize action and its validation, differing only in that it targets the existing tour's identity for the update instead of creating a new record.
 - The Edit action is disabled or absent in states where there is no optimized tour to edit (e.g., while an optimization is still pending).
 - Reordering of stops, if needed, uses the existing stop-list controls; no new editing affordances beyond those already available when building a tour are introduced.
