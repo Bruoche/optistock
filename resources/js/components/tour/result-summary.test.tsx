@@ -12,6 +12,11 @@ beforeAll(() => {
 
 const mockUseTourDrivers = vi.fn();
 const mockAssign = vi.fn();
+const mockVisit = vi.fn();
+
+vi.mock('@inertiajs/react', () => ({
+    router: { visit: (...args: unknown[]) => mockVisit(...args) },
+}));
 
 vi.mock('@/hooks/use-tour-drivers', () => ({
     useTourDrivers: (mode: string, date: string) =>
@@ -86,7 +91,7 @@ describe('ResultSummary', () => {
             screen.getByText('No one available for this delivery.'),
         ).toBeInTheDocument();
         expect(
-            screen.getByRole('button', { name: /new tour/i }),
+            screen.getByRole('button', { name: /^new$/i }),
         ).toBeInTheDocument();
     });
 
@@ -136,17 +141,45 @@ describe('ResultSummary', () => {
         renderSummary();
 
         const assignButton = screen.getByRole('button', {
-            name: /assign driver/i,
+            name: /^assign$/i,
         });
         expect(assignButton).toBeDisabled();
 
         const newTourButton = screen.getByRole('button', {
-            name: /new tour/i,
+            name: /^new$/i,
         });
         expect(
             newTourButton.compareDocumentPosition(assignButton) &
                 Node.DOCUMENT_POSITION_FOLLOWING,
         ).toBeTruthy();
+    });
+
+    it('shows exactly three actions labelled New, Edit, Assign in that order (US2)', () => {
+        mockUseTourDrivers.mockReturnValue({ drivers: [], status: 'ready' });
+
+        renderSummary();
+
+        const newButton = screen.getByRole('button', { name: /^new$/i });
+        const editButton = screen.getByRole('button', { name: /^edit$/i });
+        const assignButton = screen.getByRole('button', { name: /^assign$/i });
+
+        expect(
+            newButton.compareDocumentPosition(editButton) &
+                Node.DOCUMENT_POSITION_FOLLOWING,
+        ).toBeTruthy();
+        expect(
+            editButton.compareDocumentPosition(assignButton) &
+                Node.DOCUMENT_POSITION_FOLLOWING,
+        ).toBeTruthy();
+    });
+
+    it('Edit navigates to the tour edit route (US1)', () => {
+        mockUseTourDrivers.mockReturnValue({ drivers: [], status: 'ready' });
+
+        renderSummary();
+        fireEvent.click(screen.getByRole('button', { name: /^edit$/i }));
+
+        expect(mockVisit).toHaveBeenCalledWith(`/tour/${result.id}/edit`);
     });
 
     it('enables Assign Driver once a driver is selected and opens the confirmation dialog', async () => {
@@ -159,7 +192,7 @@ describe('ResultSummary', () => {
         renderSummary({ selectedDriver: selected });
 
         const assignButton = screen.getByRole('button', {
-            name: /assign driver/i,
+            name: /^assign$/i,
         });
         expect(assignButton).toBeEnabled();
 
@@ -176,7 +209,7 @@ describe('ResultSummary', () => {
         });
 
         renderSummary({ selectedDriver: selected });
-        fireEvent.click(screen.getByRole('button', { name: /assign driver/i }));
+        fireEvent.click(screen.getByRole('button', { name: /^assign$/i }));
 
         // The modal removes the page behind it from the accessibility tree, so
         // no driver row can be clicked while the confirmation is open.
@@ -195,16 +228,14 @@ describe('ResultSummary', () => {
         });
 
         renderSummary({ selectedDriver: selected, onSelectDriver, onAssigned });
-        fireEvent.click(screen.getByRole('button', { name: /assign driver/i }));
+        fireEvent.click(screen.getByRole('button', { name: /^assign$/i }));
         fireEvent.click(screen.getByRole('button', { name: /cancel/i }));
 
         expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
         expect(mockAssign).not.toHaveBeenCalled();
         expect(onAssigned).not.toHaveBeenCalled();
         expect(onSelectDriver).not.toHaveBeenCalled();
-        expect(
-            screen.getByRole('button', { name: /assign driver/i }),
-        ).toBeEnabled();
+        expect(screen.getByRole('button', { name: /^assign$/i })).toBeEnabled();
     });
 
     it('confirming assigns the selected driver and fires onAssigned', async () => {
@@ -217,7 +248,7 @@ describe('ResultSummary', () => {
         });
 
         renderSummary({ selectedDriver: selected, onAssigned });
-        fireEvent.click(screen.getByRole('button', { name: /assign driver/i }));
+        fireEvent.click(screen.getByRole('button', { name: /^assign$/i }));
         fireEvent.click(screen.getByRole('button', { name: /confirm/i }));
 
         expect(mockAssign).toHaveBeenCalledWith(selected.id, DATE, 0);
@@ -229,7 +260,7 @@ describe('ResultSummary', () => {
         mockUseTourDrivers.mockReturnValue({ drivers: [], status: 'ready' });
 
         renderSummary({ onReset });
-        fireEvent.click(screen.getByRole('button', { name: /new tour/i }));
+        fireEvent.click(screen.getByRole('button', { name: /^new$/i }));
 
         expect(
             screen.getByText(
@@ -247,7 +278,7 @@ describe('ResultSummary', () => {
         mockUseTourDrivers.mockReturnValue({ drivers: [], status: 'ready' });
 
         renderSummary({ onReset });
-        fireEvent.click(screen.getByRole('button', { name: /new tour/i }));
+        fireEvent.click(screen.getByRole('button', { name: /^new$/i }));
         fireEvent.click(screen.getByRole('button', { name: /cancel/i }));
 
         expect(onReset).not.toHaveBeenCalled();

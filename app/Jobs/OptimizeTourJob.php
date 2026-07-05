@@ -57,6 +57,7 @@ class OptimizeTourJob implements ShouldQueue
         public readonly array $durationByCoord,
         public readonly string $mode,
         public readonly bool $loop,
+        public readonly ?int $editTourId = null,
     ) {
         $this->timeout = (int) config('services.openstreet.job_timeout', 1260);
     }
@@ -95,6 +96,7 @@ class OptimizeTourJob implements ShouldQueue
                 $this->durationByCoord,
                 $tour['total_distance_m'],
                 $tour['total_duration_s'],
+                $this->editTourId,
             );
         } catch (Throwable $e) {
             // A successful optimization that could not be saved: surface a distinct

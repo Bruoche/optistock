@@ -1,8 +1,10 @@
 // FR-014/FR-015: after a result arrives, this replaces the Optimize button row.
 // Shows the total tour duration at the top; the space the stop list occupied now
 // holds the available-driver list for the tour's mode (feature 006). Selecting a
-// driver previews their workday on the map; the Assign Driver button (014) opens
-// the confirmation dialog that records the assignment (012).
+// driver previews their workday on the map; the Assign button (014) opens the
+// confirmation dialog that records the assignment (012). Edit (020) returns to the
+// optimize menu to re-optimize this tour in place.
+import { router } from '@inertiajs/react';
 import { useState } from 'react';
 import { ActionButton } from '@/components/action-button';
 import { AssignDriverDialog } from '@/components/tour/assign-driver-dialog';
@@ -110,13 +112,18 @@ export function ResultSummary({
                 </div>
                 <div className="flex items-center gap-2">
                     <ActionButton onClick={() => setConfirmingNewTour(true)}>
-                        New tour
+                        New
+                    </ActionButton>
+                    <ActionButton
+                        onClick={() => router.visit(`/tour/${result.id}/edit`)}
+                    >
+                        Edit
                     </ActionButton>
                     <ActionButton
                         disabled={selectedDriver === null}
                         onClick={() => setConfirming(true)}
                     >
-                        Assign Driver
+                        Assign
                     </ActionButton>
                 </div>
             </div>

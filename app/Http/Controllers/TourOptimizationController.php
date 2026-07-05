@@ -29,8 +29,11 @@ class TourOptimizationController extends Controller
         $mode = $request->validated('mode') ?? config('services.openstreet.mode');
         // No loop in the request → default to a closed tour (return to origin).
         $loop = $request->boolean('loop', true);
+        // Present → update this existing tour in place instead of creating one (feature 020).
+        $editTourId = $request->validated('tour_id');
+        $editTourId = $editTourId === null ? null : (int) $editTourId;
 
-        $result = $tours->optimize($userId, $request->validated('stops'), $mode, $loop);
+        $result = $tours->optimize($userId, $request->validated('stops'), $mode, $loop, $editTourId);
 
         if ($result->isReady) {
             return response()->json(['status' => 'done', 'data' => $result->tour()]);

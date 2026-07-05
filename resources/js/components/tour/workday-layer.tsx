@@ -94,7 +94,7 @@ export function WorkdayLayer({ legs }: WorkdayLayerProps) {
                             }}
                             paint={{
                                 'line-color': leg.highlight ? primary : neutral,
-                                'line-width': 3,
+                                'line-width': 4,
                                 'line-opacity': leg.highlight ? 1 : 0.5,
                                 'line-dasharray': leg.dotted
                                     ? DASH_DOTTED

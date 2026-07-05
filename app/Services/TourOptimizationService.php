@@ -27,7 +27,7 @@ class TourOptimizationService
      * @param  string  $mode  Travel mode driving both the optimization and (later) the geometry trace.
      * @param  bool  $loop  Tour shape: true = closed loop (return to origin), false = open one-way (004).
      */
-    public function optimize(int $userId, array $stops, string $mode, bool $loop): TourOptimizationResult
+    public function optimize(int $userId, array $stops, string $mode, bool $loop, ?int $editTourId = null): TourOptimizationResult
     {
         $coordinates = array_map(static fn (array $stop): array => [$stop['lat'], $stop['lng']], $stops);
         $durationByCoord = $this->durationByCoord($stops);
@@ -37,7 +37,7 @@ class TourOptimizationService
 
         $cachedTour = $this->cache->getTour($mode, $loop, $coordinatesHash);
         if ($cachedTour !== null) {
-            return $this->recordCacheHit($userId, $mode, $loop, $coordinatesHash, $cachedTour, $durationByCoord);
+            return $this->recordCacheHit($userId, $mode, $loop, $coordinatesHash, $cachedTour, $durationByCoord, $editTourId);
         }
 
         $jobUuid = (string) Str::uuid();
@@ -51,7 +51,7 @@ class TourOptimizationService
             // Rare race: the job released its slot between our failed claim and this read.
         }
         $this->cache->markPending($jobUuid);
-        OptimizeTourJob::dispatch($jobUuid, $userId, $coordinatesHash, $normalizedCoordinates, $durationByCoord, $mode, $loop);
+        OptimizeTourJob::dispatch($jobUuid, $userId, $coordinatesHash, $normalizedCoordinates, $durationByCoord, $mode, $loop, $editTourId);
 
         return TourOptimizationResult::pending($jobUuid);
     }
@@ -70,6 +70,7 @@ class TourOptimizationService
         string $coordinatesHash,
         array $cachedTour,
         array $durationByCoord,
+        ?int $editTourId = null,
     ): TourOptimizationResult {
         try {
             $tour = $this->recorder->record(
@@ -80,6 +81,7 @@ class TourOptimizationService
                 $durationByCoord,
                 $cachedTour['total_distance_m'] ?? null,
                 $cachedTour['total_duration_s'] ?? null,
+                $editTourId,
             );
         } catch (Throwable $e) {
             Log::error('Tour persistence failed (cache hit)', [
