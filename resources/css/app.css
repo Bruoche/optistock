@@ -167,3 +167,12 @@
         @apply bg-background text-foreground;
     }
 }
+
+/* Contain a single-row strip's horizontal overflow: identical when it fits, a
+   horizontal scroll strip when it overflows. Overflow-only so it can never deform
+   the fits state. Reuse only on single-row, container-width-constrained elements
+   (see specs/021-mobile-responsive/contracts/responsive-bars.md). */
+@utility scroll-x-contained {
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+}

@@ -87,6 +87,17 @@ describe('TourOptimize control bar visibility (003)', () => {
         ).not.toBeInTheDocument();
     });
 
+    // jsdom evaluates no media queries; guard that the mobile panel-scroll overrides are
+    // applied so the bottom panel scrolls as one and goes full-bleed on phones (022).
+    it('marks the bottom content panel to scroll and drop padding on mobile', () => {
+        mocks.state = { status: 'idle' };
+        const { container } = render(<TourOptimize />);
+
+        expect(
+            container.querySelector('.max-md\\:overflow-y-auto.max-md\\:p-0'),
+        ).not.toBeNull();
+    });
+
     it('shows a result-view mode selector defaulting to the tour optimization mode (016)', () => {
         mocks.state = {
             status: 'done',

@@ -34,10 +34,10 @@ export function TourControlBar({
     optimizing,
 }: TourControlBarProps) {
     return (
-        <div className="flex items-center justify-between rounded-md bg-primary px-4 py-3 text-text-on-color">
+        <div className="flex flex-wrap items-center justify-between gap-4 rounded-md bg-primary px-4 py-3 text-text-on-color max-md:rounded-none">
             <div>
                 <p className="text-xs tracking-wide uppercase">Options</p>
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center gap-3">
                     <ModeSelect
                         value={mode}
                         onChange={onModeChange}
