@@ -23,3 +23,6 @@ When the tour screen's top bar is wider than the viewport, the bar scrolls sidew
 ## Watch out for
 - The non-overflowing (desktop) look must be unchanged — `overflow-x: auto` and `shrink-0` must not alter the fits state.
 - The bars' menus (mode dropdown, native date picker) must still open fully — they portal / are native, so overflow does not clip them; confirm during the walkthrough.
+- **Scroll-end padding**: scroll a bar all the way right and check the last control still has trailing breathing room — some engines drop a flex scroll container's trailing padding at scroll-end. If it collapses, add a trailing spacer / `pe-4` on the scrolling track.
+- **Scrollbar look**: on overflow a scrollbar appears over the `bg-primary` bar. Make a conscious call — keep the subtle native bar as the affordance, or thin/hide it — rather than leaving it unconsidered.
+- **Vertical clipping**: because `overflow-x: auto` also constrains the vertical axis, confirm nothing in a bar (focus ring on an edge control, a shadow) gets visually cut at the top/bottom edge.

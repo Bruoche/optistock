@@ -19,6 +19,10 @@ Defined once in `resources/css/app.css` as a Tailwind v4 `@utility`:
 - Applies at every viewport width (no breakpoint / no JS toggle).
 - Horizontal scroll does not chain to the page.
 
+**Preconditions for safe reuse** (so this stays easy to apply to future interfaces without regressions)
+- **Single-row / no intended vertical overflow.** `overflow-x: auto` makes the other axis compute to `auto` too (CSS spec: a non-`visible` axis forces the other non-`visible`). So the element must not rely on in-flow content bleeding *vertically* outside its box — an edge tooltip, badge, or an outer focus ring/shadow on an edge child would be clipped. Pop-up menus that portal to `document.body` (Radix `Select`) or are native (the date `<input>`) are unaffected. Apply this utility only to single-row strips.
+- **Width must be constrained by the container.** The element must get its width from its parent (stretched in a flex-`col`, or given `min-w-0` inside a flex-`row`), not from its content. In an unconstrained flex-`row` a `scroll-x-contained` element could grow to its content width and re-introduce page overflow. Today's bars stretch inside a flex-`col`, so they are constrained.
+
 ## Bar application
 
 ### Editing-view control bar — `TourControlBar` root

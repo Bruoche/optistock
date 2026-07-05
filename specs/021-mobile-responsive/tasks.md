@@ -80,7 +80,7 @@ Frontend-only, single repo: styles in `resources/css/`, components in `resources
 
 ## Phase 5: Polish & Cross-Cutting Concerns
 
-- [ ] T008 Run the quickstart walkthrough in `specs/021-mobile-responsive/quickstart.md` at ~360px and ~320px: both bars scroll and expose every control, nothing spills outside the rounded box, the bar menus (mode dropdown, native date picker) still open, no whole-page horizontal scroll, and the desktop layout is unchanged.
+- [ ] T008 Run the quickstart walkthrough in `specs/021-mobile-responsive/quickstart.md` at ~360px and ~320px: both bars scroll and expose every control, nothing spills outside the rounded box, the bar menus (mode dropdown, native date picker) still open, no whole-page horizontal scroll, scroll-end trailing padding holds, and no vertical clipping. **No-deformation proof**: capture a before/after desktop-width screenshot of each bar and confirm they are pixel-identical (the fits state cannot be guarded by a jsdom unit test).
 - [ ] T009 Run the FULL CI gate before done: `npm run test`, `npm run lint`, `npm run types`, and `npm run format:check` (format is separate from lint) — all green.
 
 ---
