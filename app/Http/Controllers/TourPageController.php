@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Stop;
+use App\DTOs\EditTourData;
 use App\Models\Tour;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
@@ -29,23 +29,12 @@ class TourPageController extends Controller
         }
 
         // An assigned tour is past attribution and not editable (FR-009) — send the planner to a fresh page.
-        if ($tour->drivers()->exists()) {
+        if ($tour->isAssigned()) {
             return redirect()->route('tour.optimize.page');
         }
 
-        $tour->load('deliveryMode', 'stops');
-
         return Inertia::render('tour/optimize', [
-            'editTour' => [
-                'id' => $tour->id,
-                'mode' => $tour->deliveryMode->label,
-                'loop' => $tour->loop,
-                'stops' => $tour->stops->map(fn (Stop $stop): array => [
-                    'lat' => $stop->latitude,
-                    'lng' => $stop->longitude,
-                    'duration_minutes' => intdiv($stop->duration_s, 60),
-                ])->all(),
-            ],
+            'editTour' => EditTourData::fromTour($tour)->toArray(),
         ]);
     }
 }

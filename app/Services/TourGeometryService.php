@@ -3,7 +3,9 @@
 namespace App\Services;
 
 use App\Exceptions\TourGeometryException;
+use App\Repositories\TourRepository;
 use Illuminate\Support\Facades\Log;
+use Throwable;
 
 /**
  * Traces the road geometry of an already-optimized tour.
@@ -18,7 +20,10 @@ use Illuminate\Support\Facades\Log;
  */
 class TourGeometryService
 {
-    public function __construct(private readonly OpenStreetRouteClient $client) {}
+    public function __construct(
+        private readonly OpenStreetRouteClient $client,
+        private readonly TourRepository $tours,
+    ) {}
 
     /**
      * @param  array<int, Coordinate>  $orderedStops  visit order
@@ -68,5 +73,43 @@ class TourGeometryService
             'total_distance_m' => $allOk ? $totalDistance : null,
             'total_duration_s' => $allOk ? $totalDuration : null,
         ];
+    }
+
+    /**
+     * Finalize a persisted tour's road totals with the traced values. A missing tour_id,
+     * a trace with no aggregate totals (a leg failed), a tour that is unknown or not the
+     * user's, or a failed write all leave the seed untouched — logged, never surfaced:
+     * the tour is already saved and still assignable, so this refinement must not fail the
+     * trace (D10/RB4).
+     *
+     * @param  array{legs: array<int, mixed>, total_distance_m: int|null, total_duration_s: int|null}  $trace
+     */
+    public function finalizeTourTotals(?int $tourId, int $userId, array $trace): void
+    {
+        if ($tourId === null) {
+            return;
+        }
+
+        if ($trace['total_duration_s'] === null || $trace['total_distance_m'] === null) {
+            Log::info('Geometry persist skipped: trace produced no totals', ['tour_id' => $tourId]);
+
+            return;
+        }
+
+        $tour = $this->tours->findOwnedTour($tourId, $userId);
+        if ($tour === null) {
+            Log::info('Geometry persist skipped: tour not found or not owned', [
+                'tour_id' => $tourId,
+                'user_id' => $userId,
+            ]);
+
+            return;
+        }
+
+        try {
+            $this->tours->updateRoadTotals($tour, $trace['total_distance_m'], $trace['total_duration_s']);
+        } catch (Throwable $e) {
+            Log::warning('Geometry persist failed', ['tour_id' => $tourId, 'error' => $e->getMessage()]);
+        }
     }
 }

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\OptimizeTourRequest;
+use App\Services\TourOptimizationResult;
 use App\Services\TourOptimizationService;
 use Illuminate\Http\JsonResponse;
 
@@ -31,10 +32,14 @@ class TourOptimizationController extends Controller
         $loop = $request->boolean('loop', true);
         // Present → update this existing tour in place instead of creating one (feature 020).
         $editTourId = $request->validated('tour_id');
-        $editTourId = $editTourId === null ? null : (int) $editTourId;
 
-        $result = $tours->optimize($userId, $request->validated('stops'), $mode, $loop, $editTourId);
+        $result = $tours->optimize($userId, $request->validated('stops'), $mode, $loop, $editTourId === null ? null : (int) $editTourId);
 
+        return $this->respondTo($result);
+    }
+
+    private function respondTo(TourOptimizationResult $result): JsonResponse
+    {
         if ($result->isReady) {
             return response()->json(['status' => 'done', 'data' => $result->tour()]);
         }

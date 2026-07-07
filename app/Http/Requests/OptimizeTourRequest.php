@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use App\Enums\DeliveryMode;
 use App\Models\Tour;
+use App\Repositories\TourRepository;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
@@ -33,9 +34,7 @@ class OptimizeTourRequest extends FormRequest
             return true;
         }
 
-        $tour = Tour::find((int) $tourId);
-
-        return $tour !== null && (int) $tour->user_id === (int) $this->user()->id;
+        return $this->ownedTour((int) $tourId) !== null;
     }
 
     protected function failedAuthorization(): void
@@ -67,12 +66,18 @@ class OptimizeTourRequest extends FormRequest
     private function unassignedTourRule(): callable
     {
         return function (string $attribute, mixed $value, callable $fail): void {
-            $tour = Tour::find((int) $value);
+            $tour = $this->ownedTour((int) $value);
 
             if ($tour !== null && $tour->drivers()->exists()) {
                 $fail('An assigned tour cannot be edited.');
             }
         };
+    }
+
+    /** The caller's own tour for this id, or null (ownership settles the 404 in authorize). */
+    private function ownedTour(int $tourId): ?Tour
+    {
+        return app(TourRepository::class)->findOwnedTour($tourId, (int) $this->user()->id);
     }
 
     /**

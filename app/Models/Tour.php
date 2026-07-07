@@ -68,6 +68,12 @@ class Tour extends Model
             ->withTimestamps();
     }
 
+    /** Whether this tour has been assigned to a driver (past attribution, no longer editable). */
+    public function isAssigned(): bool
+    {
+        return $this->drivers()->exists();
+    }
+
     /**
      * The stops a driver may enter/leave the tour by: any stop on a loop, only the two
      * endpoints on a one-way trip.

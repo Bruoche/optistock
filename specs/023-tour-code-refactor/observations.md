@@ -2,6 +2,10 @@
 
 Per the user's instruction, behavior / robustness / optimization issues noticed while refactoring are recorded here and **left untouched**, so each can be reviewed and scheduled independently without mixing into the no-regression readability pass. Nothing in this list is changed by feature 023.
 
+## Naming frozen by test coupling
+
+- **O5 — `OptimizeTourJob::$durationByCoord` cannot be renamed here.** The dispatched job's property is asserted **by name** in `TourOptimizationTest::test_cache_miss_queues_job_and_returns_202`, so the intended rename to `durationsByCoordinate` (applied successfully to the service's method/variable) was reverted on the job to keep the test untouched (transparency rule). Renaming it would need a one-line assertion update in that test. *Defer*: rename the job property + its single test assertion together, as an isolated change.
+
 ## Behavior / robustness
 
 - **O1 — `OptimizeTourRequest::authorize()` maps a null user to 404.** `authorize()` returns `false` when `user()` is null, and `failedAuthorization()` throws `NotFoundHttpException` (404). Unauthenticated requests are already blocked by route middleware (401), so this path is unreached today — but the 404-for-null-user is a latent inconsistency. *Defer*: decide 401 vs 404 for the (currently unreachable) no-user case separately.
