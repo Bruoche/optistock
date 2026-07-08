@@ -45,7 +45,7 @@ The persistence layer from feature 023 is reused **unchanged**: `TourRecorder::r
 
 ### Tests for User Story 1 ⚠️ (write first, ensure they fail)
 
-- [ ] T003 [P] [US1] Feature test — force **create**: `POST /api/tour/force` persists stops in input order, `travel_duration_s` = payload seconds, `total_distance_m` null, response mirrors the optimize `done` shape (`{status:'done', data:{id, ordered_stops, total_distance_m:null, total_duration_s}}`) in `tests/Feature/Tour/ForceTourTest.php`
+- [ ] T003 [P] [US1] Feature test — force **create**: `POST /api/tour/force` persists stops in input order, `travel_duration_s` = payload seconds, `total_distance_m` null, response mirrors the optimize `done` shape (`{status:'done', data:{id, ordered_stops, total_distance_m:null, total_duration_s}}`) in `tests/Feature/Tour/ForceTourTest.php`. **Assert `data.total_duration_s` equals the manual drive seconds (driving-only, = optimize payload semantics), NOT drive+stops** — guards against returning `Tour::total_duration_s` accessor by mistake
 - [ ] T004 [P] [US1] Feature test — force **edit-in-place**: with an owned unassigned `tour_id`, the tour is overwritten (stops replaced in input order) not duplicated; a vanished/foreign target → `persist_failed` / `404` per contract, in `tests/Feature/Tour/ForceTourEditTest.php`
 - [ ] T005 [P] [US1] Feature test — **validation matrix**: missing/zero/negative/non-integer/`>86400` `travel_duration_s` → 422; `<2`/`>10` stops → 422; out-of-range coord → 422; foreign `tour_id` → 404; assigned `tour_id` → 422, in `tests/Feature/Tour/ForceTourValidationTest.php`
 - [ ] T006 [P] [US1] Frontend test — `tour-control-bar`: the drive-duration field + Force Tour button render only when `state.status === 'failed'`, and Force Tour is disabled until a valid (≥1 min) duration with ≥2 stops, in `resources/js/components/tour/tour-control-bar.test.tsx`
@@ -55,7 +55,7 @@ The persistence layer from feature 023 is reused **unchanged**: `TourRecorder::r
 
 - [ ] T008 [P] [US1] Create `ForceTourRequest extends OptimizeTourRequest` in `app/Http/Requests/ForceTourRequest.php` — reuse inherited rules, override `rules()` to merge `travel_duration_s => ['required','integer','min:1','max:86400']`, add a clear message
 - [ ] T009 [P] [US1] Create `TourForcingService::force(userId, stops, mode, loop, travelDurationS, editTourId): TourOptimizationResult` in `app/Services/TourForcingService.php` — normalize coords (`CoordinateNormalizer`), build input-order `orderedStops` (`order = index`) + `durationByCoord`, call `TourRecorder::record(..., distanceM:null, durationS:travelDurationS, editTourId)`, wrap `ready`; on persist `Throwable` log with context + return `failed(persistError())` (mirror `TourOptimizationService::recordCacheHit`)
-- [ ] T010 [US1] Create `TourForceController::force(ForceTourRequest, TourForcingService): JsonResponse` in `app/Http/Controllers/TourForceController.php` — resolve mode/loop/tour_id like `TourOptimizationController::optimizeTour`, call the service, map `ready → 200 done` / `failed → 200 failed` (depends on T008, T009)
+- [ ] T010 [US1] Create `TourForceController::force(ForceTourRequest, TourForcingService): JsonResponse` in `app/Http/Controllers/TourForceController.php` — resolve mode/loop/tour_id like `TourOptimizationController::optimizeTour`, call the service, map `ready → 200 done` / `failed → 200 failed`. **The `done` `data.total_duration_s` MUST be the driving-only manual seconds (`travel_duration_s`), matching the optimize payload — NOT `Tour::total_duration_s` (which is drive+stops)** (depends on T008, T009)
 - [ ] T011 [US1] Register `POST tour/force` (`middleware('throttle:tour-read')`, `name('tour.force')`) in the `auth` group of `routes/api.php` (depends on T010)
 - [ ] T012 [US1] Add `forceTour(mode, loop, durationMinutes)` to `resources/js/hooks/use-tour-optimization.ts` — POST `/api/tour/force`, thread `editTourId.current`, on `200 done` settle `done` with `forced:true`, reuse `settleFailed` for `failed`/422/429/network; return it from the hook (depends on T002)
 - [ ] T013 [US1] Add the conditional drive-duration field (minutes, whole-number clamp to `MAX_TOUR_DURATION_MINUTES`, palette-styled reusing the existing input pattern) + **Force Tour** `ActionButton` to `resources/js/components/tour/tour-control-bar.tsx`, rendered only when a new `failed`/`onForceTour` prop set is present; disabled until valid (depends on T002)
@@ -74,7 +74,7 @@ The persistence layer from feature 023 is reused **unchanged**: `TourRecorder::r
 ### Tests for User Story 2 ⚠️
 
 - [ ] T015 [P] [US2] Frontend test — `result-summary`: shows a "Manually entered" badge on the drive duration when `forced` is true, and hides it otherwise; distance still renders as unknown when `total_distance_m` is null, in `resources/js/components/tour/result-summary.test.tsx`
-- [ ] T016 [P] [US2] Feature test — a forced persist failure (vanished edit target) writes a `Log` entry with `user_id` + context and returns `persist_failed` (assert via `Log::spy`), in `tests/Feature/Tour/ForceTourTest.php`
+- [ ] T016 [US2] Feature test — a forced persist failure (vanished edit target) writes a `Log` entry with `user_id` + context and returns `persist_failed` (assert via `Log::spy`), in `tests/Feature/Tour/ForceTourTest.php` (same file as T003 — no `[P]`)
 
 ### Implementation for User Story 2
 
@@ -99,7 +99,7 @@ The persistence layer from feature 023 is reused **unchanged**: `TourRecorder::r
 
 ### Implementation for User Story 3
 
-- [ ] T022 [US3] `app/Services/OpenStreetRouteClient.php` — accept a `connectTimeout` ctor arg, apply `->connectTimeout($this->connectTimeout)` on `traceLeg`, and add a `connectTimeout(): int` accessor (mirrors `timeout()`) (depends on T001)
+- [ ] T022 [US3] `app/Services/OpenStreetRouteClient.php` — accept a `connectTimeout` ctor arg **with a default (e.g. `connectTimeout = 10`) so existing direct instantiations (tests) keep working**, apply `->connectTimeout($this->connectTimeout)` on `traceLeg` (additive only — read `timeout`/params unchanged so the frozen geometry endpoint's happy path is untouched), and add a `connectTimeout(): int` accessor (mirrors `timeout()`) (depends on T001)
 - [ ] T023 [US3] `app/Services/TravelTimeService.php` — apply `->connectTimeout($this->client->connectTimeout())` on the pooled `/route` requests in `fetchBatch` (depends on T022)
 - [ ] T024 [US3] `app/Providers/AppServiceProvider.php` — pass `connectTimeout: (int) $config['route_connect_timeout']` into the `OpenStreetRouteClient` singleton (depends on T001, T022)
 
@@ -109,7 +109,7 @@ The persistence layer from feature 023 is reused **unchanged**: `TourRecorder::r
 
 ## Phase 6: Polish & Cross-Cutting
 
-- [ ] T025 [P] Run the `quickstart.md` API-down walkthrough manually (optimize fail → force → assign) and confirm the badge + unknown-distance rendering
+- [ ] T025 [P] Run the `quickstart.md` API-down walkthrough manually (optimize fail → force → assign) and confirm the badge + unknown-distance rendering; **explicitly verify FR-012 for a forced tour: with `/route` down the map still renders (straight segments, no blank), route metrics show "unavailable"** (reuses existing 002/013 geometry fallback — no new code, just confirm it holds for the forced path)
 - [ ] T026 Run the full gate green: `php artisan test`, `npm test`, `npm run lint`, `npm run types` (tsc), `npm run format:check` (prettier — separate from lint, do not skip)
 - [ ] T027 [P] Sweep any behavior/robustness note surfaced during work into the spec's assumptions or a follow-up, and confirm no frozen contract (`contracts/frozen-io.md`) drifted
 

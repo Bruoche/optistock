@@ -27,6 +27,7 @@ Synchronous. Writes a tour in the dispatcher's current stop order with a manuall
 | `429` | throttled | rate limit |
 
 - `ordered_stops` order = **input order** (index), no reorder.
+- `data.total_duration_s` = the **driving-only** manual seconds (`= travel_duration_s`), exactly as the optimize payload reports the `/tsp` driving total — **NOT** `Tour::total_duration_s` (the model accessor = drive + stop seconds). Per-stop seconds are added later by the frontend, same as for an optimized tour.
 - `data` shape is byte-compatible with the optimize `done` payload → the frontend settles it through the same `done` path.
 - Side effects: one transactional `tours` + `stops` write; **no** cache write, **no** job dispatch, **no** `TourOptimized`/`TourOptimizationFailed` broadcast. A persistence failure is logged with context.
 
