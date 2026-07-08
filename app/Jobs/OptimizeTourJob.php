@@ -47,13 +47,14 @@ class OptimizeTourJob implements ShouldQueue
 
     /**
      * @param  array<int, array{lat: float, lng: float}>  $coordinates
-     * @param  array<string, list<int>>  $durationByCoord  normalized coord → per-stop duration queue (for persistence)
+     * @param  array<string, list<int>>  $durationByCoord  normalized coordinate → per-stop duration queue (for persistence)
      */
     public function __construct(
         public readonly string $jobUuid,
         public readonly int $userId,
         public readonly string $coordinatesHash,
         public readonly array $coordinates,
+        // Kept as durationByCoord (not durationsByCoordinate): the dispatched job's property is asserted by name in the test suite.
         public readonly array $durationByCoord,
         public readonly string $mode,
         public readonly bool $loop,
@@ -63,6 +64,22 @@ class OptimizeTourJob implements ShouldQueue
     }
 
     public function handle(OpenStreetTspClient $client, TourCache $cache, TourRecorder $recorder): void
+    {
+        $tour = $this->optimizeUpstream($client, $cache);
+        if ($tour === null) {
+            return; // the failure is already recorded + broadcast.
+        }
+
+        $this->persistAndBroadcast($tour, $cache, $recorder);
+    }
+
+    /**
+     * Call the upstream TSP API and release the active-job slot. On a handled failure,
+     * record it, broadcast it, and return null so the caller stops.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function optimizeUpstream(OpenStreetTspClient $client, TourCache $cache): ?array
     {
         $tourShape = $this->loop ? 'closed' : 'open';
         try {
@@ -80,9 +97,21 @@ class OptimizeTourJob implements ShouldQueue
             $cache->markFailed($this->jobUuid, $e->toPayload());
             TourOptimizationFailed::dispatch($this->userId, $this->jobUuid, $e->toPayload());
 
-            return;
+            return null;
         }
         $cache->releaseActiveJob($this->userId, $this->mode, $this->loop, $this->coordinatesHash);
+
+        return $tour;
+    }
+
+    /**
+     * Persist the optimized tour and broadcast the outcome. A save failure surfaces as a
+     * distinct `persist_failed` (FR-014) with the result left cached for a retry.
+     *
+     * @param  array<string, mixed>  $tour
+     */
+    private function persistAndBroadcast(array $tour, TourCache $cache, TourRecorder $recorder): void
+    {
         // Cache the (expensive) result BEFORE persisting, so a save failure leaves a
         // cache hit for a retry that re-attempts only the save (D10).
         $cache->putTour($this->mode, $this->loop, $this->coordinatesHash, $tour);
@@ -99,9 +128,6 @@ class OptimizeTourJob implements ShouldQueue
                 $this->editTourId,
             );
         } catch (Throwable $e) {
-            // A successful optimization that could not be saved: surface a distinct
-            // persist failure rather than letting it crash into failed() as a generic
-            // error (FR-014). The result stays cached for a retry.
             Log::error('Tour persistence failed', [
                 'job_uuid' => $this->jobUuid,
                 'user_id' => $this->userId,

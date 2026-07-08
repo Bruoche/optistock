@@ -2,26 +2,26 @@
 
 namespace App\Services;
 
-use App\Enums\DeliveryMode as DeliveryModeEnum;
-use App\Models\DeliveryMode;
-use App\Models\Stop;
 use App\Models\Tour;
-use Illuminate\Support\Facades\DB;
+use App\Repositories\TourRepository;
 use RuntimeException;
 
 /**
- * Persists an optimized tour and its ordered stops in one transaction.
+ * Turns an optimized tour into persisted rows: it recovers each ordered stop's
+ * delivery duration, then hands the tour + its stop rows to {@see TourRepository}
+ * to save (create, or overwrite in place for an edit — feature 020).
  *
  * Per-stop delivery durations reach us keyed by normalized coordinate (built by
  * {@see TourOptimizationService}) — an input index cannot carry them because the
- * coordinate set is rounded + re-sorted before optimization and the cache-hit
- * path makes no upstream call. Each ordered stop's duration is recovered by
- * looking its coordinate up in that map. A coordinate with no entry is a broken
- * invariant: we throw (rolling the transaction back) rather than silently
- * persisting a zero, so the failure is surfaced to the user (FR-014).
+ * coordinate set is rounded + re-sorted before optimization and the cache-hit path
+ * makes no upstream call. Each ordered stop's duration is recovered by coordinate.
+ * A coordinate with no entry is a broken invariant: we throw before persisting
+ * anything rather than silently saving a zero, so the failure is surfaced (FR-014).
  */
 class TourRecorder
 {
+    public function __construct(private readonly TourRepository $tours) {}
+
     /**
      * The map key for a coordinate: the two components rounded to the normalizer's
      * precision so a request coordinate and its (already-normalized) ordered stop
@@ -35,7 +35,7 @@ class TourRecorder
     /**
      * @param  array<int, array{lat: float, lng: float, order: int}>  $orderedStops
      * @param  array<string, list<int>>  $durationByCoord  coordinate key → queue of durations (dup-coord safe)
-     * @param  int|null  $editTourId  when set, update this existing tour in place instead of creating one (feature 020)
+     * @param  int|null  $editTourId  when set, overwrite this existing tour in place instead of creating one (feature 020)
      */
     public function record(
         int $userId,
@@ -47,72 +47,38 @@ class TourRecorder
         ?int $durationS,
         ?int $editTourId = null,
     ): Tour {
-        $deliveryModeId = DeliveryMode::firstOrCreate(
-            ['label' => DeliveryModeEnum::from($mode)->value],
-        )->id;
+        $stopRows = $this->buildStopRows($orderedStops, $durationByCoord);
 
-        return DB::transaction(function () use (
-            $userId,
-            $deliveryModeId,
-            $loop,
-            $orderedStops,
-            $durationByCoord,
-            $distanceM,
-            $durationS,
-            $editTourId,
-        ): Tour {
-            $tour = $editTourId === null
-                ? Tour::create([
-                    'user_id' => $userId,
-                    'delivery_mode_id' => $deliveryModeId,
-                    'loop' => $loop,
-                    'travel_duration_s' => $durationS,
-                    'total_distance_m' => $distanceM,
-                ])
-                : $this->replaceExistingTour($editTourId, $userId, $deliveryModeId, $loop, $durationS, $distanceM);
+        if ($editTourId === null) {
+            return $this->tours->createTourWithStops($userId, $mode, $loop, $distanceM, $durationS, $stopRows);
+        }
 
-            foreach ($orderedStops as $stop) {
-                $tour->stops()->create([
-                    'latitude' => $stop['lat'],
-                    'longitude' => $stop['lng'],
-                    'duration_s' => $this->durationFor($stop, $durationByCoord),
-                    'position' => $stop['order'],
-                ]);
-            }
-
-            return $tour;
-        });
+        return $this->tours->overwriteTourWithStops($editTourId, $userId, $mode, $loop, $distanceM, $durationS, $stopRows);
     }
 
     /**
-     * Update an existing owned tour's shape/totals and clear its stops so the caller can
-     * re-create the freshly ordered ones (feature 020). A target that is gone or no longer
-     * the user's is a broken invariant — throw to roll the transaction back, surfacing as
-     * `persist_failed` rather than silently creating a duplicate tour.
+     * Re-attach each ordered stop's delivery duration by coordinate, producing the
+     * persistable rows in visiting order.
+     *
+     * @param  array<int, array{lat: float, lng: float, order: int}>  $orderedStops
+     * @param  array<string, list<int>>  $durationByCoord
+     * @return array<int, array{latitude: float, longitude: float, duration_s: int, position: int}>
      */
-    private function replaceExistingTour(
-        int $tourId,
-        int $userId,
-        int $deliveryModeId,
-        bool $loop,
-        ?int $durationS,
-        ?int $distanceM,
-    ): Tour {
-        $tour = Tour::where('user_id', $userId)->find($tourId);
-
-        if ($tour === null) {
-            throw new RuntimeException("Edit target tour {$tourId} not found for user {$userId}.");
+    private function buildStopRows(array $orderedStops, array $durationByCoord): array
+    {
+        $stopRows = [];
+        // Kept as a loop (not array_map): durationFor pops the per-coordinate queue by
+        // reference, so duplicate coordinates must share one mutating $durationByCoord.
+        foreach ($orderedStops as $stop) {
+            $stopRows[] = [
+                'latitude' => $stop['lat'],
+                'longitude' => $stop['lng'],
+                'duration_s' => $this->durationFor($stop, $durationByCoord),
+                'position' => $stop['order'],
+            ];
         }
 
-        $tour->update([
-            'delivery_mode_id' => $deliveryModeId,
-            'loop' => $loop,
-            'travel_duration_s' => $durationS,
-            'total_distance_m' => $distanceM,
-        ]);
-        $tour->stops()->delete();
-
-        return $tour;
+        return $stopRows;
     }
 
     /**
