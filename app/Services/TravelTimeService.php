@@ -85,6 +85,7 @@ class TravelTimeService
             foreach ($batch as $key => [$from, $to]) {
                 $requests[] = $pool->as($key)
                     ->timeout($this->client->timeout())
+                    ->connectTimeout($this->client->connectTimeout())
                     ->get($this->client->baseUrl(), $this->client->queryParams($from, $to, $mode));
             }
 

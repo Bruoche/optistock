@@ -333,4 +333,33 @@ describe('ResultSummary', () => {
 
         expect(onDriverModeChange).toHaveBeenCalledWith('walking');
     });
+
+    // --- Manual duration marker (feature 024) ----------------------------
+
+    it('marks the drive duration as manually entered on a forced tour (FR-014)', () => {
+        mockUseTourDrivers.mockReturnValue({ drivers: [], status: 'ready' });
+
+        renderSummary({ forced: true });
+
+        expect(screen.getByText(/manually entered/i)).toBeInTheDocument();
+    });
+
+    it('shows no manual marker on an optimized tour', () => {
+        mockUseTourDrivers.mockReturnValue({ drivers: [], status: 'ready' });
+
+        renderSummary({ forced: false });
+
+        expect(screen.queryByText(/manually entered/i)).not.toBeInTheDocument();
+    });
+
+    it('drops the manual marker once road metrics measure the drive (traces recovered)', () => {
+        mockUseTourDrivers.mockReturnValue({ drivers: [], status: 'ready' });
+
+        renderSummary({
+            forced: true,
+            roadMetrics: { distance_m: 5000, duration_s: 1200 },
+        });
+
+        expect(screen.queryByText(/manually entered/i)).not.toBeInTheDocument();
+    });
 });

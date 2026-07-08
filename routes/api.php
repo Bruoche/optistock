@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\DriverController;
 use App\Http\Controllers\TourAssignmentController;
+use App\Http\Controllers\TourForceController;
 use App\Http\Controllers\TourGeometryController;
 use App\Http\Controllers\TourOptimizationController;
 use Illuminate\Support\Facades\Route;
@@ -21,6 +22,13 @@ Route::middleware('auth')->group(function (): void {
 
     Route::get('tour/status/{job_uuid}', [TourOptimizationController::class, 'getJobStatus'])
         ->name('tour.status');
+
+    // Hard-write a tour with a manual drive duration (feature 024): the fallback used
+    // when optimization is unavailable. Synchronous (no upstream call), so it rides the
+    // lightweight read limiter rather than the optimization one.
+    Route::post('tour/force', [TourForceController::class, 'force'])
+        ->middleware('throttle:tour-read')
+        ->name('tour.force');
 
     // Road-accurate route tracing (feature 002): synchronous; fetches /route geometry
     // per leg. Shared lightweight-read limiter, separate from tour-optimize.

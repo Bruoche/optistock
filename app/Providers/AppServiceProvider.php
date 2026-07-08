@@ -48,6 +48,7 @@ class AppServiceProvider extends ServiceProvider
                 mode: $config['mode'],
                 timeout: (int) $config['route_timeout'],
                 precision: (int) $config['route_precision'],
+                connectTimeout: (int) $config['route_connect_timeout'],
             );
         });
 

@@ -278,6 +278,89 @@ export function useTourOptimization(
         [stops, subscribe, settleFailed],
     );
 
+    // Hard-write the tour with a manual drive duration when optimization is unavailable
+    // (feature 024). Synchronous: the stops keep their current order and the response is
+    // the same `done`/`failed` shape as an optimize cache hit, so the result view follows.
+    const forceTour = useCallback(
+        async (mode: DeliveryMode, loop: boolean, durationMinutes: number) => {
+            if (stops.length < 2) {
+                return;
+            }
+
+            optimizedMode.current = mode;
+            closeLoop.current = loop;
+            setState({ status: 'submitting', mode, loop });
+
+            try {
+                const body: Record<string, unknown> = {
+                    stops: stops.map((stop) => ({
+                        lat: stop.lat,
+                        lng: stop.lng,
+                        duration_s: stop.durationMinutes * 60,
+                    })),
+                    mode,
+                    loop,
+                    travel_duration_s: durationMinutes * 60,
+                };
+
+                if (editTourId.current !== null) {
+                    body.tour_id = editTourId.current;
+                }
+
+                const response = await postJson('/api/tour/force', body);
+
+                if (response.status === 200) {
+                    const payload = await response.json();
+
+                    if (payload.status === 'failed') {
+                        settleFailed(payload.error as TourError);
+
+                        return;
+                    }
+
+                    setState({
+                        status: 'done',
+                        result: payload.data as TourResult,
+                        mode,
+                        loop,
+                        forced: true,
+                    });
+
+                    return;
+                }
+
+                if (response.status === 422) {
+                    settleFailed({
+                        code: 'invalid_response',
+                        message: 'Please enter a valid tour duration.',
+                    });
+
+                    return;
+                }
+
+                if (response.status === 429) {
+                    settleFailed({
+                        code: 'api_error',
+                        message: 'Too many requests — please wait a minute.',
+                    });
+
+                    return;
+                }
+
+                settleFailed({
+                    code: 'api_error',
+                    message: 'Could not save the tour.',
+                });
+            } catch {
+                settleFailed({
+                    code: 'timeout',
+                    message: 'Network error — please try again.',
+                });
+            }
+        },
+        [stops, settleFailed],
+    );
+
     // Drop subscriptions/timers if the component unmounts mid-flight.
     useEffect(() => cleanup, [cleanup]);
 
@@ -292,6 +375,7 @@ export function useTourOptimization(
         removeStop,
         setStopDuration,
         optimize,
+        forceTour,
         reset,
         state,
         waitTimeS,

@@ -105,6 +105,10 @@ export const DEFAULT_STOP_DURATION_MINUTES = 10;
 /** Per-stop ceiling (minutes, 24 h) — blocks absurd/overflow input (feature 007). */
 export const MAX_STOP_DURATION_MINUTES = 1440;
 
+/** Manual tour drive-duration ceiling (minutes, 24 h) — the fallback field's cap when
+ *  optimization is unavailable (feature 024). */
+export const MAX_TOUR_DURATION_MINUTES = 1440;
+
 /** A coordinate the planner placed on the map (client-side only). */
 export type Stop = {
     /** Client-generated id for list keys + removal. */
@@ -170,7 +174,15 @@ export type OptimizeState =
     | { status: 'idle' }
     | { status: 'submitting'; mode: DeliveryMode; loop: boolean }
     | { status: 'pending'; jobUuid: string; mode: DeliveryMode; loop: boolean }
-    | { status: 'done'; result: TourResult; mode: DeliveryMode; loop: boolean }
+    | {
+          status: 'done';
+          result: TourResult;
+          mode: DeliveryMode;
+          loop: boolean;
+          /** True when the tour was hard-written with a manual drive duration (feature 024)
+           *  rather than optimized — surfaces the "Manually entered" marker in the result. */
+          forced?: boolean;
+      }
     | { status: 'failed'; error: TourError };
 
 /** Ordered path fed to the RouteLayer boundary (FR-019). */

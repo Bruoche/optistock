@@ -31,6 +31,7 @@ class OpenStreetRouteClient
         private readonly string $mode = 'trucking',
         private readonly int $timeout = 15,
         private readonly int $precision = 6,
+        private readonly int $connectTimeout = 10,
     ) {}
 
     /**
@@ -50,6 +51,7 @@ class OpenStreetRouteClient
         try {
             $response = $this->http
                 ->timeout($this->timeout)
+                ->connectTimeout($this->connectTimeout)
                 ->get($this->baseUrl, $this->queryParams($origin, $destination, $mode));
         } catch (ConnectionException $e) {
             throw TourGeometryException::timeout($this->timeout, $e);
@@ -69,6 +71,11 @@ class OpenStreetRouteClient
     public function timeout(): int
     {
         return $this->timeout;
+    }
+
+    public function connectTimeout(): int
+    {
+        return $this->connectTimeout;
     }
 
     /**

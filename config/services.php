@@ -54,6 +54,10 @@ return [
         // /route endpoint (road geometry per leg — feature 002). Fast + synchronous.
         'route_url' => env('OPENSTREET_ROUTE_URL', 'https://maps.open-street.com/api/route/'),
         'route_timeout' => (int) env('OPENSTREET_ROUTE_TIMEOUT', 15),
+        // Connection timeout for the /route calls: fail fast if the host is unreachable
+        // so a synchronous request (geometry trace, driver-availability pool) never hangs
+        // on a dead host — mirrors the TSP client's connect_timeout.
+        'route_connect_timeout' => (int) env('OPENSTREET_ROUTE_CONNECT_TIMEOUT', 10),
         // Max concurrent /route requests per batch (feature 013), so inter-tour legs
         // never flood the API.
         'route_pool_cap' => (int) env('OPENSTREET_ROUTE_POOL_CAP', 5),
