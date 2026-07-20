@@ -53,43 +53,52 @@ export function TourControlBar({
 }: TourControlBarProps) {
     return (
         <div className="flex flex-wrap items-center justify-between gap-4 rounded-md bg-primary px-4 py-3 text-text-on-color max-md:rounded-none">
-            <div>
-                <p className="text-xs tracking-wide uppercase">Options</p>
-                <div className="flex flex-wrap items-center gap-3">
-                    <ModeSelect
-                        value={mode}
-                        onChange={onModeChange}
-                        disabled={optimizing}
-                    />
-                    <LoopToggle
-                        value={loop}
-                        onChange={onLoopChange}
-                        disabled={optimizing}
-                    />
-                    <TourDateField date={date} onDateChange={onDateChange} />
+            <div className="flex flex-wrap items-center gap-4">
+                <div>
+                    <p className="text-xs tracking-wide uppercase">Options</p>
+                    <div className="flex flex-wrap items-center gap-3">
+                        <ModeSelect
+                            value={mode}
+                            onChange={onModeChange}
+                            disabled={optimizing}
+                        />
+                        <LoopToggle
+                            value={loop}
+                            onChange={onLoopChange}
+                            disabled={optimizing}
+                        />
+                        <TourDateField
+                            date={date}
+                            onDateChange={onDateChange}
+                        />
+                    </div>
                 </div>
+                {showForce && (
+                    <div>
+                        <p className="text-xs tracking-wide uppercase">
+                            Tour duration
+                        </p>
+                        <label className="flex h-9 items-center gap-1 text-xs">
+                            <Input
+                                type="number"
+                                min={1}
+                                max={MAX_TOUR_DURATION_MINUTES}
+                                step={1}
+                                value={forceMinutes ?? ''}
+                                aria-label="Tour drive duration (minutes)"
+                                className="text-text h-8 w-20"
+                                onChange={(event) =>
+                                    onForceMinutesChange?.(
+                                        Number.parseInt(event.target.value, 10),
+                                    )
+                                }
+                            />
+                            min
+                        </label>
+                    </div>
+                )}
             </div>
             <div className="flex flex-wrap items-center gap-4">
-                {showForce && (
-                    <label className="flex items-center gap-2 text-xs tracking-wide uppercase">
-                        Tour duration
-                        <Input
-                            type="number"
-                            min={1}
-                            max={MAX_TOUR_DURATION_MINUTES}
-                            step={1}
-                            value={forceMinutes ?? ''}
-                            aria-label="Tour drive duration (minutes)"
-                            className="text-text h-8 w-20"
-                            onChange={(event) =>
-                                onForceMinutesChange?.(
-                                    Number.parseInt(event.target.value, 10),
-                                )
-                            }
-                        />
-                        min
-                    </label>
-                )}
                 {showForce && (
                     <ActionButton onClick={onForceTour} disabled={!canForce}>
                         Force Tour
