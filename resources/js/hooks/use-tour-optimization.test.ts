@@ -409,4 +409,91 @@ describe('useTourOptimization', () => {
 
         expect(result.current.state.status).toBe('failed');
     });
+
+    // --- Force Tour fallback (feature 024) -------------------------------
+
+    it('posts the manual drive duration and settles done with forced:true', async () => {
+        (fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
+            jsonResponse(200, { status: 'done', data: RESULT }),
+        );
+        const { result } = renderHook(() => useTourOptimization(7));
+        await addTwoStops(result);
+
+        await act(async () => {
+            await result.current.forceTour('trucking', true, 90);
+        });
+
+        const [url, options] = (fetch as ReturnType<typeof vi.fn>).mock
+            .calls[0];
+        expect(url).toBe('/api/tour/force');
+        const body = JSON.parse((options as RequestInit).body as string);
+        expect(body.travel_duration_s).toBe(5400); // 90 min × 60
+        expect(body).not.toHaveProperty('tour_id');
+        expect(result.current.state).toEqual({
+            status: 'done',
+            result: RESULT,
+            mode: 'trucking',
+            loop: true,
+            forced: true,
+        });
+    });
+
+    it('threads tour_id into a forced edit and still settles done', async () => {
+        (fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
+            jsonResponse(200, { status: 'done', data: RESULT }),
+        );
+        const { result } = renderHook(() => useTourOptimization(7, EDIT_TOUR));
+
+        await act(async () => {
+            await result.current.forceTour('walking', false, 30);
+        });
+
+        const [, options] = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+        expect(
+            JSON.parse((options as RequestInit).body as string).tour_id,
+        ).toBe(42);
+        expect(result.current.state.status).toBe('done');
+    });
+
+    it('does not POST when forcing with fewer than two stops', async () => {
+        const { result } = renderHook(() => useTourOptimization(7));
+        act(() => result.current.addStop(48.1, 2.1));
+
+        await act(async () => {
+            await result.current.forceTour('trucking', true, 90);
+        });
+
+        expect(fetch).not.toHaveBeenCalled();
+    });
+
+    it('surfaces a forced persist failure as a failed state', async () => {
+        (fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
+            jsonResponse(200, {
+                status: 'failed',
+                error: { code: 'persist_failed', message: 'nope' },
+            }),
+        );
+        const { result } = renderHook(() => useTourOptimization(7));
+        await addTwoStops(result);
+
+        await act(async () => {
+            await result.current.forceTour('trucking', true, 90);
+        });
+
+        expect(result.current.state.status).toBe('failed');
+    });
+
+    it('maps a 422 from the force endpoint to a failed state', async () => {
+        (fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
+            jsonResponse(422, {}),
+        );
+        const { result } = renderHook(() => useTourOptimization(7));
+        await addTwoStops(result);
+
+        await act(async () => {
+            await result.current.forceTour('trucking', true, 0);
+        });
+
+        expect(result.current.state.status).toBe('failed');
+    });
 });

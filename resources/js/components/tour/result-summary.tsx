@@ -18,6 +18,9 @@ import type { ReactNode } from 'react';
 
 type ResultSummaryProps = {
     result: TourResult;
+    /** True when the drive duration was entered by hand (feature 024) rather than measured —
+     *  shown as a "Manually entered" marker so the figure is never mistaken for a routed one. */
+    forced?: boolean;
     /** Road-accurate metrics (feature 002); when present and non-null they override the initial estimate. */
     roadMetrics?: {
         distance_m: number | null;
@@ -68,6 +71,7 @@ function formatDuration(totalSeconds: number | null): string {
 
 export function ResultSummary({
     result,
+    forced = false,
     roadMetrics,
     waitTimeS,
     driverMode,
@@ -93,6 +97,11 @@ export function ResultSummary({
                 <div className="flex flex-wrap items-center gap-x-6 gap-y-1">
                     <Figure label="Time on road">
                         {formatDuration(durationS)}
+                        {forced && roadMetrics?.duration_s == null && (
+                            <span className="rounded bg-accent px-1.5 py-0.5 text-xs font-medium text-text-on-color">
+                                Manually entered
+                            </span>
+                        )}
                     </Figure>
                     <Figure label="Tour duration">
                         {formatDuration(tourDurationS)}

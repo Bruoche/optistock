@@ -32,6 +32,7 @@ export default function TourOptimize({ editTour = null }: TourOptimizeProps) {
         removeStop,
         setStopDuration,
         optimize,
+        forceTour,
         reset,
         state,
         waitTimeS,
@@ -52,6 +53,11 @@ export default function TourOptimize({ editTour = null }: TourOptimizeProps) {
     // The driver whose projected workday is previewed on the map (014); row click
     // toggles, and any change that reloads the driver list clears it (FR-012).
     const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null);
+    // Manual drive duration (minutes) for the Force Tour fallback (024); undefined until
+    // the dispatcher types one in the field revealed after an optimization failure.
+    const [forceMinutes, setForceMinutes] = useState<number | undefined>(
+        undefined,
+    );
 
     function toggleDriver(driver: Driver) {
         setSelectedDriver((current) =>
@@ -79,6 +85,13 @@ export default function TourOptimize({ editTour = null }: TourOptimizeProps) {
         state.status === 'submitting' || state.status === 'pending';
     const isDone = state.status === 'done';
     const canOptimize = stops.length >= MIN_STOPS && !isPending;
+    // The manual fallback surfaces only after an optimization request has failed (FR-003).
+    const showForce = state.status === 'failed';
+    const canForce =
+        stops.length >= MIN_STOPS &&
+        forceMinutes !== undefined &&
+        Number.isFinite(forceMinutes) &&
+        forceMinutes >= 1;
 
     // Geometry uses the mode + loop the shown tour was optimized with, not the live controls (FR-007).
     const doneResult = state.status === 'done' ? state.result : null;
@@ -131,6 +144,7 @@ export default function TourOptimize({ editTour = null }: TourOptimizeProps) {
                     {isDone ? (
                         <ResultSummary
                             result={state.result}
+                            forced={state.forced ?? false}
                             roadMetrics={geometry.metrics}
                             waitTimeS={waitTimeS}
                             driverMode={effectiveDriverMode}
@@ -154,6 +168,14 @@ export default function TourOptimize({ editTour = null }: TourOptimizeProps) {
                                 onOptimize={() => optimize(mode, loop)}
                                 canOptimize={canOptimize}
                                 optimizing={isPending}
+                                showForce={showForce}
+                                forceMinutes={forceMinutes}
+                                onForceMinutesChange={setForceMinutes}
+                                onForceTour={() =>
+                                    forceMinutes !== undefined &&
+                                    forceTour(mode, loop, forceMinutes)
+                                }
+                                canForce={canForce}
                             />
                             <StopList
                                 stops={stops}

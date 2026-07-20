@@ -57,6 +57,14 @@ class OpenStreetRouteClientTest extends TestCase
         ], $leg['coordinates']);
     }
 
+    public function test_it_exposes_its_connect_timeout(): void
+    {
+        // Feature 024: a fail-fast connect timeout so a dead host never stalls a batch.
+        $client = new OpenStreetRouteClient(new HttpFactory, new PolylineDecoder, self::URL, 'secret-key', 'trucking', 8, 5, 7);
+
+        $this->assertSame(7, $client->connectTimeout());
+    }
+
     public function test_it_sends_the_expected_query_parameters(): void
     {
         $http = new HttpFactory;
