@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\DriverPageController;
 use App\Http\Controllers\Teams\TeamInvitationController;
 use App\Http\Controllers\TourPageController;
 use App\Http\Middleware\EnsureTeamMembership;
@@ -23,6 +24,7 @@ Route::middleware(['auth'])->group(function () {
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('tour', [TourPageController::class, 'create'])->name('tour.optimize.page');
     Route::get('tour/{tour}/edit', [TourPageController::class, 'edit'])->name('tour.edit.page');
+    Route::get('driver/{driver}', [DriverPageController::class, 'manage'])->name('driver.manage.page');
 });
 
 require __DIR__.'/settings.php';

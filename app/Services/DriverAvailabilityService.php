@@ -8,6 +8,7 @@ use App\Models\Driver;
 use App\Models\Stop;
 use App\Models\Tour;
 use App\Repositories\DriverTourRepository;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
@@ -34,7 +35,11 @@ class DriverAvailabilityService
         $deliveryMode = DeliveryModeEnum::from($mode);
         $weekday = WeekDayEnum::fromDate(Carbon::parse($date));
         $candidateTour = Tour::with('stops')->findOrFail($tourId);
-        $drivers = Driver::available($deliveryMode, $weekday)->get();
+        $drivers = Driver::available($deliveryMode, $weekday)
+            ->whereDoesntHave('tours', fn (Builder $tours) => $tours
+                ->where('driver_tour.date', $date)
+                ->whereHas('deliveryMode', fn (Builder $mode) => $mode->where('label', '!=', $deliveryMode->value)))
+            ->get();
         $priorToursByDriver = $this->driverTours->priorToursByDriver($date, $drivers->pluck('id')->all());
 
         $this->preloadStartConnections($drivers, $priorToursByDriver, $candidateTour, $deliveryMode);

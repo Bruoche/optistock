@@ -142,6 +142,10 @@ export type EditTour = {
     mode: DeliveryMode;
     loop: boolean;
     stops: EditTourStop[];
+    /** Where to return after a driver-management edit (feature 025): auto-return on a
+     *  successful re-optimize, or a back action returns without saving. Absent for a
+     *  normal edit, which keeps the current in-place behaviour. */
+    returnTo?: { driverId: number; date: string | null };
 };
 
 /** Success payload `data`. Metrics are null for a 2-point tour (no routing call

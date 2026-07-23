@@ -33,8 +33,17 @@ class TourPageController extends Controller
             return redirect()->route('tour.optimize.page');
         }
 
-        return Inertia::render('tour/optimize', [
-            'editTour' => EditTourData::fromTour($tour)->toArray(),
-        ]);
+        $editTour = EditTourData::fromTour($tour)->toArray();
+
+        // A driver-management edit (feature 025) carries where to return once re-optimized.
+        $returnDriverId = request()->integer('return_to_driver');
+        if ($returnDriverId > 0) {
+            $editTour['returnTo'] = [
+                'driverId' => $returnDriverId,
+                'date' => request()->string('return_to_date')->value() ?: null,
+            ];
+        }
+
+        return Inertia::render('tour/optimize', ['editTour' => $editTour]);
     }
 }

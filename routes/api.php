@@ -1,7 +1,9 @@
 <?php
 
 use App\Http\Controllers\DriverController;
+use App\Http\Controllers\DriverUpdateController;
 use App\Http\Controllers\TourAssignmentController;
+use App\Http\Controllers\TourOrderController;
 use App\Http\Controllers\TourForceController;
 use App\Http\Controllers\TourGeometryController;
 use App\Http\Controllers\TourOptimizationController;
@@ -41,6 +43,24 @@ Route::middleware('auth')->group(function (): void {
     Route::get('tour/drivers', [DriverController::class, 'available'])
         ->middleware('throttle:tour-read')
         ->name('tour.drivers');
+
+    // A driver's planned day (feature 025): identity, workday totals, ordered tours,
+    // neutral drawable legs — the single read the driver-management page loads.
+    Route::get('driver/{driver}/day', [DriverController::class, 'day'])
+        ->middleware('throttle:tour-read')
+        ->name('driver.day');
+
+    // Update a driver's details (feature 025): name, picture, modes, warehouse. Multipart
+    // (image upload) via POST + _method=PATCH. Existing assignments are left untouched.
+    Route::patch('driver/{driver}', [DriverUpdateController::class, 'update'])
+        ->middleware('throttle:tour-read')
+        ->name('driver.update');
+
+    // Reorder a driver's day (feature 025): recompute + persist the new running order, with a
+    // force fallback when the routing service is degraded. Blocks/conflicts surfaced as 422/409.
+    Route::post('driver/{driver}/tour-order', [TourOrderController::class, 'reorder'])
+        ->middleware('throttle:tour-read')
+        ->name('driver.tour-order');
 
     // Assign a persisted tour to a driver (feature 012): records the driver_tour
     // association for the selected date. Trivial write; reuses the read limiter.
