@@ -100,10 +100,13 @@ export default function TourOptimize({ editTour = null }: TourOptimizeProps) {
     }
 
     // Auto-return once the edit re-optimizes successfully; a failure stays here (FR-027b).
+    // `recompute=1` tells the driver page to refresh the edited tour's entry/exit (025).
     useEffect(() => {
         if (state.status === 'done' && returnTo) {
-            const query = returnTo.date ? `?date=${returnTo.date}` : '';
-            router.visit(`/driver/${returnTo.driverId}${query}`);
+            const dateParam = returnTo.date ? `date=${returnTo.date}&` : '';
+            router.visit(
+                `/driver/${returnTo.driverId}?${dateParam}recompute=1`,
+            );
         }
     }, [state.status, returnTo]);
     const canOptimize = stops.length >= MIN_STOPS && !isPending;

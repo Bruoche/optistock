@@ -22,6 +22,7 @@ class DriverPageController extends Controller
             'driverId' => $driver->id,
             'initialDate' => $request->string('date')->value() ?: now()->toDateString(),
             'warehouses' => Warehouse::query()->orderBy('name')->get(['id', 'name']),
+            'recomputeOnLoad' => $request->boolean('recompute'),
         ]);
     }
 }

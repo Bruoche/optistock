@@ -4,7 +4,7 @@
 // one endpoint per date, so switching days needs no full page reload; every region shows a
 // fallback until its data arrives, and a stale response for an abandoned date is discarded.
 import { Head, router } from '@inertiajs/react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { DayBar } from '@/components/driver/day-bar';
 import { DayLayer } from '@/components/driver/day-layer';
@@ -24,12 +24,15 @@ type DriverManageProps = {
     driverId: number;
     initialDate: string;
     warehouses: WarehouseOption[];
+    /** True right after returning from a tour edit (feature 025): recompute the day once. */
+    recomputeOnLoad?: boolean;
 };
 
 export default function DriverManage({
     driverId,
     initialDate,
     warehouses,
+    recomputeOnLoad = false,
 }: DriverManageProps) {
     const [date, setDate] = useState<string>(initialDate || todayDate());
     const [selectedTourId, setSelectedTourId] = useState<number | null>(null);
@@ -153,6 +156,52 @@ export default function DriverManage({
             setSavingOrder(false);
         }
     }
+
+    // After returning from a tour edit (025), recompute the day's entry/exit once so the
+    // edited tour's assignment stays consistent — a tour-order save of the current order.
+    const recomputed = useRef(false);
+
+    useEffect(() => {
+        if (
+            !recomputeOnLoad ||
+            recomputed.current ||
+            status !== 'ready' ||
+            serverTours.length === 0
+        ) {
+            return;
+        }
+
+        recomputed.current = true;
+        // Drop ?recompute from the URL so a manual reload does not recompute again.
+        window.history.replaceState({}, '', `/driver/${driverId}?date=${date}`);
+
+        void (async () => {
+            try {
+                const response = await postJson(
+                    `/api/driver/${driverId}/tour-order`,
+                    { date, tour_ids: serverTours.map((tour) => tour.id) },
+                );
+
+                if (response.ok || response.status === 409) {
+                    setReloadToken((token) => token + 1);
+
+                    return;
+                }
+
+                if (response.status === 422) {
+                    toast.error(
+                        'Tour saved, but a drive could not be routed — reorder to force the update.',
+                    );
+
+                    return;
+                }
+
+                toast.error('Tour saved, but the day could not be recomputed.');
+            } catch {
+                toast.error('Tour saved, but the day could not be recomputed.');
+            }
+        })();
+    }, [recomputeOnLoad, status, serverTours, driverId, date]);
 
     const selectedIndex = tours.findIndex((tour) => tour.id === selectedTourId);
     const selectedTour = selectedIndex >= 0 ? tours[selectedIndex] : null;

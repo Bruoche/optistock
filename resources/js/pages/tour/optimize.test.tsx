@@ -77,7 +77,10 @@ describe('TourOptimize driver-management return (025)', () => {
 
         render(<TourOptimize editTour={EDIT_WITH_RETURN} />);
 
-        expect(mocks.visit).toHaveBeenCalledWith('/driver/7?date=2026-07-06');
+        // Auto-return carries recompute=1 so the driver page refreshes the edited tour's entry/exit.
+        expect(mocks.visit).toHaveBeenCalledWith(
+            '/driver/7?date=2026-07-06&recompute=1',
+        );
     });
 
     it('does not auto-return while the edit is still failing (stays to handle it)', () => {

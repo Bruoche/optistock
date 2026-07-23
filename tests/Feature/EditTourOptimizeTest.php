@@ -111,6 +111,25 @@ class EditTourOptimizeTest extends TestCase
             ->assertJsonValidationErrors('tour_id');
     }
 
+    public function test_a_driver_management_edit_may_reoptimize_an_assigned_tour(): void
+    {
+        // Feature 025: `return_to_driver` allows editing an assigned tour in place.
+        $driver = Driver::factory()->create();
+        $assigned = Tour::factory()->for($this->user)->withMode('trucking')->withStops(2)
+            ->assignedTo($driver, '2026-07-06')->create(['loop' => true]);
+        $this->primeCache();
+
+        $this->actingAs($this->user)
+            ->postJson(route('api.tour.optimize'), [
+                'stops' => $this->requestStops(),
+                'tour_id' => $assigned->id,
+                'return_to_driver' => $driver->id,
+            ])
+            ->assertOk()
+            ->assertJsonPath('status', 'done')
+            ->assertJsonPath('data.id', $assigned->id);
+    }
+
     public function test_a_foreign_tour_id_returns_404(): void
     {
         $foreign = Tour::factory()->for(User::factory()->create())->withMode('trucking')->withStops(2)->create();
