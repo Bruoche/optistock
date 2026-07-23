@@ -17,7 +17,7 @@ final class DrivenTourStops
      *
      * @param  array<int, T>  $stops  ordered by position; each exposes float `latitude`/`longitude`
      * @param  Coordinate  $start  the recorded entry point
-     * @return array<int, T>  the same stops in driven order
+     * @return array<int, T> the same stops in driven order
      */
     public static function order(array $stops, Coordinate $start, bool $loop): array
     {

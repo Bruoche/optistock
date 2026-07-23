@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Driver;
 use App\Models\Tour;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -47,7 +48,7 @@ class TourOrderService
      * verifying the connection is routable. Blocks on the first unroutable connection.
      *
      * @param  array<int, int>  $orderedTourIds
-     * @param  \Illuminate\Support\Collection<int, Tour>  $tours
+     * @param  Collection<int, Tour>  $tours
      * @return array<int, array<string, mixed>>
      */
     private function recomputedRows(array $orderedTourIds, $tours, Coordinate $warehouse, ?string $mode): array
@@ -77,7 +78,7 @@ class TourOrderService
      * so the order can always be saved even while the routing service is degraded.
      *
      * @param  array<int, int>  $orderedTourIds
-     * @param  \Illuminate\Support\Collection<int, Tour>  $tours
+     * @param  Collection<int, Tour>  $tours
      * @return array<int, array<string, mixed>>
      */
     private function forcedRows(array $orderedTourIds, $tours): array

@@ -3,10 +3,10 @@
 use App\Http\Controllers\DriverController;
 use App\Http\Controllers\DriverUpdateController;
 use App\Http\Controllers\TourAssignmentController;
-use App\Http\Controllers\TourOrderController;
 use App\Http\Controllers\TourForceController;
 use App\Http\Controllers\TourGeometryController;
 use App\Http\Controllers\TourOptimizationController;
+use App\Http\Controllers\TourOrderController;
 use Illuminate\Support\Facades\Route;
 
 /*
