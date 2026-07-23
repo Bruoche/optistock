@@ -11,7 +11,6 @@ import { DayLayer } from '@/components/driver/day-layer';
 import { DayMarkers } from '@/components/driver/day-markers';
 import { DriverIdentityBar } from '@/components/driver/driver-identity-bar';
 import { TourList } from '@/components/driver/tour-list';
-import { RouteLayer } from '@/components/tour/route-layer';
 import { TourMap } from '@/components/tour/tour-map';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useDayGeometry } from '@/hooks/use-day-geometry';
@@ -183,17 +182,6 @@ export default function DriverManage({
                     />
                 </div>
 
-                <DayBar
-                    date={date}
-                    onDateChange={changeDate}
-                    workday={day?.workday ?? null}
-                    orderDirty={orderDirty}
-                    savingOrder={savingOrder}
-                    orderBlocked={orderBlocked}
-                    onSaveOrder={() => saveOrder(false)}
-                    onForceSaveOrder={() => saveOrder(true)}
-                />
-
                 <div className="min-h-0 flex-[2] overflow-hidden">
                     <TourMap stops={selectedStops} addable={false}>
                         <DayLayer
@@ -210,17 +198,19 @@ export default function DriverManage({
                                 tours={tours}
                             />
                         )}
-                        {selectedTour && (
-                            <RouteLayer
-                                path={selectedTour.stops.map((stop) => ({
-                                    lat: stop.lat,
-                                    lng: stop.lng,
-                                }))}
-                                closed={selectedTour.loop}
-                            />
-                        )}
                     </TourMap>
                 </div>
+
+                <DayBar
+                    date={date}
+                    onDateChange={changeDate}
+                    workday={day?.workday ?? null}
+                    orderDirty={orderDirty}
+                    savingOrder={savingOrder}
+                    orderBlocked={orderBlocked}
+                    onSaveOrder={() => saveOrder(false)}
+                    onForceSaveOrder={() => saveOrder(true)}
+                />
 
                 <div className="flex min-h-0 flex-1 flex-col overflow-hidden border-t border-border max-md:overflow-y-auto">
                     <TourList

@@ -97,12 +97,12 @@ export function DayBar({
     onForceSaveOrder,
 }: DayBarProps) {
     return (
-        <div className="flex flex-wrap items-center justify-between gap-6 bg-primary px-4 py-3 text-text-on-color max-md:rounded-none">
-            <div className="flex flex-wrap items-center gap-x-6 gap-y-1">
+        <div className="flex flex-wrap items-end justify-between gap-6 bg-primary px-4 py-3 text-text-on-color max-md:rounded-none">
+            <div className="flex flex-wrap items-end gap-x-6 gap-y-1">
                 <WorkdayFigures workday={workday} />
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-end gap-2">
                 <ActionButton
                     aria-label="Previous day"
                     onClick={() => onDateChange(shiftDate(date, -1))}
@@ -110,10 +110,10 @@ export function DayBar({
                     <ChevronLeft className="size-4" />
                 </ActionButton>
                 <div className="flex flex-col items-center">
-                    <TourDateInput date={date} onDateChange={onDateChange} />
-                    <span className="text-xs font-medium">
+                    <p className="text-xs tracking-wide uppercase">
                         {formatWeekday(date)}
-                    </span>
+                    </p>
+                    <TourDateInput date={date} onDateChange={onDateChange} />
                 </div>
                 <ActionButton
                     aria-label="Next day"

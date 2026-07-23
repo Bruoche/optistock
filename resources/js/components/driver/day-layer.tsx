@@ -1,12 +1,12 @@
-// Draws a driver's planned day (feature 025): every assigned tour as a solid neutral
-// line and every connecting drive as a dotted neutral one, anchored below the selected
-// tour's route layer. When a tour is selected, its tour leg and the two connection legs
-// bracketing it render in the primary color at full opacity and the rest dim to 50%.
+// Draws a driver's planned day (feature 025): every assigned tour as a solid line and
+// every connecting drive as a dotted one. With no tour selected the whole day is neutral
+// and lightly dimmed (75% opacity); when a tour is selected, its tour leg and the two
+// connection legs bracketing it render in the primary color at full opacity, the rest dim
+// to 50%, and the highlighted legs draw last so they are never painted over.
 //
 // Adapted from workday-layer: there the highlight is a server flag on the candidate's
 // brackets; here it is derived on the client from the selected tour's index.
 import { Layer, Source } from 'react-map-gl/maplibre';
-import { TOUR_ROUTE_LAYER_ID } from '@/components/tour/route-layer';
 import type { WorkdayLeg } from '@/types/tour';
 
 const NEUTRAL_FALLBACK = '#1a1a1a';
@@ -52,9 +52,19 @@ export function DayLayer({ legs, selectedTourIndex = null }: DayLayerProps) {
     const highlighted = highlightedLegs(selectedTourIndex);
     const hasSelection = selectedTourIndex !== null;
 
+    // Draw non-highlighted legs first and highlighted ones last (stable within each group)
+    // so the selected tour stays on top — the ordering the removed `beforeId` used to give.
+    const ordered = legs
+        .map((leg, index) => ({ leg, index }))
+        .sort(
+            (a, b) =>
+                Number(highlighted.has(a.index)) -
+                Number(highlighted.has(b.index)),
+        );
+
     return (
         <>
-            {legs.map((leg, index) => {
+            {ordered.map(({ leg, index }) => {
                 const points = leg.geometry ?? leg.path;
 
                 if (points.length < 2) {
@@ -85,7 +95,6 @@ export function DayLayer({ legs, selectedTourIndex = null }: DayLayerProps) {
                     >
                         <Layer
                             id={`${legId}-line`}
-                            beforeId={TOUR_ROUTE_LAYER_ID}
                             type="line"
                             layout={{
                                 'line-cap': 'round',
@@ -94,8 +103,11 @@ export function DayLayer({ legs, selectedTourIndex = null }: DayLayerProps) {
                             paint={{
                                 'line-color': isHighlighted ? primary : neutral,
                                 'line-width': 4,
-                                'line-opacity':
-                                    !hasSelection || isHighlighted ? 1 : 0.5,
+                                'line-opacity': isHighlighted
+                                    ? 1
+                                    : hasSelection
+                                      ? 0.5
+                                      : 0.75,
                                 'line-dasharray': leg.dotted
                                     ? DASH_DOTTED
                                     : DASH_SOLID,

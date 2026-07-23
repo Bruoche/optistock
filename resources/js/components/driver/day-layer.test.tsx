@@ -51,30 +51,42 @@ function tour(): WorkdayLeg {
 const legs = [connection(), tour(), connection(), tour(), connection()];
 
 describe('DayLayer', () => {
-    it('draws every leg neutral when nothing is selected', () => {
+    it('draws every leg neutral and lightly dimmed (75%) when nothing is selected', () => {
         render(<DayLayer legs={legs} selectedTourIndex={null} />);
 
         const layers = screen.getAllByTestId('layer');
         expect(layers).toHaveLength(5);
         layers.forEach((layer) => {
             expect(layer.getAttribute('data-color')).toBe(NEUTRAL);
-            expect(layer.getAttribute('data-opacity')).toBe('1');
+            expect(layer.getAttribute('data-opacity')).toBe('0.75');
         });
     });
 
-    it('highlights the selected tour leg + its two bracketing connections, dimming the rest', () => {
+    it('highlights the selected tour + its two bracketing connections, dims the rest, and draws the highlighted legs last', () => {
+        // Tour 0 → input legs 0 (conn), 1 (tour), 2 (conn) are the highlighted three.
         render(<DayLayer legs={legs} selectedTourIndex={0} />);
 
         const layers = screen.getAllByTestId('layer');
-        // Tour 0 → legs 0 (conn), 1 (tour), 2 (conn) highlighted primary/full opacity.
-        [0, 1, 2].forEach((i) => {
-            expect(layers[i].getAttribute('data-color')).toBe(PRIMARY);
-            expect(layers[i].getAttribute('data-opacity')).toBe('1');
-        });
-        // The rest dim to the neutral role at 50%.
-        [3, 4].forEach((i) => {
-            expect(layers[i].getAttribute('data-color')).toBe(NEUTRAL);
-            expect(layers[i].getAttribute('data-opacity')).toBe('0.5');
-        });
+        const primary = layers.filter(
+            (l) => l.getAttribute('data-color') === PRIMARY,
+        );
+        const neutral = layers.filter(
+            (l) => l.getAttribute('data-color') === NEUTRAL,
+        );
+
+        // Exactly the three bracketed legs are primary at full opacity.
+        expect(primary).toHaveLength(3);
+        primary.forEach((l) =>
+            expect(l.getAttribute('data-opacity')).toBe('1'),
+        );
+        // The remaining two dim to the neutral role at 50%.
+        expect(neutral).toHaveLength(2);
+        neutral.forEach((l) =>
+            expect(l.getAttribute('data-opacity')).toBe('0.5'),
+        );
+
+        // Z-order: highlighted legs render last (trailing in DOM) so they stay on top.
+        expect(layers.slice(0, 2)).toEqual(neutral);
+        expect(layers.slice(2)).toEqual(primary);
     });
 });
