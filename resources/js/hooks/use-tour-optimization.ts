@@ -58,6 +58,11 @@ export function useTourOptimization(
     // The tour being edited (feature 020): re-optimizing updates it in place. Cleared by
     // reset() so a "New tour" from the edit page creates a fresh tour instead.
     const editTourId = useRef<number | null>(editTour?.id ?? null);
+    // A driver-management edit (feature 025): signals the server to allow editing this
+    // assigned tour. Cleared by reset() with the edit target.
+    const returnDriverId = useRef<number | null>(
+        editTour?.returnTo?.driverId ?? null,
+    );
     // Snapshot of the shape a pending optimization was started with, so a result
     // arriving via broadcast/poll is settled with the values it was optimized for (FR-007).
     const optimizedMode = useRef<DeliveryMode>('trucking');
@@ -127,6 +132,7 @@ export function useTourOptimization(
     const reset = useCallback(() => {
         cleanup();
         editTourId.current = null;
+        returnDriverId.current = null;
         setStops([]);
         setState({ status: 'idle' });
     }, [cleanup]);
@@ -208,6 +214,11 @@ export function useTourOptimization(
                 // Editing an existing tour → target it so persistence updates in place (020).
                 if (editTourId.current !== null) {
                     body.tour_id = editTourId.current;
+                }
+
+                // A driver-management edit (025): let the server edit this assigned tour.
+                if (returnDriverId.current !== null) {
+                    body.return_to_driver = returnDriverId.current;
                 }
 
                 const response = await postJson('/api/tour/optimize', body);

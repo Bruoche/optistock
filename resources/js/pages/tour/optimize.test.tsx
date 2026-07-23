@@ -5,11 +5,13 @@ import type { OptimizeState } from '@/types/tour';
 // Mutable optimization state the mocked hook returns; set per test before render.
 const mocks = vi.hoisted(() => ({
     state: { status: 'idle' } as OptimizeState,
+    visit: vi.fn(),
 }));
 
 vi.mock('@inertiajs/react', () => ({
     Head: () => null,
     usePage: () => ({ props: { auth: { user: { id: 7 } } } }),
+    router: { visit: mocks.visit },
 }));
 vi.mock('@/components/tour/tour-map', () => ({
     TourMap: ({ children }: { children?: React.ReactNode }) => (
@@ -29,6 +31,7 @@ vi.mock('@/hooks/use-tour-optimization', () => ({
         removeStop: vi.fn(),
         setStopDuration: vi.fn(),
         optimize: vi.fn(),
+        forceTour: vi.fn(),
         reset: vi.fn(),
         state: mocks.state,
         waitTimeS: 0,
@@ -47,6 +50,79 @@ beforeAll(() => {
 
 beforeEach(() => {
     mocks.state = { status: 'idle' };
+    mocks.visit.mockClear();
+});
+
+const EDIT_WITH_RETURN = {
+    id: 1,
+    mode: 'driving' as const,
+    loop: true,
+    stops: [],
+    returnTo: { driverId: 7, date: '2026-07-06' },
+};
+
+describe('TourOptimize driver-management return (025)', () => {
+    it('auto-returns to the driver page once the edit re-optimizes (done)', () => {
+        mocks.state = {
+            status: 'done',
+            result: {
+                id: 1,
+                ordered_stops: [],
+                total_distance_m: 100,
+                total_duration_s: 600,
+            },
+            mode: 'driving',
+            loop: true,
+        };
+
+        render(<TourOptimize editTour={EDIT_WITH_RETURN} />);
+
+        // Auto-return carries recompute=1 so the driver page refreshes the edited tour's entry/exit.
+        expect(mocks.visit).toHaveBeenCalledWith(
+            '/driver/7?date=2026-07-06&recompute=1',
+        );
+    });
+
+    it('does not auto-return while the edit is still failing (stays to handle it)', () => {
+        mocks.state = {
+            status: 'failed',
+            error: { code: 'api_error', message: 'nope' },
+        };
+
+        render(<TourOptimize editTour={EDIT_WITH_RETURN} />);
+
+        expect(mocks.visit).not.toHaveBeenCalled();
+    });
+
+    it('offers a Back action that returns without re-optimizing', () => {
+        mocks.state = { status: 'idle' };
+        render(<TourOptimize editTour={EDIT_WITH_RETURN} />);
+
+        screen.getByRole('button', { name: /back to driver/i }).click();
+        expect(mocks.visit).toHaveBeenCalledWith('/driver/7?date=2026-07-06');
+    });
+
+    it('does not return automatically for a normal edit (no return target)', () => {
+        mocks.state = {
+            status: 'done',
+            result: {
+                id: 1,
+                ordered_stops: [],
+                total_distance_m: 100,
+                total_duration_s: 600,
+            },
+            mode: 'driving',
+            loop: true,
+        };
+
+        render(
+            <TourOptimize
+                editTour={{ id: 1, mode: 'driving', loop: true, stops: [] }}
+            />,
+        );
+
+        expect(mocks.visit).not.toHaveBeenCalled();
+    });
 });
 
 describe('TourOptimize control bar visibility (003)', () => {

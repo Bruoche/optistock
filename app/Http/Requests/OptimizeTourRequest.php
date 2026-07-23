@@ -60,12 +60,15 @@ class OptimizeTourRequest extends FormRequest
     }
 
     /**
-     * Ownership is settled in {@see authorize()}; here we only block editing a tour that
-     * has already been assigned to a driver (past attribution).
+     * Ownership is settled in {@see authorize()};
      */
     private function unassignedTourRule(): callable
     {
         return function (string $attribute, mixed $value, callable $fail): void {
+            if ($this->integer('return_to_driver') > 0) {
+                return;
+            }
+
             $tour = $this->ownedTour((int) $value);
 
             if ($tour !== null && $tour->drivers()->exists()) {

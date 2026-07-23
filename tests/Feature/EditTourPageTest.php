@@ -80,4 +80,23 @@ class EditTourPageTest extends TestCase
             ->get(route('tour.edit.page', $assigned))
             ->assertRedirect(route('tour.optimize.page'));
     }
+
+    public function test_a_driver_management_edit_may_open_an_assigned_tour_with_a_return_target(): void
+    {
+        // Feature 025: the driver page edits an assigned tour and returns to that driver's day.
+        $driver = Driver::factory()->create();
+        $assigned = Tour::factory()->for($this->user)->withMode('walking')->withStops(2)
+            ->assignedTo($driver, '2026-07-06')->create();
+
+        $this->actingAs($this->user)
+            ->get(route('tour.edit.page', $assigned).'?return_to_driver='.$driver->id.'&return_to_date=2026-07-06')
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('tour/optimize')
+                ->where('editTour.id', $assigned->id)
+                ->where('editTour.returnTo.driverId', $driver->id)
+                ->where('editTour.returnTo.date', '2026-07-06')
+                ->etc(),
+            );
+    }
 }

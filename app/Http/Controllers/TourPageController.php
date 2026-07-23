@@ -28,13 +28,22 @@ class TourPageController extends Controller
             throw new NotFoundHttpException;
         }
 
-        // An assigned tour is past attribution and not editable (FR-009) — send the planner to a fresh page.
-        if ($tour->isAssigned()) {
+        $returnDriverId = request()->integer('return_to_driver');
+        $fromDriverPage = $returnDriverId > 0;
+
+        if ($tour->isAssigned() && ! $fromDriverPage) {
             return redirect()->route('tour.optimize.page');
         }
 
-        return Inertia::render('tour/optimize', [
-            'editTour' => EditTourData::fromTour($tour)->toArray(),
-        ]);
+        $editTour = EditTourData::fromTour($tour)->toArray();
+
+        if ($fromDriverPage) {
+            $editTour['returnTo'] = [
+                'driverId' => $returnDriverId,
+                'date' => request()->string('return_to_date')->value() ?: null,
+            ];
+        }
+
+        return Inertia::render('tour/optimize', ['editTour' => $editTour]);
     }
 }

@@ -1,8 +1,10 @@
 // Tour optimization screen: map on top, the stop list / result below, and a
 // control bar (mode dropdown + loop toggle + Optimize) shown while editing. Once a
 // result is shown, road geometry (002) replaces the straight lines.
-import { Head, usePage } from '@inertiajs/react';
-import { useState } from 'react';
+import { Head, router, usePage } from '@inertiajs/react';
+import { ArrowLeft } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { ActionButton } from '@/components/action-button';
 import { OptimizingBar } from '@/components/tour/optimizing-bar';
 import { ResultSummary } from '@/components/tour/result-summary';
 import { RouteLayer } from '@/components/tour/route-layer';
@@ -84,6 +86,29 @@ export default function TourOptimize({ editTour = null }: TourOptimizeProps) {
     const isPending =
         state.status === 'submitting' || state.status === 'pending';
     const isDone = state.status === 'done';
+
+    // A driver-management edit (feature 025) returns to that driver's page.
+    const returnTo = editTour?.returnTo ?? null;
+
+    function goBack() {
+        if (!returnTo) {
+            return;
+        }
+
+        const query = returnTo.date ? `?date=${returnTo.date}` : '';
+        router.visit(`/driver/${returnTo.driverId}${query}`);
+    }
+
+    // Auto-return once the edit re-optimizes successfully; a failure stays here (FR-027b).
+    // `recompute=1` tells the driver page to refresh the edited tour's entry/exit (025).
+    useEffect(() => {
+        if (state.status === 'done' && returnTo) {
+            const dateParam = returnTo.date ? `date=${returnTo.date}&` : '';
+            router.visit(
+                `/driver/${returnTo.driverId}?${dateParam}recompute=1`,
+            );
+        }
+    }, [state.status, returnTo]);
     const canOptimize = stops.length >= MIN_STOPS && !isPending;
     // The manual fallback surfaces only after an optimization request has failed (FR-003).
     const showForce = state.status === 'failed';
@@ -119,6 +144,14 @@ export default function TourOptimize({ editTour = null }: TourOptimizeProps) {
             <Head title="Optimize tour" />
 
             <div className="flex min-h-0 flex-1 flex-col">
+                {returnTo && (
+                    <div className="border-b border-border p-2">
+                        <ActionButton onClick={goBack}>
+                            <ArrowLeft className="size-4" />
+                            Back to driver
+                        </ActionButton>
+                    </div>
+                )}
                 <div className="min-h-0 flex-[2] overflow-hidden">
                     <TourMap
                         stops={stops}
