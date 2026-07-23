@@ -8,6 +8,12 @@
 
 **Input**: User description: "Add a new page to see all drivers, so we can access manageable drivers. A search-criteria bar at the top: a name search (partial matches, case-insensitive — empty shows all, 'cha' matches 'Sacha Brook', 'Charline Klein', 'Hector Chard'…), a required-transportation selector (none selected by default → all drivers; if several selected, drivers must have all of them), and an optional warehouse among all available warehouses. Below the bar, the list shows all drivers sorted by name with all their info (icon, name, available transportation modes, warehouse), presented like the list on the tour-assignment page. The drivers are dynamically filtered as any of the three criteria change, with 'no drivers found with current criterias.' shown when none match."
 
+## Clarifications
+
+### Session 2026-07-24
+
+- Q: Front-end page route path for the directory? → A: `/driver` (singular), for coherence with the existing `tour` / `driver/{driver}` route naming; distinct from the `/driver/{driver}` management page. The backend list endpoint stays `/api/drivers` (plural), matching the existing `tour/drivers` list-endpoint convention.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Browse all drivers and open one to manage (Priority: P1)
@@ -80,7 +86,7 @@ The planner selects one or more required transportation modes and/or a warehouse
 
 #### Page & list
 
-- **FR-001**: The system MUST provide a drivers-directory page, available to authenticated, verified users, that lists drivers.
+- **FR-001**: The system MUST provide a drivers-directory page at the front-end route `/driver` (singular, coherent with the existing `tour` / `driver/{driver}` routes; distinct from the `/driver/{driver}` management page), available to authenticated, verified users, that lists drivers.
 - **FR-002**: The list MUST show every driver that matches the current criteria, sorted alphabetically by name.
 - **FR-003**: Each driver row MUST show the driver's picture (or a neutral placeholder when none), name, the delivery modes it can run, and its assigned warehouse — presented consistently with the driver list on the tour-assignment page.
 - **FR-004**: Clicking a driver row MUST open that driver's management page.
