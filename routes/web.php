@@ -24,6 +24,7 @@ Route::middleware(['auth'])->group(function () {
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('tour', [TourPageController::class, 'create'])->name('tour.optimize.page');
     Route::get('tour/{tour}/edit', [TourPageController::class, 'edit'])->name('tour.edit.page');
+    Route::get('driver', [DriverPageController::class, 'directory'])->name('driver.directory.page');
     Route::get('driver/{driver}', [DriverPageController::class, 'manage'])->name('driver.manage.page');
 });
 

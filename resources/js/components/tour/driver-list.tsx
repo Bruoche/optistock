@@ -1,29 +1,10 @@
-import {
-    Car,
-    Loader2,
-    PersonStanding,
-    TriangleAlert,
-    Truck,
-    UserRound,
-    Warehouse,
-} from 'lucide-react';
+import { Loader2, TriangleAlert } from 'lucide-react';
+import { DriverSummary } from '@/components/driver/driver-summary';
 import { useTourDrivers } from '@/hooks/use-tour-drivers';
 import { cn } from '@/lib/utils';
-import { DELIVERY_MODES, formatDurationHm } from '@/types/tour';
+import { formatDurationHm } from '@/types/tour';
 import type { DeliveryMode, Driver } from '@/types/tour';
-import type { LucideIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
-
-const MODE_ICON: Record<DeliveryMode, LucideIcon> = {
-    walking: PersonStanding,
-    driving: Car,
-    trucking: Truck,
-};
-
-// Reuse the app-wide mode labels (single source) for the icon aria-labels.
-const MODE_LABEL = Object.fromEntries(
-    DELIVERY_MODES.map((mode) => [mode.value, mode.label]),
-) as Record<DeliveryMode, string>;
 
 type DriverListProps = {
     /** The mode the shown tour was optimized with. */
@@ -142,44 +123,12 @@ export function DriverList({
                                     : 'border-border',
                             )}
                         >
-                            {driver.imageUrl ? (
-                                <img
-                                    src={driver.imageUrl}
-                                    alt=""
-                                    className="size-10 shrink-0 rounded-full object-cover"
-                                />
-                            ) : (
-                                <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
-                                    <UserRound className="size-5" />
-                                </span>
-                            )}
-
-                            <div className="min-w-0">
-                                <p className="truncate font-semibold">
-                                    {driver.name}
-                                </p>
-                                <div className="mt-0.5 flex items-center gap-1.5 text-muted-foreground">
-                                    {driver.modes.map((driverMode) => {
-                                        const Icon = MODE_ICON[driverMode];
-
-                                        return (
-                                            <Icon
-                                                key={driverMode}
-                                                className="size-4"
-                                                aria-label={
-                                                    MODE_LABEL[driverMode]
-                                                }
-                                            />
-                                        );
-                                    })}
-                                </div>
-                                <div className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
-                                    <Warehouse className="size-3.5" />
-                                    <span className="truncate">
-                                        {driver.warehouseName}
-                                    </span>
-                                </div>
-                            </div>
+                            <DriverSummary
+                                name={driver.name}
+                                imageUrl={driver.imageUrl}
+                                modes={driver.modes}
+                                warehouseName={driver.warehouseName}
+                            />
 
                             <div className="ml-auto flex shrink-0 items-start gap-4 text-right">
                                 {driver.addedBreak > 0 && (

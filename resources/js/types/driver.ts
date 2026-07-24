@@ -62,3 +62,20 @@ export type WarehouseOption = {
     id: number;
     name: string;
 };
+
+/** One row of the drivers directory (feature 027) — identity only, no workday figures. */
+export type DirectoryDriver = {
+    id: number;
+    name: string;
+    imageUrl: string | null;
+    modes: DeliveryMode[];
+    warehouseId: number;
+    warehouseName: string;
+};
+
+/** The directory's live filter criteria; an empty/blank field imposes no restriction. */
+export type DirectoryCriteria = {
+    name: string;
+    modes: DeliveryMode[];
+    warehouseId: number | null;
+};
