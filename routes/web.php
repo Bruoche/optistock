@@ -1,15 +1,13 @@
 <?php
 
 use App\Http\Controllers\DriverPageController;
+use App\Http\Controllers\HomeController;
 use App\Http\Controllers\Teams\TeamInvitationController;
 use App\Http\Controllers\TourPageController;
 use App\Http\Middleware\EnsureTeamMembership;
 use Illuminate\Support\Facades\Route;
-use Laravel\Fortify\Features;
 
-Route::inertia('/', 'welcome', [
-    'canRegister' => Features::enabled(Features::registration()),
-])->name('home');
+Route::get('/', [HomeController::class, 'index'])->name('home');
 
 Route::prefix('{current_team}')
     ->middleware(['auth', 'verified', EnsureTeamMembership::class])

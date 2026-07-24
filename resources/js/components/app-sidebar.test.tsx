@@ -7,6 +7,7 @@ import type { ReactNode } from 'react';
 
 vi.mock('@inertiajs/react', () => ({
     usePage: () => ({
+        url: '/',
         props: {
             auth: {
                 user: { id: 1, name: 'Alice', email: 'alice@example.com' },
@@ -55,6 +56,18 @@ describe('AppSidebar', () => {
         renderSidebar();
         // Default appearance = system → "Browser" label.
         expect(screen.getByText('Browser')).toBeInTheDocument();
+    });
+
+    it('lists the New Tour and Manage drivers navigation links (028)', () => {
+        renderSidebar();
+
+        expect(screen.getByRole('link', { name: 'New Tour' })).toHaveAttribute(
+            'href',
+            '/tour',
+        );
+        expect(
+            screen.getByRole('link', { name: 'Manage drivers' }),
+        ).toHaveAttribute('href', '/driver');
     });
 
     it('removes the starter-kit nav, links, and team switcher', () => {
