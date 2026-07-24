@@ -29,8 +29,9 @@ export function DashboardTile({
                 'focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-hidden',
             )}
         >
-            <div className="flex flex-1 items-center justify-center overflow-hidden text-muted-foreground">
-                {illustration ?? (Icon ? <Icon className="size-12" /> : null)}
+            <div className="flex flex-1 items-center justify-center overflow-hidden p-6 text-muted-foreground">
+                {illustration ??
+                    (Icon ? <Icon className="h-3/5 w-auto" /> : null)}
             </div>
             <div className="flex items-center gap-2 border-t border-border px-4 py-3 font-semibold">
                 {illustration && Icon ? <Icon className="size-5" /> : null}
