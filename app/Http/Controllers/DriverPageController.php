@@ -25,4 +25,12 @@ class DriverPageController extends Controller
             'recomputeOnLoad' => $request->boolean('recompute'),
         ]);
     }
+
+    /** Serves the drivers directory (feature 027); the driver list is fetched client-side. */
+    public function directory(): Response
+    {
+        return Inertia::render('driver/directory', [
+            'warehouses' => Warehouse::query()->orderBy('name')->get(['id', 'name']),
+        ]);
+    }
 }

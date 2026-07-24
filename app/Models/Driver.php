@@ -85,4 +85,33 @@ class Driver extends Model
             ->with(['deliveryModes', 'warehouse'])
             ->orderBy('name');
     }
+
+    /**
+     * Drivers matching the directory criteria (feature 027): a partial case-insensitive name,
+     * every one of the required modes (all must be supported), and an assigned warehouse.
+     * Any criterion left empty imposes no restriction. Name-ordered, case-insensitively.
+     *
+     * @param  Builder<Driver>  $query
+     * @param  array<int, string>  $modes
+     * @return Builder<Driver>
+     */
+    public function scopeMatching(Builder $query, ?string $name, array $modes, ?int $warehouseId): Builder
+    {
+        $trimmedName = trim((string) $name);
+        if ($trimmedName !== '') {
+            $query->whereRaw('LOWER(name) LIKE ?', ['%'.mb_strtolower($trimmedName).'%']);
+        }
+
+        foreach ($modes as $mode) {
+            $query->whereHas('deliveryModes', fn (Builder $modes) => $modes->where('label', $mode));
+        }
+
+        if ($warehouseId !== null) {
+            $query->where('warehouse_id', $warehouseId);
+        }
+
+        return $query
+            ->with(['deliveryModes', 'warehouse'])
+            ->orderByRaw('LOWER(name)');
+    }
 }

@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\DriverController;
+use App\Http\Controllers\DriverDirectoryController;
 use App\Http\Controllers\DriverUpdateController;
 use App\Http\Controllers\TourAssignmentController;
 use App\Http\Controllers\TourForceController;
@@ -43,6 +44,12 @@ Route::middleware('auth')->group(function (): void {
     Route::get('tour/drivers', [DriverController::class, 'available'])
         ->middleware('throttle:tour-read')
         ->name('tour.drivers');
+
+    // The drivers directory (feature 027): every driver matching the name / modes / warehouse
+    // criteria, name-sorted. A filter-only read; shares the lightweight-read limiter.
+    Route::get('drivers', [DriverDirectoryController::class, 'index'])
+        ->middleware('throttle:tour-read')
+        ->name('drivers.index');
 
     // A driver's planned day (feature 025): identity, workday totals, ordered tours,
     // neutral drawable legs — the single read the driver-management page loads.
