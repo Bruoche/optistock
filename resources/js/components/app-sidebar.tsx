@@ -1,5 +1,7 @@
 import { Link, usePage } from '@inertiajs/react';
+import { Map, Users } from 'lucide-react';
 import AppLogo from '@/components/app-logo';
+import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
 import { ThemeSelector } from '@/components/theme-selector';
 import {
@@ -12,6 +14,12 @@ import {
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
 import { dashboard } from '@/routes';
+import type { NavItem } from '@/types/navigation';
+
+const mainNavItems: NavItem[] = [
+    { title: 'New Tour', href: '/tour', icon: Map },
+    { title: 'Manage drivers', href: '/driver', icon: Users },
+];
 
 export function AppSidebar() {
     const page = usePage();
@@ -33,7 +41,9 @@ export function AppSidebar() {
                 </SidebarMenu>
             </SidebarHeader>
 
-            <SidebarContent />
+            <SidebarContent>
+                <NavMain items={mainNavItems} />
+            </SidebarContent>
 
             <SidebarFooter>
                 <ThemeSelector />
